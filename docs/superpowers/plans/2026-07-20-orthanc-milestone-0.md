@@ -585,7 +585,7 @@ git commit -m "Spawn Claude Code instead of a plain shell"
 
 ## Task 4: Cross-platform pass (Windows)
 
-**Not part of this execution pass.** Per the user's call during pre-flight review, subagent-driven execution of this plan covers Tasks 1–3 only; Task 4 is left for the user to run by hand on their own Windows machine or VM once it's available, then report results back so Milestone 0 can be closed out. The steps below stay in the plan as that handoff's instructions — they are not dispatched to an implementer subagent in this pass.
+**Not part of this execution pass — deferred.** Per the user's call during pre-flight review, subagent-driven execution of this plan covers Tasks 1–3 only. As of 2026-07-20, the user has explicitly deferred Task 4 rather than running it: Tasks 1–3 are confirmed passing on macOS, but Milestone 0's own definition of done (both platforms) is not yet met, and stays open until Task 4 is actually run. The steps below stay in the plan as instructions for whenever that happens — they are not dispatched to an implementer subagent in this pass. Do not begin any Deferred-list item (multi-session, card-grid overview, configurable spawned command, etc.) before Task 4 passes — that gate, from the spec, still holds.
 
 **Files:** none known in advance — this task is a verification pass on a platform this development machine (darwin) cannot run. Any fix required by a real ConPTY quirk lands in `lib/pty_terminal.dart` (or, if the resolution logic itself is wrong on Windows, `lib/claude_command.dart`), decided once the quirk is actually observed, not guessed at here.
 
