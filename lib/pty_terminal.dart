@@ -21,7 +21,7 @@ class PtyTerminal extends StatefulWidget {
 class _PtyTerminalState extends State<PtyTerminal> {
   final terminal = Terminal(maxLines: 10000);
   final terminalController = TerminalController();
-  late final Pty pty;
+  Pty? pty;
 
   @override
   void initState() {
@@ -32,34 +32,36 @@ class _PtyTerminalState extends State<PtyTerminal> {
   }
 
   void _startPty() {
-    pty = Pty.start(
+    final ptyInstance = Pty.start(
       widget.executable,
       arguments: widget.arguments,
       columns: terminal.viewWidth,
       rows: terminal.viewHeight,
     );
+    pty = ptyInstance;
 
-    pty.output
+    ptyInstance.output
         .cast<List<int>>()
         .transform(const Utf8Decoder())
         .listen(terminal.write);
 
-    pty.exitCode.then((code) {
+    ptyInstance.exitCode.then((code) {
       terminal.write('the process exited with exit code $code');
     });
 
     terminal.onOutput = (data) {
-      pty.write(const Utf8Encoder().convert(data));
+      ptyInstance.write(const Utf8Encoder().convert(data));
     };
 
     terminal.onResize = (w, h, pw, ph) {
-      pty.resize(h, w);
+      ptyInstance.resize(h, w);
     };
   }
 
   @override
   void dispose() {
-    pty.kill();
+    pty?.kill();
+    terminalController.dispose();
     super.dispose();
   }
 
