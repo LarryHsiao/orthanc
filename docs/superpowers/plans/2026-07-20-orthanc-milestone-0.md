@@ -17,10 +17,10 @@
 - ~~The spawned command in Task 3 onward is hardcoded to `claude`.~~ **Reversed 2026-07-20, user's call:** `main.dart` now spawns `shellCommand()` (a plain shell) by default, not `resolveClaudeCommand()`. The user starts a Claude Code session themselves by typing `claude` inside that shell — `flutter_pty` already forwards a real `PATH`, so this works exactly like a normal terminal, and is arguably a better fit than auto-launching a session the instant the window opens. `lib/claude_command.dart`/`resolveClaudeCommand()` and its tests stay on disk, unwired, the same way `shell_command.dart` was left after Task 3 originally swapped away from it — not deleted, available if auto-launch is wanted again later. This does NOT retroactively change what Task 3 built or verified (spawning `claude` directly does still work, and was confirmed rendering correctly); it changes what `main.dart` defaults to.
 - The spawned command still must not grow a config field, flag, or settings UI — that generalization (letting the user configure *which* command runs, beyond this one default-behavior toggle) is still explicitly deferred past Milestone 0.
 - Do not build any of: multiple concurrent sessions, card-grid overview, session lifecycle (create/name/kill/restart), layout/window-management polish. All deferred past M0.
-- This machine (darwin) cannot run or verify the Windows target itself — Task 4 requires a separate Windows machine or VM. Flag this rather than skipping it silently.
+- ~~This machine (darwin) cannot run or verify the Windows target itself — Task 4 requires a separate Windows machine or VM. Flag this rather than skipping it silently.~~ **Resolved 2026-07-20:** Task 4 was run on a Windows 11 machine and passed. See Task 4 for what it found.
 - **macOS App Sandbox must be disabled.** Discovered during Task 2's manual verification: Task 1's `flutter create` scaffolds `macos/Runner/DebugProfile.entitlements` and `Release.entitlements` with `com.apple.security.app-sandbox: true`, which blocks `Pty.start()` from fork/exec-ing any child process at all — the app's core feature cannot function while sandboxed. Confirmed against the `xterm` package's own bundled macOS example, which ships without this entitlement. User-approved: remove `com.apple.security.app-sandbox` (or set it `false`) from both entitlements files. This does forgo Mac App Store eligibility while sandboxed; direct/notarized distribution is unaffected and is the standard path for terminal-emulator-style tools.
 - **`test/widget_test.dart` (from Task 1) is deleted, not carried forward.** Once `PtyTerminal` is wired into `OrthancApp` (Task 2 onward), `OrthancApp`'s tree always embeds a live pty-spawning widget. `flutter test`'s widget-test harness runs on a bare Dart VM with no Flutter engine embedder, so `flutter_pty`'s native library can never load there — any test that mounts `OrthancApp` via `pumpWidget` will crash, independent of the sandbox setting. This is the same reasoning already applied to `PtyTerminal`'s own test (constructor-only, no `pumpWidget`) — it now also forecloses widget-testing `OrthancApp`. User-approved: delete the file rather than attempt to preserve it.
-- **`xterm` is pinned to a fork via `dependency_overrides`, not plain pub.dev `^4.0.0`.** Discovered after Task 3, during manual use: Claude Code's TUI rendered every line underlined (including box-drawing borders) in Orthanc but not in a real terminal (iTerm2). Root-caused by feeding Claude Code's actual captured output bytes through an unmodified `xterm` 4.0.0 `Terminal` directly (no Orthanc/flutter_pty involved) and reproducing the same corruption: `xterm.dart`'s escape parser dispatches any CSI sequence ending in `m` to its SGR (text-style) handler purely by final byte, without checking for a private-marker prefix (`<`, `=`, `>`, `?`). Claude Code sends `CSI > 4 ; 2 m` (xterm's `modifyOtherKeys` keyboard-mode control, unrelated to text style) very early in the session; the parser read its params `4` and `2` as plain SGR codes (underline, faint), and since nothing ever explicitly resets it, that bogus style sticks for everything drawn afterward. Fixed in a fork ([LarryHsiao/xterm.dart](https://github.com/LarryHsiao/xterm.dart), branch `orthanc-sgr-private-marker-fix`, pinned at commit `c63f583`) — `_csiHandleSgr()` now routes a private-marker-prefixed sequence to `unknownCSI()` instead of SGR. An Opus-model adversarial review of the first version of this fix (commit `ada2f61`) found the guard was two bytes too broad — `_csi.prefix` also captures `:`/`;` (same consumption range as the real markers), so a legal leading-empty-parameter SGR like `CSI ; 1 m` was being silently dropped; narrowed to `_csi.prefix! >= Ascii.lessThan`, confirmed by a regression test and the fork's full suite (115/115 passing). Independently re-confirmed end-to-end by re-running the exact captured banner bytes through the fixed parser (was: every row `underline=true`; now: every row `underline=false`). No existing upstream PR/issue covered this (checked before opening). Filed as [TerminalStudio/xterm.dart#230](https://github.com/TerminalStudio/xterm.dart/pull/230) — re-evaluate the override once (if) it's merged and released.
+- **`xterm` is pinned to a fork via `dependency_overrides`, not plain pub.dev `^4.0.0`.** Discovered after Task 3, during manual use: Claude Code's TUI rendered every line underlined (including box-drawing borders) in Orthanc but not in a real terminal (iTerm2). Root-caused by feeding Claude Code's actual captured output bytes through an unmodified `xterm` 4.0.0 `Terminal` directly (no Orthanc/flutter_pty involved) and reproducing the same corruption: `xterm.dart`'s escape parser dispatches any CSI sequence ending in `m` to its SGR (text-style) handler purely by final byte, without checking for a private-marker prefix (`<`, `=`, `>`, `?`). Claude Code sends `CSI > 4 ; 2 m` (xterm's `modifyOtherKeys` keyboard-mode control, unrelated to text style) very early in the session; the parser read its params `4` and `2` as plain SGR codes (underline, faint), and since nothing ever explicitly resets it, that bogus style sticks for everything drawn afterward. Fixed in a fork ([LarryHsiao/xterm.dart](https://github.com/LarryHsiao/xterm.dart), branch `orthanc-sgr-private-marker-fix`, pinned at commit `c63f583`) — `_csiHandleSgr()` now routes a private-marker-prefixed sequence to `unknownCSI()` instead of SGR. An Opus-model adversarial review of the first version of this fix (commit `ada2f61`) found the guard was two bytes too broad — `_csi.prefix` also captures `:`/`;` (same consumption range as the real markers), so a legal leading-empty-parameter SGR like `CSI ; 1 m` was being silently dropped; narrowed to `_csi.prefix! >= Ascii.lessThan`, confirmed by a regression test and the fork's full suite (115/115 passing). Independently re-confirmed end-to-end by re-running the exact captured banner bytes through the fixed parser (was: every row `underline=true`; now: every row `underline=false`). No existing upstream PR/issue covered this (checked before opening). Filed as [TerminalStudio/xterm.dart#230](https://github.com/TerminalStudio/xterm.dart/pull/230) — re-evaluate the override once (if) it's merged and released. **Updated during Task 4:** the pin moved from `c63f583` to `a766197` on the fork's `orthanc-integration` branch, which carries this SGR fix *plus* the `viewId` fix Task 4 uncovered ([#231](https://github.com/TerminalStudio/xterm.dart/pull/231), proposed upstream on its own branch so each PR stays independently reviewable). Retire the override only once both land in a release.
 
 ---
 
@@ -586,42 +586,39 @@ git commit -m "Spawn Claude Code instead of a plain shell"
 
 ## Task 4: Cross-platform pass (Windows)
 
-**Not part of this execution pass — deferred.** Per the user's call during pre-flight review, subagent-driven execution of this plan covers Tasks 1–3 only. As of 2026-07-20, the user has explicitly deferred Task 4 rather than running it: Tasks 1–3 are confirmed passing on macOS, but Milestone 0's own definition of done (both platforms) is not yet met, and stays open until Task 4 is actually run. The steps below stay in the plan as instructions for whenever that happens — they are not dispatched to an implementer subagent in this pass. Do not begin any Deferred-list item (multi-session, card-grid overview, configurable spawned command, etc.) before Task 4 passes — that gate, from the spec, still holds.
+**Run and passed 2026-07-20, on a Windows 11 machine.** Originally deferred (this plan was executed on darwin, which cannot run the Windows target); picked up later the same day when a Windows machine was available. Milestone 0's definition of done — parity on both platforms — is now met, and the Deferred-list gate is lifted.
 
-**Files:** none known in advance — this task is a verification pass on a platform this development machine (darwin) cannot run. Any fix required by a real ConPTY quirk lands in `lib/pty_terminal.dart` (or, if the resolution logic itself is wrong on Windows, `lib/claude_command.dart`), decided once the quirk is actually observed, not guessed at here.
+**Outcome in one line:** ConPTY was never the problem. The pty layer, rendering, resizing, escape handling and the `$HOME` working directory all worked on the first Windows build; three defects elsewhere had to be fixed before the checklist passed.
+
+**Files:** `lib/pty_environment.dart` + `test/pty_environment_test.dart` (new), `lib/pty_terminal.dart` (call site), `pubspec.yaml` (fork ref bump). The `xterm` fixes landed in the pinned fork, not here.
 
 **Interfaces:**
 - Consumes: the full app from Task 3, unmodified going in.
 - Produces: Milestone 0's definition of done — parity confirmed on both platforms.
 
-- [ ] **Step 1: Build and run on Windows**
+- [x] **Step 1: Build and run on Windows**
 
-On a Windows machine or VM with Flutter set up and this repo checked out:
+`fvm flutter run -d windows` on Windows 11 Pro, Flutter 3.38.7, Visual Studio Community 2022. Built first try in 28.5s; window opened; `flutter test` 9/9 green on Windows. No ConPTY, CMake or MSVC trouble at any point.
 
-```powershell
-flutter run -d windows
-```
+- [x] **Step 2: Manual verification — same checklist as Tasks 2 and 3, on Windows**
 
-Expected: window opens; this is the point where ConPTY's escape-sequence handling against a heavy TUI diverges from macOS's `forkpty`, if it's going to. Budget real time here — this is the step the spec calls out as the actual risk, not a formality.
+Shell stage: `dir`, arrow-key history recall and `cls` all behave; no garbled escapes; the prompt opens at `$HOME` as intended.
 
-- [ ] **Step 2: Manual verification — same checklist as Tasks 2 and 3, on Windows**
+Claude stage: the Claude Code TUI renders, accepts prompts, and streams/redraws correctly — no tearing, and no spurious underline, which is the first time the SGR fix has been exercised against a heavy TUI on Windows.
 
-Shell stage (temporarily point `main.dart` back at `shellCommand()` if it's useful to isolate a pty-layer issue from a claude-specific one, then swap back):
-- `dir`, arrow-key history recall, `cls` all behave, no garbled escapes.
+Both stages passed only after the three fixes in Step 3.
 
-Claude stage (the actual Task 3 `main.dart`):
-- The Claude Code TUI renders, prompts accept input, streaming/redraws look right.
+- [x] **Step 3: Fix the defects found — none of them ConPTY**
 
-- [ ] **Step 3: Fix any ConPTY-specific quirks found**
+**(a) Dead keyboard input — missing `viewId`.** Letters did nothing while Enter, arrows and Ctrl-combos worked. `xterm`'s `CustomTextEdit` builds its `TextInputConfiguration` without a `viewId`; Flutter's Windows embedder rejects `TextInput.setClient` outright (`Could not set client, view ID is null`) and the connection never attaches. Printable characters have no other route, since `CustomTextEdit` — unlike `CustomKeyboardListener` — has no hardware-key fallback for them, while keys that map to a `TerminalKey` still travel the `Focus.onKeyEvent` path. That asymmetry is what made the failure look selective. macOS tolerates the omission via its implicit view, which is why Task 3 passed there. Fixed in the fork with `View.of(context).viewId`, matching Flutter's own `EditableText`; carries a regression test that fails on `master` (`Expected: <0>, Actual: <null>`) and passes with the fix. Upstream: [#231](https://github.com/TerminalStudio/xterm.dart/pull/231).
 
-If Step 2 surfaces a real divergence (garbled escapes, wrong resize behavior, wrong line endings), fix it in the affected file (most likely `lib/pty_terminal.dart`'s resize/encoding handling) and repeat Step 2 until the checklist passes. There's no placeholder fix to pre-write here — the spec itself frames this as open-ended discovery, not a known bug to patch.
+**(b) `claude` silently doing nothing — missing `SystemRoot`.** `flutter_pty` does not inherit the parent environment; it builds the child's from scratch, copying only `LOGNAME`/`USER`/`DISPLAY`/`LC_TYPE`/`HOME`/`PATH`. That allowlist is POSIX-shaped, and on Windows it drops `SystemRoot`, without which a spawned executable loads no system DLLs and dies before printing anything. Confirmed outside the GUI by reproducing the exact child environment: `claude --version` produced no stdout *and no stderr* (so it was found and launched, not missing); adding `SystemRoot` alone gave `2.1.215 (Claude Code)`, exit 0. Fixed here in `lib/pty_environment.dart` — forward the whole environment on Windows, as a terminal emulator is expected to — with unit tests for both branches. `Pty.start(environment:)` is the package's own supported escape hatch, so no upstream change was needed.
 
-- [ ] **Step 4: Commit**
+**(c) Not a defect: colorless TUI.** Forwarding the environment also forwards `NO_COLOR`, which Claude Code sets for its subprocesses; the spawned `claude` honored it. Verified by relaunching with only that variable removed — color returned. Correct inheritance, recorded so the next reader does not chase it.
 
-```bash
-git add -A
-git commit -m "Confirm/fix Windows ConPTY parity for Milestone 0"
-```
+- [x] **Step 4: Commit**
+
+Committed with the plan and README updated to match.
 
 Once Step 2's checklist passes cleanly on both macOS and Windows, Milestone 0 is done: the pty risk is retired, and everything from here (multi-session, card-grid overview, session lifecycle, configurable commands) becomes ordinary Flutter UI work, per the spec's Deferred list.
 

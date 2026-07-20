@@ -90,14 +90,28 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-# xterm.dart 4.0.0's escape parser misreads xterm's `CSI > Ps ; Ps m`
-# (modifyOtherKeys, a keyboard-mode control) as plain SGR, spuriously
-# setting underline/faint for the entire session. Fixed upstream at
-# https://github.com/LarryHsiao/xterm.dart/tree/orthanc-sgr-private-marker-fix
-# PR open against upstream: https://github.com/TerminalStudio/xterm.dart/pull/230
-# — override until a real release includes it.
+# Two independent xterm.dart 4.0.0 defects, both fixed on the `orthanc-integration`
+# branch of the fork below, each also proposed upstream on its own branch:
+#
+# 1. The escape parser misreads xterm's `CSI > Ps ; Ps m` (modifyOtherKeys, a
+#    keyboard-mode control) as plain SGR, spuriously setting underline/faint for
+#    the entire session.
+#    Fork branch: orthanc-sgr-private-marker-fix
+#    Upstream PR: https://github.com/TerminalStudio/xterm.dart/pull/230
+#
+# 2. `CustomTextEdit` builds its `TextInputConfiguration` without a `viewId`, which
+#    Flutter's Windows embedder rejects ("Could not set client, view ID is null").
+#    The text input connection never attaches, and since `CustomTextEdit` has no
+#    hardware-key fallback for printable characters, typing is dead on Windows —
+#    while Enter and arrows still work, because those route through the Focus
+#    onKeyEvent path. macOS tolerates the omission via its implicit view, which is
+#    why this stayed hidden until Milestone 0's Windows pass.
+#    Fork branch: orthanc-text-input-view-id
+#    Upstream PR: https://github.com/TerminalStudio/xterm.dart/pull/231
+#
+# Override until a real release includes both.
 dependency_overrides:
   xterm:
     git:
       url: https://github.com/LarryHsiao/xterm.dart.git
-      ref: c63f583e53cf86704fd782e20b0ed604803fa4e5
+      ref: a766197d21a516d7e949bb095acbea2b0b707e09

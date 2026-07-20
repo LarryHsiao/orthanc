@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:xterm/xterm.dart';
 
+import 'pty_environment.dart';
+
 class PtyTerminal extends StatefulWidget {
   const PtyTerminal({
     super.key,
@@ -33,13 +35,6 @@ class _PtyTerminalState extends State<PtyTerminal> {
   }
 
   void _startPty() {
-    // flutter_pty only forwards a fixed allowlist of environment variables
-    // (LOGNAME, USER, DISPLAY, LC_TYPE, HOME, PATH) to the spawned process,
-    // and hardcodes TERM — COLORTERM is never passed through. Without it,
-    // a truecolor-capable host still spawns a process that can't confirm
-    // truecolor support to the spawned CLI, which may pick a more limited
-    // color mode than it otherwise would.
-    final colorterm = Platform.environment['COLORTERM'];
     // Without an explicit workingDirectory, Pty.start() defaults to wherever
     // this process's own cwd happens to be — unpredictable for a real
     // double-clicked .app, not just this dev session. Default to $HOME.
@@ -50,7 +45,10 @@ class _PtyTerminalState extends State<PtyTerminal> {
       arguments: widget.arguments,
       columns: terminal.viewWidth,
       rows: terminal.viewHeight,
-      environment: colorterm != null ? {'COLORTERM': colorterm} : null,
+      environment: ptyEnvironment(
+        isWindows: Platform.isWindows,
+        environment: Platform.environment,
+      ),
       workingDirectory: home,
     );
     pty = ptyInstance;
