@@ -1,0 +1,20 @@
+# Line endings are this repo's to decide, not each machine's core.autocrlf.
+# Orthanc is built on both macOS and Windows, so leaving the choice to whatever
+# a given checkout happens to be configured for means the same file reads as
+# modified on one machine and clean on another.
+#
+# LF everywhere — in the repository and in the working tree alike. Flutter
+# regenerates its plugin registrants with LF on every `pub get`, so a working
+# tree held at CRLF leaves those files perpetually dirty on Windows for a
+# difference that is not a difference. Nothing here needs CRLF: no .bat, .cmd
+# or .ps1 files are tracked, and the Windows runner already builds from LF —
+# Runner.rc and runner.exe.manifest are stored that way, and Visual Studio
+# Community 2022 compiled them without complaint.
+* text=auto eol=lf
+
+# Binaries git must never rewrite. Its content detection already spares these,
+# but say so plainly rather than trust a heuristic with the app's icons. These
+# are the only binary types the tree holds today; add a line when another
+# arrives rather than leaving it to the heuristic alone.
+*.png binary
+*.ico binary
