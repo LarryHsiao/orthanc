@@ -51,11 +51,7 @@ class Workspace {
     String newSessionId,
   ) {
     if (node is PaneNode && node.sessionId == focusedId) {
-      return SplitNode(
-        axis: axis,
-        children: [node, PaneNode(newSessionId)],
-        ratios: evenRatios(2),
-      );
+      return _wrapInSplit(node, axis, newSessionId);
     }
     return null;
   }
@@ -73,29 +69,51 @@ class Workspace {
     );
 
     if (at != -1 && split.axis == axis) {
-      final children = [...split.children]
-        ..insert(at + 1, PaneNode(newSessionId));
-      return SplitNode(
-        axis: axis,
-        children: children,
-        ratios: evenRatios(children.length),
-      );
+      return _insertSibling(split, at, axis, newSessionId);
     }
 
     if (at != -1) {
-      final children = [...split.children];
-      children[at] = SplitNode(
-        axis: axis,
-        children: [children[at], PaneNode(newSessionId)],
-        ratios: evenRatios(2),
-      );
-      return SplitNode(
-        axis: split.axis,
-        children: children,
-        ratios: split.ratios,
-      );
+      return _wrapFocusedChild(split, at, axis, newSessionId);
     }
 
+    return _recurseBesideInChildren(split, axis, newSessionId);
+  }
+
+  LayoutNode _insertSibling(
+    SplitNode split,
+    int at,
+    SplitAxis axis,
+    String newSessionId,
+  ) {
+    final children = [...split.children]
+      ..insert(at + 1, PaneNode(newSessionId));
+    return SplitNode(
+      axis: axis,
+      children: children,
+      ratios: evenRatios(children.length),
+    );
+  }
+
+  LayoutNode _wrapFocusedChild(
+    SplitNode split,
+    int at,
+    SplitAxis axis,
+    String newSessionId,
+  ) {
+    final children = [...split.children];
+    children[at] = _wrapInSplit(children[at], axis, newSessionId);
+    return SplitNode(
+      axis: split.axis,
+      children: children,
+      ratios: split.ratios,
+    );
+  }
+
+  LayoutNode _recurseBesideInChildren(
+    SplitNode split,
+    SplitAxis axis,
+    String newSessionId,
+  ) {
     return SplitNode(
       axis: split.axis,
       children: [
@@ -103,6 +121,18 @@ class Workspace {
           _insertBeside(child, axis, newSessionId),
       ],
       ratios: split.ratios,
+    );
+  }
+
+  LayoutNode _wrapInSplit(
+    LayoutNode node,
+    SplitAxis axis,
+    String newSessionId,
+  ) {
+    return SplitNode(
+      axis: axis,
+      children: [node, PaneNode(newSessionId)],
+      ratios: evenRatios(2),
     );
   }
 }
