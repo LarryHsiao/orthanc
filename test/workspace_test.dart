@@ -140,4 +140,49 @@ void main() {
       expect(workspace!.focusedId, expected);
     });
   });
+
+  group('Workspace.paneRects', () {
+    test('gives a lone pane the whole window', () {
+      const expected = PaneRect(left: 0, top: 0, width: 1, height: 1);
+
+      final rects = Workspace.single('a').paneRects();
+
+      expect(rects['a'], expected);
+    });
+
+    test('halves the width for a row split', () {
+      const expectedLeft = PaneRect(left: 0, top: 0, width: 0.5, height: 1);
+      const expectedRight = PaneRect(left: 0.5, top: 0, width: 0.5, height: 1);
+
+      final rects = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').paneRects();
+
+      expect(rects['a'], expectedLeft);
+      expect(rects['b'], expectedRight);
+    });
+
+    test('halves the height for a column split', () {
+      const expectedTop = PaneRect(left: 0, top: 0, width: 1, height: 0.5);
+      const expectedBottom = PaneRect(left: 0, top: 0.5, width: 1, height: 0.5);
+
+      final rects = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.column, newSessionId: 'b').paneRects();
+
+      expect(rects['a'], expectedTop);
+      expect(rects['b'], expectedBottom);
+    });
+
+    test('nests a column inside a row', () {
+      const expected = PaneRect(left: 0.5, top: 0.5, width: 0.5, height: 0.5);
+
+      final rects = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .paneRects();
+
+      expect(rects['c'], expected);
+    });
+  });
 }

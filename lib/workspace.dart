@@ -62,6 +62,49 @@ class Workspace {
     );
   }
 
+  /// Every pane's share of the window, in fractions of the whole.
+  ///
+  /// The same numbers the widgets lay out by, which is what lets a directional
+  /// focus move be decided here rather than guessed at from the screen.
+  Map<String, PaneRect> paneRects() {
+    final rects = <String, PaneRect>{};
+    _fill(root, const PaneRect(left: 0, top: 0, width: 1, height: 1), rects);
+    return rects;
+  }
+
+  static void _fill(
+    LayoutNode node,
+    PaneRect within,
+    Map<String, PaneRect> into,
+  ) {
+    if (node is PaneNode) {
+      into[node.sessionId] = within;
+      return;
+    }
+
+    final split = node as SplitNode;
+    var offset = 0.0;
+    for (var i = 0; i < split.children.length; i++) {
+      final share = split.ratios[i];
+      final child = switch (split.axis) {
+        SplitAxis.row => PaneRect(
+          left: within.left + offset * within.width,
+          top: within.top,
+          width: within.width * share,
+          height: within.height,
+        ),
+        SplitAxis.column => PaneRect(
+          left: within.left,
+          top: within.top + offset * within.height,
+          width: within.width,
+          height: within.height * share,
+        ),
+      };
+      _fill(split.children[i], child, into);
+      offset += share;
+    }
+  }
+
   static LayoutNode? _without(LayoutNode node, String sessionId) {
     if (node is PaneNode) {
       return node.sessionId == sessionId ? null : node;
