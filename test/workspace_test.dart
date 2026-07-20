@@ -75,4 +75,69 @@ void main() {
       expect((workspace.root as SplitNode).ratios, expected);
     });
   });
+
+  group('Workspace.close', () {
+    test('returns null when the last pane closes', () {
+      const expected = null;
+
+      final actual = Workspace.single('a').close('a');
+
+      expect(actual, expected);
+    });
+
+    test('removes the pane and leaves the others', () {
+      final expected = ['a', 'c'];
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .close('b');
+
+      expect(workspace!.sessionIds, expected);
+    });
+
+    test('dissolves a split left holding a single child', () {
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .close('c');
+
+      // 'b' and 'c' shared a column inside the row; removing 'c' must leave
+      // 'b' hoisted directly into the row, not wrapped in a one-child split.
+      final root = workspace!.root as SplitNode;
+      expect(root.children.length, 2);
+      expect(root.children[1], isA<PaneNode>());
+      expect((root.children[1] as PaneNode).sessionId, 'b');
+    });
+
+    test('collapses the tree to a bare pane when one session remains', () {
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').close('b');
+
+      expect(workspace!.root, isA<PaneNode>());
+      expect((workspace.root as PaneNode).sessionId, 'a');
+    });
+
+    test('moves focus off the closed pane', () {
+      const expected = 'a';
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').close('b');
+
+      expect(workspace!.focusedId, expected);
+    });
+
+    test('leaves focus alone when another pane closes', () {
+      const expected = 'c';
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .close('a');
+
+      expect(workspace!.focusedId, expected);
+    });
+  });
 }

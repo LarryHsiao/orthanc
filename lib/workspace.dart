@@ -44,6 +44,45 @@ class Workspace {
     );
   }
 
+  /// Removes a pane, returning null when it was the last one.
+  ///
+  /// Removal runs the splitting rules backwards: take the pane out, and if its
+  /// parent split is left holding a single child, dissolve that split and hoist
+  /// the child into its place. Without that collapse the tree accumulates
+  /// one-child splits that draw nothing yet still hold ratios — invisible on
+  /// screen, and how a layout rots over a long session.
+  Workspace? close(String sessionId) {
+    final remaining = _without(root, sessionId);
+    if (remaining == null) return null;
+
+    final ids = _idsOf(remaining);
+    return Workspace(
+      root: remaining,
+      focusedId: ids.contains(focusedId) ? focusedId : ids.first,
+    );
+  }
+
+  static LayoutNode? _without(LayoutNode node, String sessionId) {
+    if (node is PaneNode) {
+      return node.sessionId == sessionId ? null : node;
+    }
+
+    final split = node as SplitNode;
+    final kept = <LayoutNode>[];
+    for (final child in split.children) {
+      final survivor = _without(child, sessionId);
+      if (survivor != null) kept.add(survivor);
+    }
+
+    if (kept.isEmpty) return null;
+    if (kept.length == 1) return kept.single;
+    return SplitNode(
+      axis: split.axis,
+      children: kept,
+      ratios: evenRatios(kept.length),
+    );
+  }
+
   /// Handles the case where the focused pane is the whole tree.
   LayoutNode? _wrapIfFocused(
     LayoutNode node,
