@@ -38,22 +38,39 @@ PaneAction? paneAction({
   required bool isMetaPressed,
 }) {
   if (isWindows) {
-    if (isAltPressed && isShiftPressed && key == LogicalKeyboardKey.equal) {
-      return const SplitPane(SplitAxis.row);
-    }
-    if (isAltPressed && isShiftPressed && key == LogicalKeyboardKey.minus) {
-      return const SplitPane(SplitAxis.column);
-    }
-    if (isControlPressed && isShiftPressed && key == LogicalKeyboardKey.keyW) {
-      return const ClosePane();
-    }
-    if (isAltPressed && !isShiftPressed) {
-      final direction = _arrow(key);
-      if (direction != null) return MoveFocus(direction);
-    }
-    return null;
+    return _windowsAction(key, isControlPressed, isShiftPressed, isAltPressed);
   }
+  return _macAction(key, isShiftPressed, isAltPressed, isMetaPressed);
+}
 
+PaneAction? _windowsAction(
+  LogicalKeyboardKey key,
+  bool isControlPressed,
+  bool isShiftPressed,
+  bool isAltPressed,
+) {
+  if (isAltPressed && isShiftPressed && key == LogicalKeyboardKey.equal) {
+    return const SplitPane(SplitAxis.row);
+  }
+  if (isAltPressed && isShiftPressed && key == LogicalKeyboardKey.minus) {
+    return const SplitPane(SplitAxis.column);
+  }
+  if (isControlPressed && isShiftPressed && key == LogicalKeyboardKey.keyW) {
+    return const ClosePane();
+  }
+  if (isAltPressed && !isShiftPressed) {
+    final direction = _arrow(key);
+    if (direction != null) return MoveFocus(direction);
+  }
+  return null;
+}
+
+PaneAction? _macAction(
+  LogicalKeyboardKey key,
+  bool isShiftPressed,
+  bool isAltPressed,
+  bool isMetaPressed,
+) {
   if (isMetaPressed && key == LogicalKeyboardKey.keyD) {
     return SplitPane(isShiftPressed ? SplitAxis.column : SplitAxis.row);
   }
