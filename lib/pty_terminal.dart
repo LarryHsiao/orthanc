@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_pty/flutter_pty.dart';
@@ -32,11 +33,19 @@ class _PtyTerminalState extends State<PtyTerminal> {
   }
 
   void _startPty() {
+    // flutter_pty only forwards a fixed allowlist of environment variables
+    // (LOGNAME, USER, DISPLAY, LC_TYPE, HOME, PATH) to the spawned process,
+    // and hardcodes TERM — COLORTERM is never passed through. Without it,
+    // a truecolor-capable host still spawns a process that can't confirm
+    // truecolor support to the spawned CLI, which may pick a more limited
+    // color mode than it otherwise would.
+    final colorterm = Platform.environment['COLORTERM'];
     final ptyInstance = Pty.start(
       widget.executable,
       arguments: widget.arguments,
       columns: terminal.viewWidth,
       rows: terminal.viewHeight,
+      environment: colorterm != null ? {'COLORTERM': colorterm} : null,
     );
     pty = ptyInstance;
 
