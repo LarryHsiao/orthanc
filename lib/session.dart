@@ -41,6 +41,13 @@ class Session {
   Timer? _idleTimer;
   final _exited = Completer<int>();
 
+  // kill() only requests termination; the pty's exitCode future resolves
+  // later, once the OS actually reaps the process — which routinely
+  // outlives dispose(). Guard every late callback (exit, output, idle
+  // timer) against touching a ValueNotifier that dispose() already
+  // disposed of.
+  bool _disposed = false;
+
   Future<int> get exitCode => _exited.future;
 
   void start() {
@@ -70,16 +77,12 @@ class Session {
 
   void _wire(Pty pty) {
     pty.output.cast<List<int>>().transform(const Utf8Decoder()).listen((data) {
+      if (_disposed) return;
       terminal.write(data);
       _markBusy();
     });
 
-    pty.exitCode.then((code) {
-      terminal.write('the process exited with exit code $code');
-      _idleTimer?.cancel();
-      busy.value = false;
-      if (!_exited.isCompleted) _exited.complete(code);
-    });
+    pty.exitCode.then(_handleExit);
 
     terminal.onOutput = (data) {
       pty.write(const Utf8Encoder().convert(data));
@@ -97,10 +100,24 @@ class Session {
   void _markBusy() {
     busy.value = true;
     _idleTimer?.cancel();
-    _idleTimer = Timer(busyWindow, () => busy.value = false);
+    _idleTimer = Timer(busyWindow, () {
+      if (!_disposed) busy.value = false;
+    });
+  }
+
+  // Complete the exit future before touching anything disposal-sensitive, so
+  // a caller awaiting exitCode is never left hanging by a late guard.
+  void _handleExit(int code) {
+    if (!_exited.isCompleted) _exited.complete(code);
+    if (_disposed) return;
+    terminal.write('the process exited with exit code $code');
+    _idleTimer?.cancel();
+    busy.value = false;
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     _idleTimer?.cancel();
     _pty?.kill();
     title.dispose();

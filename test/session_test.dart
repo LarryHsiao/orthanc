@@ -27,4 +27,17 @@ void main() {
 
     expect(busyWindow, expected);
   });
+
+  test('dispose() on a never-started session does not throw', () {
+    final session = Session(id: 'a', executable: 'cmd.exe');
+
+    expect(session.dispose, returnsNormally);
+  });
+
+  test('dispose() is safe to call twice', () {
+    final session = Session(id: 'a', executable: 'cmd.exe');
+    session.dispose();
+
+    expect(session.dispose, returnsNormally);
+  });
 }
