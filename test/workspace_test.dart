@@ -294,5 +294,49 @@ void main() {
 
       expect((resized.root as SplitNode).ratios, [0.5, 0.5]);
     });
+
+    test('a dragged ratio survives closing an unrelated pane', () {
+      final expected = [0.6, 0.4];
+
+      // a | (b over c) — the root divider is dragged, then 'c' closes inside
+      // the nested split. The root loses no child of its own, so its dragged
+      // ratios must come through untouched rather than re-evened.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c');
+      final resized = workspace.resizeSplit(
+        split: workspace.root,
+        dividerIndex: 0,
+        delta: 0.1,
+      );
+      final closed = resized.close('c');
+
+      expect((closed!.root as SplitNode).ratios, expected);
+    });
+
+    test(
+      'when a split loses a child, the survivors keep their relative proportions',
+      () {
+        final expected = [8 / 13, 5 / 13];
+
+        // a | b | c, dragged uneven, then 'b' (the middle child) closes. The
+        // survivors 'a' and 'c' should share out the space in proportion to
+        // the ratios they already held, not be re-evened.
+        final workspace = Workspace.single('a')
+            .split(axis: SplitAxis.row, newSessionId: 'b')
+            .split(axis: SplitAxis.row, newSessionId: 'c');
+        final resized = workspace.resizeSplit(
+          split: workspace.root,
+          dividerIndex: 0,
+          delta: 0.2,
+        );
+        final closed = resized.close('b');
+
+        final ratios = (closed!.root as SplitNode).ratios;
+        expect(ratios[0], closeTo(expected[0], 0.0001));
+        expect(ratios[1], closeTo(expected[1], 0.0001));
+        expect(ratios[0] + ratios[1], closeTo(1, 0.0001));
+      },
+    );
   });
 }

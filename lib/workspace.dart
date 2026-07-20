@@ -141,23 +141,14 @@ class Workspace {
     double delta,
   ) {
     if (node is PaneNode) return node;
-
     final split = node as SplitNode;
     if (identical(split, target)) {
-      final ratios = [...split.ratios];
-      final before = ratios[dividerIndex];
-      final after = ratios[dividerIndex + 1];
-      final room = before + after;
-      final moved = (before + delta).clamp(minPaneRatio, room - minPaneRatio);
-      ratios[dividerIndex] = moved;
-      ratios[dividerIndex + 1] = room - moved;
       return SplitNode(
         axis: split.axis,
         children: split.children,
-        ratios: ratios,
+        ratios: _tradeRatios(split.ratios, dividerIndex, delta),
       );
     }
-
     return SplitNode(
       axis: split.axis,
       children: [
@@ -166,6 +157,23 @@ class Workspace {
       ],
       ratios: split.ratios,
     );
+  }
+
+  /// Moves [delta] of share from the ratio at [dividerIndex] to the one just
+  /// after it, clamping both sides so neither drops below [minPaneRatio].
+  static List<double> _tradeRatios(
+    List<double> ratios,
+    int dividerIndex,
+    double delta,
+  ) {
+    final traded = [...ratios];
+    final before = traded[dividerIndex];
+    final after = traded[dividerIndex + 1];
+    final room = before + after;
+    final moved = (before + delta).clamp(minPaneRatio, room - minPaneRatio);
+    traded[dividerIndex] = moved;
+    traded[dividerIndex + 1] = room - moved;
+    return traded;
   }
 
   static void _fill(
@@ -208,9 +216,13 @@ class Workspace {
 
     final split = node as SplitNode;
     final kept = <LayoutNode>[];
-    for (final child in split.children) {
-      final survivor = _without(child, sessionId);
-      if (survivor != null) kept.add(survivor);
+    final keptRatios = <double>[];
+    for (var i = 0; i < split.children.length; i++) {
+      final survivor = _without(split.children[i], sessionId);
+      if (survivor != null) {
+        kept.add(survivor);
+        keptRatios.add(split.ratios[i]);
+      }
     }
 
     if (kept.isEmpty) return null;
@@ -218,8 +230,19 @@ class Workspace {
     return SplitNode(
       axis: split.axis,
       children: kept,
-      ratios: evenRatios(kept.length),
+      ratios: _renormalized(keptRatios),
     );
+  }
+
+  /// The kept ratios, scaled so they sum to 1 again.
+  ///
+  /// Each survivor keeps its original share relative to the others — when
+  /// nothing was removed the ratios already sum to 1, so this is a no-op;
+  /// when a sibling was removed, the survivors share out its space in
+  /// proportion to the sizes they already held.
+  static List<double> _renormalized(List<double> ratios) {
+    final sum = ratios.fold(0.0, (total, ratio) => total + ratio);
+    return [for (final ratio in ratios) ratio / sum];
   }
 
   /// Handles the case where the focused pane is the whole tree.
