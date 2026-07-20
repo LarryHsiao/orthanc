@@ -42,12 +42,18 @@ class _PtyTerminalState extends State<PtyTerminal> {
   }
 
   void _startPty() {
+    final ptyInstance = _spawn();
+    pty = ptyInstance;
+    _wire(ptyInstance);
+  }
+
+  Pty _spawn() {
     // Without an explicit workingDirectory, Pty.start() defaults to wherever
     // this process's own cwd happens to be — unpredictable for a real
     // double-clicked .app, not just this dev session. Default to $HOME.
     final home =
         Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-    final ptyInstance = Pty.start(
+    return Pty.start(
       widget.executable,
       arguments: widget.arguments,
       columns: terminal.viewWidth,
@@ -58,23 +64,15 @@ class _PtyTerminalState extends State<PtyTerminal> {
       ),
       workingDirectory: home,
     );
-    pty = ptyInstance;
+  }
 
+  void _wire(Pty ptyInstance) {
     ptyInstance.output
         .cast<List<int>>()
         .transform(const Utf8Decoder())
         .listen(terminal.write);
 
-    ptyInstance.exitCode.then((code) {
-      terminal.write('the process exited with exit code $code');
-      // Not when the widget is already going: dispose() kills the pty itself,
-      // so closing the window would otherwise report that kill as the session
-      // ending on its own. This reads the disposal as final teardown, which
-      // holds while one PtyTerminal lives for the app's whole life; a caller
-      // that disposes one mid-run — swapped on a route change, rebuilt under a
-      // new key — would have a genuine exit swallowed here instead.
-      if (mounted) widget.onExit?.call(code);
-    });
+    ptyInstance.exitCode.then(_reportExit);
 
     terminal.onOutput = (data) {
       ptyInstance.write(const Utf8Encoder().convert(data));
@@ -83,6 +81,20 @@ class _PtyTerminalState extends State<PtyTerminal> {
     terminal.onResize = (w, h, pw, ph) {
       ptyInstance.resize(h, w);
     };
+  }
+
+  void _reportExit(int code) {
+    // Feedback for a caller that lets the terminal outlive its process. When
+    // onExit ends the app instead — as this app's does — no further frame is
+    // painted and this line is never seen.
+    terminal.write('the process exited with exit code $code');
+    // Not when the widget is already going: dispose() kills the pty itself,
+    // so closing the window would otherwise report that kill as the session
+    // ending on its own. This reads the disposal as final teardown, which
+    // holds while one PtyTerminal lives for the app's whole life; a caller
+    // that disposes one mid-run — swapped on a route change, rebuilt under a
+    // new key — would have a genuine exit swallowed here instead.
+    if (mounted) widget.onExit?.call(code);
   }
 
   @override
