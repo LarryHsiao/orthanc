@@ -35,7 +35,7 @@
 | `lib/split_view.dart` | Recursive rendering of a `LayoutNode`, with draggable dividers. |
 | `lib/workspace_view.dart` | Holds `Workspace` + `Sessions` state; intercepts hotkeys; handles session exit. |
 | `lib/main.dart` | Modified: hosts `WorkspaceView` instead of `PtyTerminal`. |
-| `lib/pty_terminal.dart` | **Deleted** in Task 9, its wiring having moved to `Session` and `PaneView`. |
+| `lib/pty_terminal.dart` | **Deleted** in Task 11, its wiring having moved to `Session` and `PaneView`. It stays on disk until then so the build is green at every commit. |
 
 ---
 
@@ -1426,13 +1426,12 @@ rtk git commit -m "Give a session its own life, apart from any widget"
 
 **Files:**
 - Create: `lib/sessions.dart`, `lib/pane_bar.dart`, `lib/pane_view.dart`, `test/sessions_test.dart`
-- Delete: `lib/pty_terminal.dart`, `test/pty_terminal_test.dart`
 
 **Interfaces:**
 - Consumes: `Session` from Task 8, `shellCommand()` from `lib/shell_command.dart`.
 - Produces: `class Sessions` with `Session spawn()`, `Session? operator [](String id)`, `void remove(String id)`, `void disposeAll()`; `class PaneBar extends StatelessWidget` taking `{required Session session, required bool focused}`; `class PaneView extends StatelessWidget` taking `{required Session session, required bool focused, required VoidCallback onFocus}`.
 
-**Note:** `PtyTerminal` is deleted here, not deprecated. Its spawn/wire logic now lives in `Session` (Task 8) and its `TerminalView` in `PaneView`. Its test went with it — that test only ever covered a constructor whose widget no longer exists.
+**Note:** `PaneView` supersedes `PtyTerminal` — its spawn/wire logic now lives in `Session` (Task 8) and its `TerminalView` here. `PtyTerminal` itself is left on disk until Task 11, which deletes it in the same commit that stops `main.dart` importing it. Deleting it here would leave the build broken across three tasks, and a red tree makes each task's review meaningless.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1642,18 +1641,12 @@ class PaneView extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 7: Delete the widget these replace**
+- [ ] **Step 7: Run the whole suite**
 
-```bash
-rtk git rm lib/pty_terminal.dart test/pty_terminal_test.dart
-```
+Run: `fvm flutter analyze && fvm flutter test`
+Expected: analyze clean; all tests green. `lib/pty_terminal.dart` is untouched and still compiles — it is deleted in Task 11, in the same commit that stops `main.dart` importing it, so the tree never goes red between tasks.
 
-- [ ] **Step 8: Run the whole suite**
-
-Run: `fvm flutter test`
-Expected: FAIL — `lib/main.dart` still imports the deleted `pty_terminal.dart`. That is Task 11's work; leave it failing and commit the parts that stand.
-
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 rtk git add lib/sessions.dart lib/pane_bar.dart lib/pane_view.dart test/sessions_test.dart
@@ -1810,6 +1803,7 @@ rtk git commit -m "Draw the layout tree, dividers and all"
 **Files:**
 - Create: `lib/workspace_view.dart`
 - Modify: `lib/main.dart`
+- Delete: `lib/pty_terminal.dart`, `test/pty_terminal_test.dart`
 
 **Interfaces:**
 - Consumes: everything above.
@@ -1975,15 +1969,25 @@ class OrthancApp extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 3: Analyze and run the suite**
+- [ ] **Step 3: Delete the widget PaneView superseded**
 
-Run: `fvm flutter analyze && fvm flutter test`
-Expected: analyze clean; all tests green — `layout_node` 3, `workspace` 25, `split_shortcuts` 11, `session` 3, `sessions` 3, `claude_command` 4, `shell_command` 3, `pty_environment` 4. The `pty_terminal` tests are gone with the widget.
-
-- [ ] **Step 4: Commit**
+Nothing imports `PtyTerminal` once `main.dart` above hosts `WorkspaceView`. Its spawn/wire logic lives in `Session`, its `TerminalView` in `PaneView`, and its test only ever covered a constructor that no longer exists.
 
 ```bash
-rtk git add lib/workspace_view.dart lib/main.dart
+rtk git rm lib/pty_terminal.dart test/pty_terminal_test.dart
+```
+
+- [ ] **Step 4: Analyze and run the suite**
+
+Run: `fvm flutter analyze && fvm flutter test`
+Expected: analyze clean; all tests green — `layout_node` 3, `workspace` 25, `split_shortcuts` 11, `session` 3, `sessions` 3, `claude_command` 4, `shell_command` 3, `pty_environment` 4 (56 in total). The `pty_terminal` tests are gone with the widget they described.
+
+- [ ] **Step 5: Commit**
+
+The deletion, the new view and the `main.dart` swap land together — that is what keeps the build green at every commit.
+
+```bash
+rtk git add -A lib/workspace_view.dart lib/main.dart lib/pty_terminal.dart test/pty_terminal_test.dart
 rtk git commit -m "Wire sessions, layout and hotkeys into one window"
 ```
 
