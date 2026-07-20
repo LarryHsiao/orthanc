@@ -40,12 +40,18 @@ class _PtyTerminalState extends State<PtyTerminal> {
     // truecolor support to the spawned CLI, which may pick a more limited
     // color mode than it otherwise would.
     final colorterm = Platform.environment['COLORTERM'];
+    // Without an explicit workingDirectory, Pty.start() defaults to wherever
+    // this process's own cwd happens to be — unpredictable for a real
+    // double-clicked .app, not just this dev session. Default to $HOME.
+    final home =
+        Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
     final ptyInstance = Pty.start(
       widget.executable,
       arguments: widget.arguments,
       columns: terminal.viewWidth,
       rows: terminal.viewHeight,
       environment: colorterm != null ? {'COLORTERM': colorterm} : null,
+      workingDirectory: home,
     );
     pty = ptyInstance;
 
