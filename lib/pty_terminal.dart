@@ -12,10 +12,17 @@ class PtyTerminal extends StatefulWidget {
     super.key,
     required this.executable,
     this.arguments = const [],
+    this.onExit,
   });
 
   final String executable;
   final List<String> arguments;
+
+  /// Called with the spawned process's exit code once it ends.
+  ///
+  /// What that should mean is the app's to decide, not this widget's — quit,
+  /// respawn, or show something in its place.
+  final void Function(int exitCode)? onExit;
 
   @override
   State<PtyTerminal> createState() => _PtyTerminalState();
@@ -60,6 +67,13 @@ class _PtyTerminalState extends State<PtyTerminal> {
 
     ptyInstance.exitCode.then((code) {
       terminal.write('the process exited with exit code $code');
+      // Not when the widget is already going: dispose() kills the pty itself,
+      // so closing the window would otherwise report that kill as the session
+      // ending on its own. This reads the disposal as final teardown, which
+      // holds while one PtyTerminal lives for the app's whole life; a caller
+      // that disposes one mid-run — swapped on a route change, rebuilt under a
+      // new key — would have a genuine exit swallowed here instead.
+      if (mounted) widget.onExit?.call(code);
     });
 
     terminal.onOutput = (data) {

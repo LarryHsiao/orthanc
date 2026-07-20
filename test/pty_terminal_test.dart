@@ -22,4 +22,20 @@ void main() {
 
     expect(widget.arguments, expected);
   });
+
+  test('stores the onExit callback it is given', () {
+    void expected(int code) {}
+
+    final widget = PtyTerminal(executable: 'claude', onExit: expected);
+
+    expect(widget.onExit, expected);
+  });
+
+  test('defaults onExit to null', () {
+    const expected = null;
+
+    final widget = PtyTerminal(executable: 'claude');
+
+    expect(widget.onExit, expected);
+  });
 }

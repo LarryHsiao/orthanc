@@ -24,6 +24,9 @@ class OrthancApp extends StatelessWidget {
               isWindows: Platform.isWindows,
               environment: Platform.environment,
             ),
+            // The window exists to hold this one session; when the session
+            // ends, so does the app, carrying the shell's own exit code out.
+            onExit: exit,
           ),
         ),
       ),
