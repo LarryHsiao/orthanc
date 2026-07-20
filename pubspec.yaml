@@ -89,3 +89,15 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# xterm.dart 4.0.0's escape parser misreads xterm's `CSI > Ps ; Ps m`
+# (modifyOtherKeys, a keyboard-mode control) as plain SGR, spuriously
+# setting underline/faint for the entire session. Fixed upstream at
+# https://github.com/LarryHsiao/xterm.dart/tree/orthanc-sgr-private-marker-fix
+# (PR not yet opened against terminal.studio/xterm.dart) — override until a
+# real release includes it.
+dependency_overrides:
+  xterm:
+    git:
+      url: https://github.com/LarryHsiao/xterm.dart.git
+      ref: c63f583e53cf86704fd782e20b0ed604803fa4e5
