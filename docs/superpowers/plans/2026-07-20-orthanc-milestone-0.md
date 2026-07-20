@@ -24,8 +24,7 @@
 
 **Files:**
 - Create (via `flutter create`): `pubspec.yaml`, `lib/main.dart`, `macos/`, `windows/`, `test/widget_test.dart`, `analysis_options.yaml`, `.metadata`, `.gitignore`, `README.md`
-- Modify: `pubspec.yaml` (add `flutter_pty` and `xterm` dependencies), `lib/main.dart` (replace the generated counter demo with an empty window)
-- Delete: `test/widget_test.dart` (it exercises the counter demo's tap-and-increment behavior; once that demo is gone in this same task, the test has no subject left to test, so it becomes dead code rather than something to fix forward — this task introduces no logic of its own, so there is nothing new to unit test in its place)
+- Modify: `pubspec.yaml` (add `flutter_pty` and `xterm` dependencies), `lib/main.dart` (replace the generated counter demo with an empty window), `test/widget_test.dart` (replace the counter tap/increment test with one that matches the new `OrthancApp`)
 
 **Interfaces:**
 - Consumes: nothing (first task).
@@ -58,7 +57,31 @@ flutter pub get
 
 Expected: resolves cleanly, `pubspec.lock` updated, no version conflicts.
 
-- [ ] **Step 3: Replace the generated main.dart with an empty window**
+- [ ] **Step 3: Replace the generated widget test with one that expects the empty window**
+
+Replace the full contents of `test/widget_test.dart` (this fails against the still-in-place counter demo — that's the point):
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:orthanc/main.dart';
+
+void main() {
+  testWidgets('renders an empty window with no counter UI', (tester) async {
+    await tester.pumpWidget(const OrthancApp());
+
+    expect(find.byType(Scaffold), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
+  });
+}
+```
+
+- [ ] **Step 4: Run the test to verify it fails**
+
+Run: `flutter test`
+Expected: FAIL — `findsNothing` fails because the generated counter demo's `FloatingActionButton` is still there.
+
+- [ ] **Step 5: Replace the generated main.dart with an empty window**
 
 Replace the full contents of `lib/main.dart`:
 
@@ -83,13 +106,12 @@ class OrthancApp extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 4: Remove the now-obsolete counter test**
+- [ ] **Step 6: Run the test to verify it passes**
 
-```bash
-rm test/widget_test.dart
-```
+Run: `flutter test`
+Expected: PASS.
 
-- [ ] **Step 5: Manual verification — empty window builds and runs**
+- [ ] **Step 7: Manual verification — empty window builds and runs**
 
 Run:
 
@@ -97,13 +119,12 @@ Run:
 flutter run -d macos
 ```
 
-Expected: a window titled "Orthanc" opens with a blank body, no errors in the console. This is the spec's own Step 1 verification ("empty window builds and runs on macOS") — there is no application logic yet for an automated test to exercise, so this manual run is the task's real gate. Stop the run (`q` in the terminal) once confirmed.
+Expected: a window titled "Orthanc" opens with a blank body, no errors in the console. This matches the spec's own Step 1 verification ("empty window builds and runs on macOS"); the widget test above already covers the Scaffold's presence, this run confirms it actually launches as a real desktop window. Stop the run (`q` in the terminal) once confirmed.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add pubspec.yaml pubspec.lock lib/main.dart macos windows analysis_options.yaml .metadata .gitignore README.md
-git rm test/widget_test.dart
+git add pubspec.yaml pubspec.lock lib/main.dart test/widget_test.dart macos windows analysis_options.yaml .metadata .gitignore README.md
 git commit -m "Scaffold Orthanc Flutter project (macOS + Windows)"
 ```
 
@@ -112,7 +133,7 @@ git commit -m "Scaffold Orthanc Flutter project (macOS + Windows)"
 ## Task 2: Spawn a shell (not Claude yet)
 
 **Files:**
-- Create: `lib/shell_command.dart`, `test/shell_command_test.dart`, `lib/pty_terminal.dart`
+- Create: `lib/shell_command.dart`, `test/shell_command_test.dart`, `lib/pty_terminal.dart`, `test/pty_terminal_test.dart`
 - Modify: `lib/main.dart` (render `PtyTerminal` instead of the empty `Scaffold`)
 
 **Interfaces:**
@@ -184,9 +205,46 @@ git add lib/shell_command.dart test/shell_command_test.dart
 git commit -m "Add platform-aware shellCommand()"
 ```
 
-- [ ] **Step 6: Implement the PtyTerminal widget**
+- [ ] **Step 6: Write the failing test for PtyTerminal's constructor**
 
-Create `lib/pty_terminal.dart`. This wires `flutter_pty`'s `Pty` to `xterm.dart`'s `Terminal`/`TerminalView`, following the pattern documented in the `xterm` package's own example app (verified against xterm 4.0.0 / flutter_pty 0.4.2 source):
+Create `test/pty_terminal_test.dart`. This tests only the widget's public constructor contract — what `main.dart` relies on — never mounts the widget into a tree, and so never triggers `initState`/`endOfFrame` or the real `Pty.start` FFI call underneath it. (Confirmed by direct experiment: a mounted widget test in this Flutter version runs `endOfFrame.then(...)` continuations synchronously within the same `pumpWidget` call, so a `testWidgets`-style test here would actually spawn a real process. Plain construction, with no `pumpWidget`, avoids that entirely — the pty/terminal *behavior* genuinely can only be judged by running the app, which the manual verification step below does.)
+
+```dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:orthanc/pty_terminal.dart';
+
+void main() {
+  test('stores the executable and arguments it is given', () {
+    final expectedExecutable = 'claude';
+    final expectedArguments = ['--foo'];
+
+    final widget = PtyTerminal(
+      executable: expectedExecutable,
+      arguments: expectedArguments,
+    );
+
+    expect(widget.executable, expectedExecutable);
+    expect(widget.arguments, expectedArguments);
+  });
+
+  test('defaults arguments to an empty list', () {
+    final expected = <String>[];
+
+    final widget = PtyTerminal(executable: 'claude');
+
+    expect(widget.arguments, expected);
+  });
+}
+```
+
+- [ ] **Step 7: Run the test to verify it fails**
+
+Run: `flutter test test/pty_terminal_test.dart`
+Expected: FAIL — `Target of URI doesn't exist: 'package:orthanc/pty_terminal.dart'` (the file doesn't exist yet).
+
+- [ ] **Step 8: Implement the PtyTerminal widget**
+
+Create `lib/pty_terminal.dart`. This wires `flutter_pty`'s `Pty` to `xterm.dart`'s `Terminal`/`TerminalView`, following the pattern documented in the `xterm` package's own example app (verified against xterm 4.0.0 / flutter_pty 0.4.2 source). The constructor satisfies Step 6's test; the rest of the class (the actual pty/terminal wiring) is what the manual verification in Step 12 checks — no automated test reaches it, for the reason given above.
 
 ```dart
 import 'dart:convert';
@@ -265,9 +323,19 @@ class _PtyTerminalState extends State<PtyTerminal> {
 }
 ```
 
-This widget has no unit test: its behavior only exists once a real pty and a real terminal renderer are both running, which is exactly what the manual verification step below checks. Writing a test that mocks both away would test the mock, not this code.
+- [ ] **Step 9: Run the test to verify it passes**
 
-- [ ] **Step 7: Wire it into main.dart**
+Run: `flutter test test/pty_terminal_test.dart`
+Expected: PASS — both tests green. (This only exercises the constructor; it does not run `initState`, so it doesn't touch `Pty.start`.)
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add lib/pty_terminal.dart test/pty_terminal_test.dart
+git commit -m "Add PtyTerminal widget wiring flutter_pty to xterm"
+```
+
+- [ ] **Step 11: Wire it into main.dart**
 
 Replace `lib/main.dart`:
 
@@ -306,7 +374,7 @@ class OrthancApp extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 8: Manual verification — plain shell behaves correctly**
+- [ ] **Step 12: Manual verification — plain shell behaves correctly**
 
 Run:
 
@@ -320,12 +388,12 @@ In the running window, check each of (matches the spec's Step 2 verification exa
 - `clear` (or Cmd+K if the shell binds it) clears the screen without leaving stray characters.
 - No garbled/misplaced escape sequences anywhere above.
 
-Stop the run once confirmed.
+This is PtyTerminal's real behavioral gate — no automated test reaches the pty/terminal wiring itself, only its constructor (Step 6-9). Stop the run once confirmed.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
-git add lib/pty_terminal.dart lib/main.dart
+git add lib/main.dart
 git commit -m "Wire flutter_pty + xterm to spawn a plain shell"
 ```
 
@@ -514,6 +582,8 @@ git commit -m "Spawn Claude Code instead of a plain shell"
 
 ## Task 4: Cross-platform pass (Windows)
 
+**Not part of this execution pass.** Per the user's call during pre-flight review, subagent-driven execution of this plan covers Tasks 1–3 only; Task 4 is left for the user to run by hand on their own Windows machine or VM once it's available, then report results back so Milestone 0 can be closed out. The steps below stay in the plan as that handoff's instructions — they are not dispatched to an implementer subagent in this pass.
+
 **Files:** none known in advance — this task is a verification pass on a platform this development machine (darwin) cannot run. Any fix required by a real ConPTY quirk lands in `lib/pty_terminal.dart` (or, if the resolution logic itself is wrong on Windows, `lib/claude_command.dart`), decided once the quirk is actually observed, not guessed at here.
 
 **Interfaces:**
@@ -559,4 +629,6 @@ Once Step 2's checklist passes cleanly on both macOS and Windows, Milestone 0 is
 
 **Placeholder scan:** no TBD/TODO; every step shows the actual code or command. Task 4 is verification-shaped rather than code-shaped because the spec itself frames Windows as risk-discovery, not a pre-known fix — that's stated explicitly rather than left as an implicit gap.
 
-**Type consistency:** `shellCommand({required bool isWindows, required Map<String,String> environment})` — same signature at definition (Task 2 Step 3), test (Task 2 Step 1), and call site (Task 2 Step 7). `PtyTerminal({required String executable, List<String> arguments = const []})` — same across definition (Task 2 Step 6) and both call sites (Task 2 Step 7, Task 3 Step 6). `resolveClaudeCommand({required String home, required bool isWindows, required bool Function(String) exists})` — same across definition, test, and call site in Task 3.
+**Type consistency:** `shellCommand({required bool isWindows, required Map<String,String> environment})` — same signature at definition (Task 2 Step 3), test (Task 2 Step 1), and call site (Task 2 Step 11). `PtyTerminal({required String executable, List<String> arguments = const []})` — same across definition (Task 2 Step 8), its constructor test (Task 2 Step 6), and both call sites (Task 2 Step 11, Task 3 Step 6). `resolveClaudeCommand({required String home, required bool isWindows, required bool Function(String) exists})` — same across definition, test, and call site in Task 3.
+
+**Test-coverage note (post pre-flight discussion):** Tasks 1 and 2 originally shipped the empty `Scaffold` and `PtyTerminal` with no automated test, reasoning that neither had logic a test could reach. Per the user's explicit call in pre-flight review, the style rule governs instead: Task 1 now carries a `testWidgets` check (safe — `OrthancApp` has no async scheduling), and Task 2 carries a plain `test()` against `PtyTerminal`'s constructor only (verified experimentally that mounting it via `pumpWidget` would actually invoke the real `Pty.start` FFI call in this Flutter version, since `endOfFrame` continuations run synchronously within a single `pump`). The pty/terminal wiring's actual behavior remains covered only by the manual verification steps — that part of the original reasoning still holds.
