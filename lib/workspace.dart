@@ -72,6 +72,45 @@ class Workspace {
     return rects;
   }
 
+  /// The nearest pane in [direction], or null at the edge of the window.
+  ///
+  /// Decided from the same rectangles the widgets lay out by: keep only panes
+  /// genuinely on that side, then take the one whose centre lies closest to the
+  /// focused pane's own centre along the perpendicular axis — so moving right
+  /// from a tall pane meets whichever neighbour sits level with it.
+  String? neighbour(Direction direction) {
+    final rects = paneRects();
+    final from = rects[focusedId];
+    if (from == null) return null;
+
+    String? best;
+    var bestOffset = double.infinity;
+
+    for (final entry in rects.entries) {
+      if (entry.key == focusedId) continue;
+      final to = entry.value;
+
+      final beyond = switch (direction) {
+        Direction.left => to.right <= from.left,
+        Direction.right => to.left >= from.right,
+        Direction.up => to.bottom <= from.top,
+        Direction.down => to.top >= from.bottom,
+      };
+      if (!beyond) continue;
+
+      final offset = switch (direction) {
+        Direction.left || Direction.right => (to.centerY - from.centerY).abs(),
+        Direction.up || Direction.down => (to.centerX - from.centerX).abs(),
+      };
+      if (offset < bestOffset) {
+        bestOffset = offset;
+        best = entry.key;
+      }
+    }
+
+    return best;
+  }
+
   static void _fill(
     LayoutNode node,
     PaneRect within,

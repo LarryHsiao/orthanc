@@ -185,4 +185,67 @@ void main() {
       expect(rects['c'], expected);
     });
   });
+
+  group('Workspace.neighbour', () {
+    test('finds the pane to the right', () {
+      const expected = 'b';
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').focus('a');
+
+      expect(workspace.neighbour(Direction.right), expected);
+    });
+
+    test('finds the pane to the left', () {
+      const expected = 'a';
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+
+      expect(workspace.neighbour(Direction.left), expected);
+    });
+
+    test('finds the pane below', () {
+      const expected = 'b';
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.column, newSessionId: 'b').focus('a');
+
+      expect(workspace.neighbour(Direction.down), expected);
+    });
+
+    test('returns null at the edge', () {
+      const expected = null;
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').focus('a');
+
+      expect(workspace.neighbour(Direction.left), expected);
+    });
+
+    test('returns null for a lone pane in every direction', () {
+      final workspace = Workspace.single('a');
+
+      expect(workspace.neighbour(Direction.left), null);
+      expect(workspace.neighbour(Direction.right), null);
+      expect(workspace.neighbour(Direction.up), null);
+      expect(workspace.neighbour(Direction.down), null);
+    });
+
+    test('crosses into a nested split', () {
+      const expected = 'b';
+
+      // a | (b over c) — moving right from 'a' meets 'b', the upper of the two.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .focus('a');
+
+      expect(workspace.neighbour(Direction.right), expected);
+    });
+  });
 }
