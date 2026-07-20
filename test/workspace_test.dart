@@ -248,4 +248,51 @@ void main() {
       expect(workspace.neighbour(Direction.right), expected);
     });
   });
+
+  group('Workspace.resizeSplit', () {
+    test('moves share from one side of the divider to the other', () {
+      final expected = [0.6, 0.4];
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+      final resized = workspace.resizeSplit(
+        split: workspace.root,
+        dividerIndex: 0,
+        delta: 0.1,
+      );
+
+      expect((resized.root as SplitNode).ratios, expected);
+    });
+
+    test('refuses to shrink a pane past a minimum share', () {
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+      final resized = workspace.resizeSplit(
+        split: workspace.root,
+        dividerIndex: 0,
+        delta: 0.9,
+      );
+
+      final ratios = (resized.root as SplitNode).ratios;
+      expect(ratios[1], greaterThanOrEqualTo(minPaneRatio));
+      expect(ratios[0] + ratios[1], closeTo(1, 0.0001));
+    });
+
+    test('leaves other splits untouched', () {
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c');
+      final nested = (workspace.root as SplitNode).children[1];
+
+      final resized = workspace.resizeSplit(
+        split: nested,
+        dividerIndex: 0,
+        delta: 0.1,
+      );
+
+      expect((resized.root as SplitNode).ratios, [0.5, 0.5]);
+    });
+  });
 }

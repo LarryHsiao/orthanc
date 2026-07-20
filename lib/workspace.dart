@@ -118,6 +118,56 @@ class Workspace {
     return best;
   }
 
+  /// Moves one divider of one split, taking share from one side and giving it
+  /// to the other. [delta] is a fraction of that split's own extent.
+  ///
+  /// Identity is by reference: [split] is the node the dragged divider belongs
+  /// to, which the widget already holds. Only that node's ratios change.
+  Workspace resizeSplit({
+    required LayoutNode split,
+    required int dividerIndex,
+    required double delta,
+  }) {
+    return Workspace(
+      root: _resized(root, split, dividerIndex, delta),
+      focusedId: focusedId,
+    );
+  }
+
+  static LayoutNode _resized(
+    LayoutNode node,
+    LayoutNode target,
+    int dividerIndex,
+    double delta,
+  ) {
+    if (node is PaneNode) return node;
+
+    final split = node as SplitNode;
+    if (identical(split, target)) {
+      final ratios = [...split.ratios];
+      final before = ratios[dividerIndex];
+      final after = ratios[dividerIndex + 1];
+      final room = before + after;
+      final moved = (before + delta).clamp(minPaneRatio, room - minPaneRatio);
+      ratios[dividerIndex] = moved;
+      ratios[dividerIndex + 1] = room - moved;
+      return SplitNode(
+        axis: split.axis,
+        children: split.children,
+        ratios: ratios,
+      );
+    }
+
+    return SplitNode(
+      axis: split.axis,
+      children: [
+        for (final child in split.children)
+          _resized(child, target, dividerIndex, delta),
+      ],
+      ratios: split.ratios,
+    );
+  }
+
   static void _fill(
     LayoutNode node,
     PaneRect within,
@@ -268,3 +318,7 @@ class Workspace {
 /// [count] equal shares, summing to 1.
 List<double> evenRatios(int count) =>
     List<double>.filled(count, 1 / count, growable: false);
+
+/// The least share a pane may be dragged down to, so it can never vanish
+/// behind its own divider.
+const minPaneRatio = 0.05;
