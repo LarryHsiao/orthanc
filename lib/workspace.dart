@@ -72,6 +72,22 @@ class Workspace {
     return rects;
   }
 
+  static bool _liesBeyond(PaneRect to, PaneRect from, Direction direction) {
+    return switch (direction) {
+      Direction.left => to.right <= from.left,
+      Direction.right => to.left >= from.right,
+      Direction.up => to.bottom <= from.top,
+      Direction.down => to.top >= from.bottom,
+    };
+  }
+
+  static double _offsetAcross(PaneRect to, PaneRect from, Direction direction) {
+    return switch (direction) {
+      Direction.left || Direction.right => (to.centerY - from.centerY).abs(),
+      Direction.up || Direction.down => (to.centerX - from.centerX).abs(),
+    };
+  }
+
   /// The nearest pane in [direction], or null at the edge of the window.
   ///
   /// Decided from the same rectangles the widgets lay out by: keep only panes
@@ -90,18 +106,9 @@ class Workspace {
       if (entry.key == focusedId) continue;
       final to = entry.value;
 
-      final beyond = switch (direction) {
-        Direction.left => to.right <= from.left,
-        Direction.right => to.left >= from.right,
-        Direction.up => to.bottom <= from.top,
-        Direction.down => to.top >= from.bottom,
-      };
-      if (!beyond) continue;
+      if (!_liesBeyond(to, from, direction)) continue;
 
-      final offset = switch (direction) {
-        Direction.left || Direction.right => (to.centerY - from.centerY).abs(),
-        Direction.up || Direction.down => (to.centerX - from.centerX).abs(),
-      };
+      final offset = _offsetAcross(to, from, direction);
       if (offset < bestOffset) {
         bestOffset = offset;
         best = entry.key;
