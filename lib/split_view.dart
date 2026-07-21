@@ -32,7 +32,7 @@ class SplitView extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (node) {
       PaneNode(:final sessionId) => _pane(sessionId),
-      SplitNode() => _split(node as SplitNode),
+      SplitNode split => _split(split),
     };
   }
 
@@ -56,30 +56,53 @@ class SplitView extends StatelessWidget {
         final dividers = split.children.length - 1;
         final free = extent - dividers * dividerThickness;
 
-        final children = <Widget>[];
-        for (var i = 0; i < split.children.length; i++) {
-          if (i > 0) {
-            children.add(_divider(context, split, i - 1, horizontal, free));
-          }
-          children.add(
-            SizedBox(
-              width: horizontal ? free * split.ratios[i] : null,
-              height: horizontal ? null : free * split.ratios[i],
-              child: SplitView(
-                node: split.children[i],
-                sessions: sessions,
-                focusedId: focusedId,
-                onFocus: onFocus,
-                onResize: onResize,
-              ),
-            ),
-          );
-        }
+        final children = _buildSplitChildren(split, context, horizontal, free);
 
         return horizontal
-            ? Row(children: children)
-            : Column(children: children);
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              );
       },
+    );
+  }
+
+  List<Widget> _buildSplitChildren(
+    SplitNode split,
+    BuildContext context,
+    bool horizontal,
+    double free,
+  ) {
+    final children = <Widget>[];
+    for (var i = 0; i < split.children.length; i++) {
+      if (i > 0) {
+        children.add(_divider(context, split, i - 1, horizontal, free));
+      }
+      children.add(_buildSplitChild(split, i, horizontal, free));
+    }
+    return children;
+  }
+
+  Widget _buildSplitChild(
+    SplitNode split,
+    int index,
+    bool horizontal,
+    double free,
+  ) {
+    return SizedBox(
+      width: horizontal ? free * split.ratios[index] : null,
+      height: horizontal ? null : free * split.ratios[index],
+      child: SplitView(
+        node: split.children[index],
+        sessions: sessions,
+        focusedId: focusedId,
+        onFocus: onFocus,
+        onResize: onResize,
+      ),
     );
   }
 
@@ -94,19 +117,29 @@ class SplitView extends StatelessWidget {
       cursor: horizontal
           ? SystemMouseCursors.resizeLeftRight
           : SystemMouseCursors.resizeUpDown,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragUpdate: horizontal
-            ? (details) => onResize(split, index, details.delta.dx / free)
-            : null,
-        onVerticalDragUpdate: horizontal
-            ? null
-            : (details) => onResize(split, index, details.delta.dy / free),
-        child: SizedBox(
-          width: horizontal ? dividerThickness : null,
-          height: horizontal ? null : dividerThickness,
-          child: ColoredBox(color: Theme.of(context).dividerColor),
-        ),
+      child: _dividerGestureDetector(context, split, index, horizontal, free),
+    );
+  }
+
+  Widget _dividerGestureDetector(
+    BuildContext context,
+    SplitNode split,
+    int index,
+    bool horizontal,
+    double free,
+  ) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragUpdate: horizontal
+          ? (details) => onResize(split, index, details.delta.dx / free)
+          : null,
+      onVerticalDragUpdate: horizontal
+          ? null
+          : (details) => onResize(split, index, details.delta.dy / free),
+      child: SizedBox(
+        width: horizontal ? dividerThickness : null,
+        height: horizontal ? null : dividerThickness,
+        child: ColoredBox(color: Theme.of(context).dividerColor),
       ),
     );
   }
