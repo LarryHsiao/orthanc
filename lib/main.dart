@@ -1,9 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
-import 'pty_terminal.dart';
-import 'shell_command.dart';
+import 'workspace_view.dart';
 
 void main() {
   runApp(const OrthancApp());
@@ -14,22 +11,10 @@ class OrthancApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'Orthanc',
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: SafeArea(
-          child: PtyTerminal(
-            executable: shellCommand(
-              isWindows: Platform.isWindows,
-              environment: Platform.environment,
-            ),
-            // The window exists to hold this one session; when the session
-            // ends, so does the app, carrying the shell's own exit code out.
-            onExit: exit,
-          ),
-        ),
-      ),
+      home: Scaffold(body: SafeArea(child: WorkspaceView())),
     );
   }
 }
