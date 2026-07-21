@@ -23,36 +23,39 @@ class PaneBar extends StatelessWidget {
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       color: focused ? scheme.surfaceContainerHighest : scheme.surfaceContainer,
-      child: Row(
-        children: [
-          ValueListenableBuilder(
-            valueListenable: session.busy,
-            builder: (context, busy, child) => busy
-                ? const Padding(
-                    padding: EdgeInsets.only(right: 6),
-                    child: SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: CircularProgressIndicator(strokeWidth: 1.5),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-          Expanded(
-            child: ValueListenableBuilder(
-              valueListenable: session.title,
-              builder: (context, title, child) => Text(
-                title,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
-                  color: scheme.onSurface,
-                ),
+      child: Row(children: [_spinner(), _title(scheme)]),
+    );
+  }
+
+  Widget _spinner() {
+    return ValueListenableBuilder(
+      valueListenable: session.busy,
+      builder: (context, busy, child) => busy
+          ? const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: SizedBox(
+                width: 10,
+                height: 10,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
               ),
-            ),
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _title(ColorScheme scheme) {
+    return Expanded(
+      child: ValueListenableBuilder(
+        valueListenable: session.title,
+        builder: (context, title, child) => Text(
+          title,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+            color: scheme.onSurface,
           ),
-        ],
+        ),
       ),
     );
   }
