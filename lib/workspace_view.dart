@@ -36,9 +36,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     // First run opens one session — there is no empty state to design.
     final first = _open();
     workspace = Workspace.single(first.id);
-    WidgetsBinding.instance.endOfFrame.then((_) {
-      if (mounted) first.start();
-    });
+    _requestFocus(first.id, before: first.start);
   }
 
   Session _open() {
@@ -60,6 +58,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       sessions.disposeAll();
       exit(exitCode);
     }
+    // Claims focus before the departing session's node is disposed, so
+    // primary focus never passes through the root scope — a key pressed in
+    // that gap would otherwise be dropped entirely (see _onKey's doc).
+    sessions[next.focusedId]?.focusNode.requestFocus();
     sessions.remove(id);
     setState(() => workspace = next);
     _requestFocus(next.focusedId);
@@ -70,11 +72,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     setState(() {
       workspace = workspace.split(axis: axis, newSessionId: session.id);
     });
-    WidgetsBinding.instance.endOfFrame.then((_) {
-      if (!mounted) return;
-      session.start();
-      session.focusNode.requestFocus();
-    });
+    _requestFocus(session.id, before: session.start);
   }
 
   void _moveFocus(Direction direction) {
@@ -89,16 +87,20 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     _requestFocus(id);
   }
 
-  /// Moves keyboard focus onto [id]'s session.
+  /// Moves keyboard focus onto [id]'s session, once end of frame arrives.
   ///
   /// `autofocus` is honoured only once, when a node first registers into a
   /// scope holding no other focus — a rebuild with a new focused id does
   /// nothing on its own, so every focus change must request it explicitly.
-  /// Deferred to end of frame: a newly split session's node is not attached
-  /// until its TerminalView has been built.
-  void _requestFocus(String id) {
+  /// Deferred to end of frame: a session's node is not attached until its
+  /// TerminalView has been built — true of a freshly split pane and of the
+  /// very first pane at startup alike. [before] runs first, inside the same
+  /// deferral, for callers that also need to start the session.
+  void _requestFocus(String id, {VoidCallback? before}) {
     WidgetsBinding.instance.endOfFrame.then((_) {
-      if (mounted) sessions[id]?.focusNode.requestFocus();
+      if (!mounted) return;
+      before?.call();
+      sessions[id]?.focusNode.requestFocus();
     });
   }
 
@@ -107,9 +109,16 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   /// In a terminal app every keystroke belongs to the terminal, so a binding
   /// that is not taken here lands in the running program's prompt instead.
   /// Passed to every TerminalView as `onKeyEvent`, which xterm consults
-  /// before its own shortcut keytab and before writing to the pty — the
-  /// ancestor [Focus] below only backstops the moment no terminal holds
-  /// focus at all.
+  /// before its own shortcut keytab and before writing to the pty. The
+  /// ancestor [Focus] in [build] runs this same handler, but Flutter
+  /// dispatches a key to the primary-focus node and walks upward from
+  /// there — so that ancestor `Focus` is reached only while some terminal
+  /// holds primary focus, which is the one case needing no backstop. When
+  /// no terminal holds focus, primary focus rests on the root scope, of
+  /// which this widget is a descendant rather than an ancestor, and the
+  /// key never reaches either handler. That window is instead closed by
+  /// requesting focus onto a session's node whenever `focusedId` changes
+  /// (see [_requestFocus]) — not by this widget.
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
 
@@ -156,6 +165,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   @override
   Widget build(BuildContext context) {
     return Focus(
+      // Re-runs _onKey for keys a terminal returns `ignored` on; see
+      // _onKey's doc for why this is not a backstop for the no-focus case.
       onKeyEvent: _onKey,
       child: SplitView(
         node: workspace.root,

@@ -34,7 +34,7 @@ class Session {
   /// that moves within the tree, or loses and regains the focused id, must
   /// not lose or recreate its focus node — the same reason [terminal] lives
   /// here rather than in a State.
-  final focusNode = FocusNode();
+  late final focusNode = FocusNode(debugLabel: 'session $id');
 
   /// The title the running program sets for itself, via OSC 0/2 — the same one
   /// tmux and iTerm show. Claude Code writes its current task there.
