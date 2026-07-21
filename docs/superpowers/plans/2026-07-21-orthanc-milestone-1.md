@@ -48,7 +48,7 @@
 - Consumes: nothing.
 - Produces: `enum SplitAxis { row, column }`; `enum Direction { left, right, up, down }`; `class PaneRect` with `final double left, top, width, height` and a const constructor plus value equality; `sealed class LayoutNode`; `class PaneNode extends LayoutNode` with `final String sessionId`; `class SplitNode extends LayoutNode` with `final SplitAxis axis`, `final List<LayoutNode> children`, `final List<double> ratios`. Every later task builds on these exact names.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/layout_node_test.dart`:
 
@@ -91,12 +91,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `fvm flutter test test/layout_node_test.dart`
 Expected: FAIL — `Target of URI doesn't exist: 'package:orthanc/layout_node.dart'`.
 
-- [ ] **Step 3: Implement the types**
+- [x] **Step 3: Implement the types**
 
 Create `lib/layout_node.dart`:
 
@@ -176,12 +176,12 @@ class SplitNode extends LayoutNode {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `fvm flutter test test/layout_node_test.dart`
 Expected: PASS — 3 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add lib/layout_node.dart test/layout_node_test.dart
@@ -199,7 +199,7 @@ rtk git commit -m "Add the layout tree's types"
 - Consumes: everything from Task 1.
 - Produces: `class Workspace` with `final LayoutNode root`, `final String focusedId`, a const constructor `Workspace({required LayoutNode root, required String focusedId})`, `factory Workspace.single(String sessionId)`, `List<String> get sessionIds`, `Workspace focus(String sessionId)`, and `Workspace split({required SplitAxis axis, required String newSessionId})`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/workspace_test.dart`:
 
@@ -284,12 +284,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: FAIL — `Target of URI doesn't exist: 'package:orthanc/workspace.dart'`.
 
-- [ ] **Step 3: Implement Workspace and split**
+- [x] **Step 3: Implement Workspace and split**
 
 Create `lib/workspace.dart`:
 
@@ -408,12 +408,12 @@ List<double> evenRatios(int count) =>
     List<double>.filled(count, 1 / count, growable: false);
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: PASS — all 6 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add lib/workspace.dart test/workspace_test.dart
@@ -431,7 +431,7 @@ rtk git commit -m "Add Workspace and the two splitting rules"
 - Consumes: Task 2's `Workspace`.
 - Produces: `Workspace? close(String sessionId)` — returns `null` when the closed pane was the last one, which the app reads as "quit".
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append inside `main()` in `test/workspace_test.dart`:
 
@@ -502,12 +502,12 @@ Append inside `main()` in `test/workspace_test.dart`:
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: FAIL — `The method 'close' isn't defined for the type 'Workspace'`.
 
-- [ ] **Step 3: Implement close**
+- [x] **Step 3: Implement close**
 
 Add to `Workspace` in `lib/workspace.dart`, after `split`:
 
@@ -552,12 +552,12 @@ Add to `Workspace` in `lib/workspace.dart`, after `split`:
   }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: PASS — all 12 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add lib/workspace.dart test/workspace_test.dart
@@ -575,7 +575,7 @@ rtk git commit -m "Close a pane and dissolve the split it leaves behind"
 - Consumes: Tasks 1-3.
 - Produces: `Map<String, PaneRect> paneRects()` — every pane's share of the window in fractions of the whole. Task 5 uses it to answer directional focus; Task 10 uses the same ratios to lay widgets out.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append inside `main()` in `test/workspace_test.dart`:
 
@@ -626,12 +626,12 @@ Append inside `main()` in `test/workspace_test.dart`:
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: FAIL — `The method 'paneRects' isn't defined for the type 'Workspace'`.
 
-- [ ] **Step 3: Implement paneRects**
+- [x] **Step 3: Implement paneRects**
 
 Add to `Workspace` in `lib/workspace.dart`:
 
@@ -680,12 +680,12 @@ Add to `Workspace` in `lib/workspace.dart`:
   }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: PASS — all 16 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add lib/workspace.dart test/workspace_test.dart
@@ -703,7 +703,7 @@ rtk git commit -m "Compute each pane's share of the window"
 - Consumes: Task 4's `paneRects()`.
 - Produces: `String? neighbour(Direction direction)` — the id of the nearest pane that way, or null when there is none.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append inside `main()` in `test/workspace_test.dart`:
 
@@ -772,12 +772,12 @@ Append inside `main()` in `test/workspace_test.dart`:
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: FAIL — `The method 'neighbour' isn't defined for the type 'Workspace'`.
 
-- [ ] **Step 3: Implement neighbour**
+- [x] **Step 3: Implement neighbour**
 
 Add to `Workspace` in `lib/workspace.dart`:
 
@@ -822,12 +822,12 @@ Add to `Workspace` in `lib/workspace.dart`:
   }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: PASS — all 22 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add lib/workspace.dart test/workspace_test.dart
@@ -845,7 +845,7 @@ rtk git commit -m "Answer directional focus from the pane rectangles"
 - Consumes: Tasks 1-5.
 - Produces: `Workspace resizeSplit({required LayoutNode split, required int dividerIndex, required double delta})` — moves one divider of one split by `delta` (a fraction of that split's extent), taking from one neighbour and giving to the other. Task 10's drag handler calls it.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append inside `main()` in `test/workspace_test.dart`:
 
@@ -898,12 +898,12 @@ Append inside `main()` in `test/workspace_test.dart`:
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: FAIL — `The method 'resizeSplit' isn't defined for the type 'Workspace'` and `Undefined name 'minPaneRatio'`.
 
-- [ ] **Step 3: Implement resizeSplit**
+- [x] **Step 3: Implement resizeSplit**
 
 Add to `lib/workspace.dart` — the constant beside `evenRatios` at the end of the file, the method inside `Workspace`:
 
@@ -965,12 +965,12 @@ const minPaneRatio = 0.05;
   }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `fvm flutter test test/workspace_test.dart`
 Expected: PASS — all 25 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add lib/workspace.dart test/workspace_test.dart
@@ -988,7 +988,7 @@ rtk git commit -m "Move a divider without disturbing the rest of the tree"
 - Consumes: `SplitAxis`, `Direction` from Task 1.
 - Produces: `sealed class PaneAction`; `class SplitPane extends PaneAction` with `final SplitAxis axis`; `class ClosePane extends PaneAction`; `class MoveFocus extends PaneAction` with `final Direction direction`; and `PaneAction? paneAction({required bool isWindows, required LogicalKeyboardKey key, required bool isControlPressed, required bool isShiftPressed, required bool isAltPressed, required bool isMetaPressed})`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/split_shortcuts_test.dart`:
 
@@ -1137,12 +1137,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `fvm flutter test test/split_shortcuts_test.dart`
 Expected: FAIL — `Target of URI doesn't exist: 'package:orthanc/split_shortcuts.dart'`.
 
-- [ ] **Step 3: Implement the shortcuts**
+- [x] **Step 3: Implement the shortcuts**
 
 Create `lib/split_shortcuts.dart`:
 
@@ -1225,12 +1225,12 @@ Direction? _arrow(LogicalKeyboardKey key) => switch (key) {
 };
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `fvm flutter test test/split_shortcuts_test.dart`
 Expected: PASS — all 11 tests green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add lib/split_shortcuts.dart test/split_shortcuts_test.dart
@@ -1250,7 +1250,7 @@ rtk git commit -m "Read a key press as a pane action, per platform"
 
 **Note:** the pty wiring below is Milestone 0's, moved rather than rewritten. `_spawn`, `_wire` and the working-directory comment are carried over verbatim from `lib/pty_terminal.dart`; what is new is that a `Session` owns them instead of a widget, plus the title and busy notifiers.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/session_test.dart`:
 
@@ -1287,12 +1287,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `fvm flutter test test/session_test.dart`
 Expected: FAIL — `Target of URI doesn't exist: 'package:orthanc/session.dart'`.
 
-- [ ] **Step 3: Implement Session**
+- [x] **Step 3: Implement Session**
 
 Create `lib/session.dart`:
 
@@ -1408,12 +1408,12 @@ class Session {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `fvm flutter test test/session_test.dart`
 Expected: PASS — 3 tests green. (Construction alone touches no pty; `start()` is what spawns, and no test calls it.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 rtk git add lib/session.dart test/session_test.dart
@@ -1433,7 +1433,7 @@ rtk git commit -m "Give a session its own life, apart from any widget"
 
 **Note:** `PaneView` supersedes `PtyTerminal` — its spawn/wire logic now lives in `Session` (Task 8) and its `TerminalView` here. `PtyTerminal` itself is left on disk until Task 11, which deletes it in the same commit that stops `main.dart` importing it. Deleting it here would leave the build broken across three tasks, and a red tree makes each task's review meaningless.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/sessions_test.dart`:
 
@@ -1471,12 +1471,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `fvm flutter test test/sessions_test.dart`
 Expected: FAIL — `Target of URI doesn't exist: 'package:orthanc/sessions.dart'`.
 
-- [ ] **Step 3: Implement Sessions**
+- [x] **Step 3: Implement Sessions**
 
 Create `lib/sessions.dart`:
 
@@ -1526,12 +1526,12 @@ class Sessions {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `fvm flutter test test/sessions_test.dart`
 Expected: PASS — 3 tests green. (`spawn()` constructs a `Session` but never calls `start()`, so no process is created.)
 
-- [ ] **Step 5: Implement the pane bar**
+- [x] **Step 5: Implement the pane bar**
 
 Create `lib/pane_bar.dart`:
 
@@ -1597,7 +1597,7 @@ class PaneBar extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 6: Implement the pane**
+- [x] **Step 6: Implement the pane**
 
 Create `lib/pane_view.dart`:
 
@@ -1641,12 +1641,12 @@ class PaneView extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 7: Run the whole suite**
+- [x] **Step 7: Run the whole suite**
 
 Run: `fvm flutter analyze && fvm flutter test`
 Expected: analyze clean; all tests green. `lib/pty_terminal.dart` is untouched and still compiles — it is deleted in Task 11, in the same commit that stops `main.dart` importing it, so the tree never goes red between tasks.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 rtk git add lib/sessions.dart lib/pane_bar.dart lib/pane_view.dart test/sessions_test.dart
@@ -1664,7 +1664,7 @@ rtk git commit -m "Replace PtyTerminal with a session registry, a bar, and a pan
 - Consumes: `LayoutNode` (Task 1), `Workspace.resizeSplit` (Task 6), `PaneView` (Task 9), `Sessions` (Task 9).
 - Produces: `class SplitView extends StatelessWidget` taking `{required LayoutNode node, required Sessions sessions, required String focusedId, required void Function(String id) onFocus, required void Function(LayoutNode split, int dividerIndex, double delta) onResize}`.
 
-- [ ] **Step 1: Implement the recursive view**
+- [x] **Step 1: Implement the recursive view**
 
 Create `lib/split_view.dart`:
 
@@ -1784,12 +1784,12 @@ class SplitView extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 2: Analyze**
+- [x] **Step 2: Analyze**
 
 Run: `fvm flutter analyze`
 Expected: one remaining error — `lib/main.dart` still imports the deleted `pty_terminal.dart`. That is Task 11's work; nothing in `split_view.dart` itself should be flagged.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 rtk git add lib/split_view.dart
@@ -1809,7 +1809,7 @@ rtk git commit -m "Draw the layout tree, dividers and all"
 - Consumes: everything above.
 - Produces: `class WorkspaceView extends StatefulWidget` with `const WorkspaceView({super.key})`, hosted by `OrthancApp`.
 
-- [ ] **Step 1: Implement the workspace view**
+- [x] **Step 1: Implement the workspace view**
 
 Create `lib/workspace_view.dart`:
 
@@ -1942,7 +1942,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 }
 ```
 
-- [ ] **Step 2: Point main.dart at it**
+- [x] **Step 2: Point main.dart at it**
 
 Replace `lib/main.dart` entirely:
 
@@ -1969,7 +1969,7 @@ class OrthancApp extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 3: Delete the widget PaneView superseded**
+- [x] **Step 3: Delete the widget PaneView superseded**
 
 Nothing imports `PtyTerminal` once `main.dart` above hosts `WorkspaceView`. Its spawn/wire logic lives in `Session`, its `TerminalView` in `PaneView`, and its test only ever covered a constructor that no longer exists.
 
@@ -1977,12 +1977,12 @@ Nothing imports `PtyTerminal` once `main.dart` above hosts `WorkspaceView`. Its 
 rtk git rm lib/pty_terminal.dart test/pty_terminal_test.dart
 ```
 
-- [ ] **Step 4: Analyze and run the suite**
+- [x] **Step 4: Analyze and run the suite**
 
 Run: `fvm flutter analyze && fvm flutter test`
 Expected: analyze clean; all tests green — `layout_node` 3, `workspace` 25, `split_shortcuts` 11, `session` 3, `sessions` 3, `claude_command` 4, `shell_command` 3, `pty_environment` 4 (56 in total). The `pty_terminal` tests are gone with the widget they described.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 The deletion, the new view and the `main.dart` swap land together — that is what keeps the build green at every commit.
 
@@ -1990,6 +1990,81 @@ The deletion, the new view and the `main.dart` swap land together — that is wh
 rtk git add -A lib/workspace_view.dart lib/main.dart lib/pty_terminal.dart test/pty_terminal_test.dart
 rtk git commit -m "Wire sessions, layout and hotkeys into one window"
 ```
+
+---
+
+## State as of 2026-07-21 — Tasks 1-11 complete, Task 12 outstanding
+
+All eleven code tasks are built, reviewed and committed (`db50594..b72045c`, 20 commits).
+`fvm flutter analyze` clean, `fvm flutter test` **63/63**. The app builds and launches on
+Windows. **Task 12's manual walk has not been run**, so Milestone 1 is not done.
+
+The execution ledger lived under `.superpowers/`, which is git-ignored, so what matters
+from it is recorded here instead.
+
+### What the reviews found that the plan got wrong
+
+- **The 25-line method cap was breached by this plan's own code in Tasks 2, 5, 6, 7, 9 and
+  10.** Each was extracted during a fix pass. If this plan is ever used as a model, its code
+  blocks run long.
+- **Task 8's `Session.dispose()` raced its own pty.** `kill()` only *requests* termination,
+  so the later `exitCode` callback wrote to a disposed `ValueNotifier`, threw, and left
+  `exitCode` never completing. Milestone 0 guarded this exact hazard with `if (mounted)`;
+  the plan dropped that protection in the move and put nothing in its place. Closing a pane
+  disposes a session, so this was the main path, not a corner. Fixed with a `_disposed` flag
+  and completer-first ordering.
+- **Task 3's `_without()` re-evened every split it visited**, so once `resizeSplit` existed,
+  closing any pane silently flattened every dragged divider. Caught at Task 3, deliberately
+  carried to Task 6 where it became live, then fixed and pinned by a test that failed first.
+- **The final whole-branch review found three Criticals in the seams between tasks**, which
+  no per-task review could see:
+  1. Hotkeys never reached `_onKey`. The plan's Task 11 used an ancestor `Focus`, but Flutter
+     dispatches to the *focused* node first — xterm's — which matched `Alt+Left` against its
+     own keytab and wrote `\E[1;5D` **into the pty**. The design had named
+     `TerminalView.onKeyEvent` as the interception point; the plan silently substituted
+     something else. Broken on macOS too, because `Terminal.platform` defaults to `unknown`
+     and the mac keytab records never applied.
+  2. Nothing moved Flutter's focus when `Workspace.focusedId` changed — `autofocus` is
+     honoured once only. Fixed by giving each `Session` its own `FocusNode`.
+  3. Click-to-focus used `GestureDetector`, which loses the gesture arena to xterm's own tap
+     recognizer on a brisk click.
+- **That fix wave then introduced a launch regression** — dropping `autofocus` without adding
+  a startup focus request left no pane focused on launch, so the app was deaf until clicked.
+  Fixed in `b72045c`. A comment claiming the ancestor `Focus` "backstops" the no-focus case
+  was also corrected: it cannot, being a descendant of the root scope and so never in the
+  dispatch chain.
+
+### Known debt, deliberately left
+
+- `Session.start()` has no `_disposed` guard, so a session closed within the same frame as
+  its focus request could spawn an unkillable orphan pty. Needs two pane actions inside 16ms
+  — latent, not reachable by hand.
+- `PaneView`s carry no `Key`, so a reshape can rebind a `TerminalView` element to a different
+  session. Watch for a pane showing the wrong output during split/close churn.
+- `Workspace.focus()` does not validate that the id exists; a stale id would make `split()`
+  silently drop the new pane while its pty is already running.
+- Holding a hotkey moves focus once — `KeyRepeatEvent` is swallowed for recognised actions,
+  chosen so a held `Cmd+D` cannot cascade splits.
+- `_renormalized` has no zero-sum guard (unreachable while `minPaneRatio` floors ratios at
+  0.05); `close()` with an absent id is untested; some tests assert structural literals inline.
+
+### What to watch first during the walk, ranked
+
+1. **`Alt+Shift+=` on Windows.** This binding has never once executed — Critical 1 kept it
+   from firing — so the walk is its first light. If the row split does nothing, suspect the
+   embedder reporting `LogicalKeyboardKey.plus` rather than `equal` under Shift;
+   `split_shortcuts.dart` binds `equal`. One `debugPrint(event.logicalKey.debugName)` settles it.
+2. **Type immediately on launch, without clicking.** That is the `b72045c` regression; if
+   characters vanish, the focus chain is still wrong.
+3. **`Alt+arrows` / `Cmd+Opt+arrows`.** Focus should move and *nothing* should appear in the
+   prompt. A cursor jumping back a word means the escape sequence still leaks and Critical 1
+   is not truly closed.
+4. **Click a pane briskly**, then check the bar agrees with where the keyboard goes.
+5. **Split to three levels and drag a nested divider** — that recursion has a unit test but
+   has never been drawn.
+6. **The 500ms busy window** — the one number only a running app can settle.
+7. **Kill a pane while it is producing output** — the disposal-race path that no test reaches.
+   A `ValueNotifier used after being disposed` in the console is the failure signature.
 
 ---
 
