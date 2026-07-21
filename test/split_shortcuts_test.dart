@@ -71,6 +71,18 @@ void main() {
       expect((action as MoveFocus).direction, expected);
     });
 
+    test('Cmd+Shift+W is left for the terminal — extra modifier', () {
+      const expected = null;
+
+      final action = macAction(
+        LogicalKeyboardKey.keyW,
+        meta: true,
+        shift: true,
+      );
+
+      expect(action, expected);
+    });
+
     test('a bare D is left for the terminal', () {
       const expected = null;
 
@@ -127,6 +139,18 @@ void main() {
       const expected = null;
 
       final action = windowsAction(LogicalKeyboardKey.keyD, control: true);
+
+      expect(action, expected);
+    });
+
+    test('Ctrl+Alt+Left is left for the terminal — extra modifier', () {
+      const expected = null;
+
+      final action = windowsAction(
+        LogicalKeyboardKey.arrowLeft,
+        control: true,
+        alt: true,
+      );
 
       expect(action, expected);
     });

@@ -17,6 +17,7 @@ class SplitView extends StatelessWidget {
     required this.focusedId,
     required this.onFocus,
     required this.onResize,
+    required this.onKeyEvent,
   });
 
   static const dividerThickness = 4.0;
@@ -27,6 +28,7 @@ class SplitView extends StatelessWidget {
   final void Function(String id) onFocus;
   final void Function(LayoutNode split, int dividerIndex, double delta)
   onResize;
+  final FocusOnKeyEventCallback onKeyEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +45,7 @@ class SplitView extends StatelessWidget {
       session: session,
       focused: sessionId == focusedId,
       onFocus: () => onFocus(sessionId),
+      onKeyEvent: onKeyEvent,
     );
   }
 
@@ -102,6 +105,7 @@ class SplitView extends StatelessWidget {
         focusedId: focusedId,
         onFocus: onFocus,
         onResize: onResize,
+        onKeyEvent: onKeyEvent,
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:xterm/xterm.dart';
 
@@ -30,6 +30,12 @@ class Session {
 
   final terminal = Terminal(maxLines: 10000);
 
+  /// This pane's keyboard focus, held here rather than in a widget: a pane
+  /// that moves within the tree, or loses and regains the focused id, must
+  /// not lose or recreate its focus node — the same reason [terminal] lives
+  /// here rather than in a State.
+  final focusNode = FocusNode();
+
   /// The title the running program sets for itself, via OSC 0/2 — the same one
   /// tmux and iTerm show. Claude Code writes its current task there.
   late final ValueNotifier<String> title = ValueNotifier(executable);
@@ -47,6 +53,11 @@ class Session {
   // timer) against touching a ValueNotifier that dispose() already
   // disposed of.
   bool _disposed = false;
+
+  // Set once _handleExit runs, so dispose() knows the OS has already reaped
+  // this pid — killing it again could hit an unrelated process the OS has
+  // since recycled onto the same pid.
+  bool _processExited = false;
 
   Future<int> get exitCode => _exited.future;
 
@@ -108,6 +119,7 @@ class Session {
   // Complete the exit future before touching anything disposal-sensitive, so
   // a caller awaiting exitCode is never left hanging by a late guard.
   void _handleExit(int code) {
+    _processExited = true;
     if (!_exited.isCompleted) _exited.complete(code);
     if (_disposed) return;
     terminal.write('the process exited with exit code $code');
@@ -119,7 +131,8 @@ class Session {
     if (_disposed) return;
     _disposed = true;
     _idleTimer?.cancel();
-    _pty?.kill();
+    if (!_processExited) _pty?.kill();
+    focusNode.dispose();
     title.dispose();
     busy.dispose();
   }

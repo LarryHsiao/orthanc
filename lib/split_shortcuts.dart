@@ -38,46 +38,75 @@ PaneAction? paneAction({
   required bool isMetaPressed,
 }) {
   if (isWindows) {
-    return _windowsAction(key, isControlPressed, isShiftPressed, isAltPressed);
+    return _windowsAction(
+      key,
+      isControlPressed,
+      isShiftPressed,
+      isAltPressed,
+      isMetaPressed,
+    );
   }
-  return _macAction(key, isShiftPressed, isAltPressed, isMetaPressed);
+  return _macAction(
+    key,
+    isControlPressed,
+    isShiftPressed,
+    isAltPressed,
+    isMetaPressed,
+  );
 }
 
+/// Every binding below demands exactly its own modifiers and no others: once
+/// interception happens ahead of the terminal (see WorkspaceView._onKey),
+/// loose matching would start stealing real terminal keys — Ctrl+Alt+Left is
+/// a shell binding on Windows, not a request to move focus.
 PaneAction? _windowsAction(
   LogicalKeyboardKey key,
   bool isControlPressed,
   bool isShiftPressed,
   bool isAltPressed,
+  bool isMetaPressed,
 ) {
-  if (isAltPressed && isShiftPressed && key == LogicalKeyboardKey.equal) {
-    return const SplitPane(SplitAxis.row);
+  if (isMetaPressed) return null;
+
+  if (!isControlPressed && isShiftPressed && isAltPressed) {
+    if (key == LogicalKeyboardKey.equal) return const SplitPane(SplitAxis.row);
+    if (key == LogicalKeyboardKey.minus) {
+      return const SplitPane(SplitAxis.column);
+    }
   }
-  if (isAltPressed && isShiftPressed && key == LogicalKeyboardKey.minus) {
-    return const SplitPane(SplitAxis.column);
-  }
-  if (isControlPressed && isShiftPressed && key == LogicalKeyboardKey.keyW) {
+  if (isControlPressed &&
+      isShiftPressed &&
+      !isAltPressed &&
+      key == LogicalKeyboardKey.keyW) {
     return const ClosePane();
   }
-  if (isAltPressed && !isShiftPressed) {
+  if (!isControlPressed && !isShiftPressed && isAltPressed) {
     final direction = _arrow(key);
     if (direction != null) return MoveFocus(direction);
   }
   return null;
 }
 
+/// Same exactness as [_windowsAction], for the mac scheme.
 PaneAction? _macAction(
   LogicalKeyboardKey key,
+  bool isControlPressed,
   bool isShiftPressed,
   bool isAltPressed,
   bool isMetaPressed,
 ) {
-  if (isMetaPressed && key == LogicalKeyboardKey.keyD) {
+  if (isControlPressed) return null;
+
+  if (isMetaPressed && !isAltPressed && key == LogicalKeyboardKey.keyD) {
     return SplitPane(isShiftPressed ? SplitAxis.column : SplitAxis.row);
   }
-  if (isMetaPressed && key == LogicalKeyboardKey.keyW) {
+  if (isMetaPressed &&
+      !isShiftPressed &&
+      !isAltPressed &&
+      key == LogicalKeyboardKey.keyW) {
     return const ClosePane();
   }
-  if (isMetaPressed && isAltPressed) {
+  if (isMetaPressed && isAltPressed && !isShiftPressed) {
     final direction = _arrow(key);
     if (direction != null) return MoveFocus(direction);
   }

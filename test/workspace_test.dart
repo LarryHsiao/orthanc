@@ -74,6 +74,31 @@ void main() {
 
       expect((workspace.root as SplitNode).ratios, expected);
     });
+
+    test('recurses past a split holding neither the focused pane nor a '
+        'matching axis, to insert beside it deep in the tree', () {
+      final expected = ['a', 'b', 'c', 'd'];
+
+      // a | (b over c), then splitting 'c' along the column axis — the
+      // same axis its own parent split already runs. The row root holds
+      // neither 'c' as a direct child nor a matching axis, so the split
+      // must recurse into the root's children to find where 'c' actually
+      // lives, then land 'd' as its sibling inside that nested split.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .focus('b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .split(axis: SplitAxis.column, newSessionId: 'd');
+
+      expect(workspace.sessionIds, expected);
+      final root = workspace.root as SplitNode;
+      expect(root.axis, SplitAxis.row);
+      final nested = root.children[1] as SplitNode;
+      expect(nested.axis, SplitAxis.column);
+      expect(nested.children.length, 3);
+      expect((nested.children[1] as PaneNode).sessionId, 'c');
+      expect((nested.children[2] as PaneNode).sessionId, 'd');
+    });
   });
 
   group('Workspace.close', () {

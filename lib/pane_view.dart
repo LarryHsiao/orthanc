@@ -14,20 +14,31 @@ class PaneView extends StatelessWidget {
     required this.session,
     required this.focused,
     required this.onFocus,
+    required this.onKeyEvent,
   });
 
   final Session session;
   final bool focused;
   final VoidCallback onFocus;
+  final FocusOnKeyEventCallback onKeyEvent;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => onFocus(),
+    // Listener sees every pointer down regardless of the gesture arena; a
+    // GestureDetector here would compete with xterm's own tap recognizer and
+    // routinely lose it on a brisk click.
+    return Listener(
+      onPointerDown: (_) => onFocus(),
       child: Column(
         children: [
           PaneBar(session: session, focused: focused),
-          Expanded(child: TerminalView(session.terminal, autofocus: focused)),
+          Expanded(
+            child: TerminalView(
+              session.terminal,
+              focusNode: session.focusNode,
+              onKeyEvent: onKeyEvent,
+            ),
+          ),
         ],
       ),
     );
