@@ -39,11 +39,11 @@ class Workspace {
   Workspace focus(String sessionId) =>
       Workspace(root: root, focusedId: sessionId, collapsedIds: collapsedIds);
 
-  /// Sets [sessionId] as the sole expanded row within its own direct-parent
-  /// column, or restores that column to even shares if [sessionId] was
-  /// already the expanded one. No-ops when [sessionId]'s direct parent
-  /// isn't a column split with 2+ children — the one gate every caller
-  /// (a bar click, a hotkey) gets for free by going through here.
+  /// Collapses [sessionId] to bar height, independent of every other pane
+  /// in its column — or un-collapses it, if it was already collapsed.
+  /// No-ops when [sessionId]'s direct parent isn't a column split with 2+
+  /// children — the one gate every caller (a bar click, a hotkey) gets for
+  /// free by going through here.
   Workspace toggleCollapse(String sessionId) {
     final parent = _directParent(root, sessionId);
     if (parent == null ||
@@ -52,28 +52,20 @@ class Workspace {
       return this;
     }
 
-    final siblingIds = _paneChildIds(parent);
-    final updated = {...collapsedIds}..removeAll(siblingIds);
-    if (!collapsedIds.contains(sessionId)) updated.add(sessionId);
+    final updated = {...collapsedIds};
+    if (!updated.remove(sessionId)) updated.add(sessionId);
 
     return Workspace(root: root, focusedId: sessionId, collapsedIds: updated);
   }
 
-  /// Clears whichever collapse entry (if any) is currently hiding
-  /// [sessionId] behind a different sibling in the same column, so
-  /// [sessionId] becomes visible. A no-op if [sessionId] isn't hidden.
+  /// Un-collapses [sessionId] if it is currently collapsed. A no-op
+  /// otherwise.
   Workspace reveal(String sessionId) {
-    final parent = _directParent(root, sessionId);
-    if (parent == null || parent.axis != SplitAxis.column) return this;
-
-    final siblingIds = _paneChildIds(parent);
-    final hiding = collapsedIds.intersection(siblingIds)..remove(sessionId);
-    if (hiding.isEmpty) return this;
-
+    if (!collapsedIds.contains(sessionId)) return this;
     return Workspace(
       root: root,
       focusedId: focusedId,
-      collapsedIds: collapsedIds.difference(hiding),
+      collapsedIds: {...collapsedIds}..remove(sessionId),
     );
   }
 
@@ -132,7 +124,7 @@ class Workspace {
       root: wrapped ?? _insertBeside(root, axis, newSessionId),
       focusedId: newSessionId,
       collapsedIds: collapsedIds,
-    ).reveal(newSessionId);
+    );
   }
 
   /// Removes a pane, returning null when it was the last one.

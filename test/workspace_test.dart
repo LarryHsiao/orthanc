@@ -407,7 +407,7 @@ void main() {
       expect(workspace.collapsedIds, expected);
     });
 
-    test('toggling the already-collapsed pane restores even shares', () {
+    test('toggling the same pane twice un-collapses it', () {
       final expected = <String>{};
 
       final workspace = Workspace.single('a')
@@ -418,14 +418,25 @@ void main() {
       expect(workspace.collapsedIds, expected);
     });
 
-    test('collapsing a different sibling replaces the column\'s entry', () {
-      final expected = {'c'};
+    test('collapsing a different sibling collapses both independently', () {
+      final expected = {'b', 'c'};
 
       final workspace = Workspace.single('a')
           .split(axis: SplitAxis.column, newSessionId: 'b')
           .split(axis: SplitAxis.column, newSessionId: 'c')
           .toggleCollapse('b')
           .toggleCollapse('c');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('collapsing every pane in a column is allowed', () {
+      final expected = {'a', 'b'};
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .toggleCollapse('a')
+          .toggleCollapse('b');
 
       expect(workspace.collapsedIds, expected);
     });
@@ -504,49 +515,19 @@ void main() {
     });
   });
 
-  group('Workspace.split clearing collapse', () {
-    test('splitting into an already-collapsed column reveals the new pane', () {
+  group('Workspace.reveal', () {
+    test('removes the target from collapsedIds when it is collapsed', () {
       final expected = <String>{};
 
-      // Column of (a over b), collapsed to 'a'. Focusing 'a' and splitting
-      // it along the column axis inserts 'c' as a new sibling row in the
-      // same column — which must reveal the whole column again.
-      final workspace = Workspace.single('a')
-          .split(axis: SplitAxis.column, newSessionId: 'b')
-          .toggleCollapse('a')
-          .split(axis: SplitAxis.column, newSessionId: 'c');
-
-      expect(workspace.collapsedIds, expected);
-    });
-
-    test('splitting a different, uncollapsed column leaves collapse alone', () {
-      final expected = {'b'};
-
-      // (a over b), collapsed to 'b'. A fresh row split off the whole tree
-      // wraps the root in a new row — 'b' stays exactly where it was, in
-      // the same column, so its collapse survives untouched.
       final workspace = Workspace.single('a')
           .split(axis: SplitAxis.column, newSessionId: 'b')
           .toggleCollapse('b')
-          .split(axis: SplitAxis.row, newSessionId: 'c');
-
-      expect(workspace.collapsedIds, expected);
-    });
-  });
-
-  group('Workspace.reveal', () {
-    test('clears the entry hiding a sibling in the same column', () {
-      final expected = <String>{};
-
-      final workspace = Workspace.single('a')
-          .split(axis: SplitAxis.column, newSessionId: 'b')
-          .toggleCollapse('a')
           .reveal('b');
 
       expect(workspace.collapsedIds, expected);
     });
 
-    test('is a no-op when the target is not hidden by any collapse', () {
+    test('is a no-op when the target is not collapsed', () {
       final expected = <String>{};
 
       final workspace = Workspace.single(
@@ -556,15 +537,14 @@ void main() {
       expect(workspace.collapsedIds, expected);
     });
 
-    test('leaves a different column\'s collapse untouched', () {
-      final expected = {'d'};
+    test('leaves every other collapsed pane untouched', () {
+      final expected = {'c'};
 
       final workspace = Workspace.single('a')
           .split(axis: SplitAxis.column, newSessionId: 'b')
-          .focus('a')
-          .split(axis: SplitAxis.row, newSessionId: 'c')
-          .split(axis: SplitAxis.column, newSessionId: 'd')
-          .toggleCollapse('d')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleCollapse('b')
+          .toggleCollapse('c')
           .reveal('b');
 
       expect(workspace.collapsedIds, expected);
