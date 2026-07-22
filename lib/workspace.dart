@@ -62,6 +62,27 @@ class Workspace {
     return Workspace(root: root, focusedId: sessionId, collapsedIds: updated);
   }
 
+  /// Clears whichever collapse entry (if any) is currently hiding
+  /// [sessionId] behind a different sibling in the same column, so
+  /// [sessionId] becomes visible. A no-op if [sessionId] isn't hidden.
+  Workspace reveal(String sessionId) {
+    final parent = _directParent(root, sessionId);
+    if (parent == null || parent.axis != SplitAxis.column) return this;
+
+    final siblingIds = {
+      for (final child in parent.children)
+        if (child is PaneNode) child.sessionId,
+    };
+    final hiding = collapsedIds.intersection(siblingIds)..remove(sessionId);
+    if (hiding.isEmpty) return this;
+
+    return Workspace(
+      root: root,
+      focusedId: focusedId,
+      collapsedIds: collapsedIds.difference(hiding),
+    );
+  }
+
   /// Every session whose direct parent is a column split with 2+ children —
   /// the panes a bar's collapse affordance should appear on.
   Set<String> get collapsibleIds {
@@ -112,7 +133,7 @@ class Workspace {
       root: wrapped ?? _insertBeside(root, axis, newSessionId),
       focusedId: newSessionId,
       collapsedIds: collapsedIds,
-    );
+    ).reveal(newSessionId);
   }
 
   /// Removes a pane, returning null when it was the last one.
@@ -130,7 +151,7 @@ class Workspace {
     return Workspace(
       root: remaining,
       focusedId: ids.contains(focusedId) ? focusedId : ids.first,
-      collapsedIds: collapsedIds,
+      collapsedIds: collapsedIds.where((id) => id != sessionId).toSet(),
     );
   }
 
