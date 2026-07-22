@@ -33,10 +33,15 @@ class PaneView extends StatelessWidget {
         children: [
           PaneBar(session: session, focused: focused),
           Expanded(
-            child: TerminalView(
-              session.terminal,
-              focusNode: session.focusNode,
-              onKeyEvent: onKeyEvent,
+            // xterm's RenderTerminal never clips its own paint, so a scroll
+            // can draw rows past its box and into PaneBar above it. Clip
+            // explicitly rather than rely on that render object doing it.
+            child: ClipRect(
+              child: TerminalView(
+                session.terminal,
+                focusNode: session.focusNode,
+                onKeyEvent: onKeyEvent,
+              ),
             ),
           ),
         ],
