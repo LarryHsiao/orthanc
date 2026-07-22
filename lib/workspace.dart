@@ -6,7 +6,11 @@ import 'layout_node.dart';
 /// lines with no setup and no teardown. It holds session ids, never sessions,
 /// which is why it needs neither a Flutter engine nor a live process.
 class Workspace {
-  const Workspace({required this.root, required this.focusedId});
+  const Workspace({
+    required this.root,
+    required this.focusedId,
+    this.collapsedIds = const {},
+  });
 
   /// The window holding a single session — how the app starts.
   factory Workspace.single(String sessionId) =>
@@ -14,6 +18,13 @@ class Workspace {
 
   final LayoutNode root;
   final String focusedId;
+
+  /// Session ids currently the sole expanded row within their own
+  /// direct-parent column. Scoped per column: two entries can coexist
+  /// freely as long as they belong to different columns, since a
+  /// column's own other rows are never independently reachable while one
+  /// of their siblings is the expanded one.
+  final Set<String> collapsedIds;
 
   /// Every session in the tree, left to right, top to bottom.
   List<String> get sessionIds => _idsOf(root);
@@ -26,7 +37,66 @@ class Workspace {
   };
 
   Workspace focus(String sessionId) =>
-      Workspace(root: root, focusedId: sessionId);
+      Workspace(root: root, focusedId: sessionId, collapsedIds: collapsedIds);
+
+  /// Sets [sessionId] as the sole expanded row within its own direct-parent
+  /// column, or restores that column to even shares if [sessionId] was
+  /// already the expanded one. No-ops when [sessionId]'s direct parent
+  /// isn't a column split with 2+ children — the one gate every caller
+  /// (a bar click, a hotkey) gets for free by going through here.
+  Workspace toggleCollapse(String sessionId) {
+    final parent = _directParent(root, sessionId);
+    if (parent == null ||
+        parent.axis != SplitAxis.column ||
+        parent.children.length < 2) {
+      return this;
+    }
+
+    final siblingIds = {
+      for (final child in parent.children)
+        if (child is PaneNode) child.sessionId,
+    };
+    final updated = {...collapsedIds}..removeAll(siblingIds);
+    if (!collapsedIds.contains(sessionId)) updated.add(sessionId);
+
+    return Workspace(root: root, focusedId: sessionId, collapsedIds: updated);
+  }
+
+  /// Every session whose direct parent is a column split with 2+ children —
+  /// the panes a bar's collapse affordance should appear on.
+  Set<String> get collapsibleIds {
+    final ids = <String>{};
+    _collectCollapsible(root, ids);
+    return ids;
+  }
+
+  static void _collectCollapsible(LayoutNode node, Set<String> into) {
+    if (node is PaneNode) return;
+    final split = node as SplitNode;
+    if (split.axis == SplitAxis.column && split.children.length >= 2) {
+      for (final child in split.children) {
+        if (child is PaneNode) into.add(child.sessionId);
+      }
+    }
+    for (final child in split.children) {
+      _collectCollapsible(child, into);
+    }
+  }
+
+  /// The nearest ancestor split holding [sessionId] as a direct child, or
+  /// null if [sessionId] is the whole tree (no parent at all).
+  static SplitNode? _directParent(LayoutNode node, String sessionId) {
+    if (node is PaneNode) return null;
+    final split = node as SplitNode;
+    for (final child in split.children) {
+      if (child is PaneNode && child.sessionId == sessionId) return split;
+    }
+    for (final child in split.children) {
+      final found = _directParent(child, sessionId);
+      if (found != null) return found;
+    }
+    return null;
+  }
 
   /// Divides the focused pane, putting [newSessionId] beside or below it.
   ///
@@ -41,6 +111,7 @@ class Workspace {
     return Workspace(
       root: wrapped ?? _insertBeside(root, axis, newSessionId),
       focusedId: newSessionId,
+      collapsedIds: collapsedIds,
     );
   }
 
@@ -59,6 +130,7 @@ class Workspace {
     return Workspace(
       root: remaining,
       focusedId: ids.contains(focusedId) ? focusedId : ids.first,
+      collapsedIds: collapsedIds,
     );
   }
 
@@ -131,6 +203,7 @@ class Workspace {
     return Workspace(
       root: _resized(root, split, dividerIndex, delta),
       focusedId: focusedId,
+      collapsedIds: collapsedIds,
     );
   }
 

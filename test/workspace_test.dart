@@ -364,4 +364,112 @@ void main() {
       },
     );
   });
+
+  group('Workspace.toggleCollapse', () {
+    test('collapses a pane whose direct parent is a 2-row column', () {
+      final expected = {'b'};
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.column, newSessionId: 'b').toggleCollapse('b');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('toggling the already-collapsed pane restores even shares', () {
+      final expected = <String>{};
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .toggleCollapse('b')
+          .toggleCollapse('b');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('collapsing a different sibling replaces the column\'s entry', () {
+      final expected = {'c'};
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleCollapse('b')
+          .toggleCollapse('c');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('focuses the pane it collapses', () {
+      const expected = 'b';
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.column, newSessionId: 'b').toggleCollapse('b');
+
+      expect(workspace.focusedId, expected);
+    });
+
+    test('no-ops on a pane inside a row split (side by side)', () {
+      final expected = <String>{};
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').toggleCollapse('b');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('no-ops on a lone pane with no split at all', () {
+      final expected = <String>{};
+
+      final workspace = Workspace.single('a').toggleCollapse('a');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('two different columns collapse independently', () {
+      final expected = {'b', 'd'};
+
+      // (a over b) | (c over d) — a row split holding two columns.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .focus('a')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .split(axis: SplitAxis.column, newSessionId: 'd')
+          .toggleCollapse('b')
+          .toggleCollapse('d');
+
+      expect(workspace.collapsedIds, expected);
+    });
+  });
+
+  group('Workspace.collapsibleIds', () {
+    test('is empty for a lone pane', () {
+      final expected = <String>{};
+
+      final ids = Workspace.single('a').collapsibleIds;
+
+      expect(ids, expected);
+    });
+
+    test('excludes panes in a row split', () {
+      final expected = <String>{};
+
+      final ids = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').collapsibleIds;
+
+      expect(ids, expected);
+    });
+
+    test('includes every direct child of a 2+-row column', () {
+      final expected = {'a', 'b'};
+
+      final ids = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.column, newSessionId: 'b').collapsibleIds;
+
+      expect(ids, expected);
+    });
+  });
 }
