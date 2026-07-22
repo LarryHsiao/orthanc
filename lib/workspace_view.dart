@@ -78,13 +78,17 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   void _moveFocus(Direction direction) {
     final target = workspace.neighbour(direction);
     if (target == null) return;
-    setState(() => workspace = workspace.focus(target));
+    setState(() => workspace = workspace.focus(target).reveal(target));
     _requestFocus(target);
   }
 
   void _onPaneFocus(String id) {
     setState(() => workspace = workspace.focus(id));
     _requestFocus(id);
+  }
+
+  void _toggleCollapse(String id) {
+    setState(() => workspace = workspace.toggleCollapse(id));
   }
 
   /// Moves keyboard focus onto [id]'s session, once end of frame arrives.
@@ -153,6 +157,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         _close(workspace.focusedId);
       case MoveFocus(:final direction):
         _moveFocus(direction);
+      case ToggleCollapse():
+        _toggleCollapse(workspace.focusedId);
     }
   }
 
@@ -172,8 +178,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         node: workspace.root,
         sessions: sessions,
         focusedId: workspace.focusedId,
+        collapsedIds: workspace.collapsedIds,
+        collapsibleIds: workspace.collapsibleIds,
         onFocus: _onPaneFocus,
         onKeyEvent: _onKey,
+        onToggleCollapse: _toggleCollapse,
         onResize: (split, index, delta) => setState(() {
           workspace = workspace.resizeSplit(
             split: split,

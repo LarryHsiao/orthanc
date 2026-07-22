@@ -5,15 +5,23 @@ import 'session.dart';
 
 /// The thin strip naming a pane.
 ///
-/// With no tab strip to carry a name, each pane names itself — and that is all
-/// this bar does.
+/// Carries a title, and — when [canCollapse] is true — a small collapse
+/// affordance a tap on the bar (wired by the caller, not here) toggles.
 class PaneBar extends StatelessWidget {
-  const PaneBar({super.key, required this.session, required this.focused});
+  const PaneBar({
+    super.key,
+    required this.session,
+    required this.focused,
+    required this.canCollapse,
+    required this.collapsed,
+  });
 
   static const height = 22.0;
 
   final Session session;
   final bool focused;
+  final bool canCollapse;
+  final bool collapsed;
 
   @override
   Widget build(BuildContext context) {
@@ -21,12 +29,21 @@ class PaneBar extends StatelessWidget {
     return Container(
       height: height,
       width: double.infinity,
-      alignment: Alignment.centerLeft,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       color: focused ? scheme.surfaceContainerHighest : scheme.surfaceContainer,
-      child: _title(scheme),
+      child: Row(
+        children: [
+          Expanded(child: _title(scheme)),
+          if (canCollapse) _collapseIcon(scheme),
+        ],
+      ),
     );
   }
+
+  Widget _collapseIcon(ColorScheme scheme) => Text(
+    collapsed ? '⤡' : '⤢',
+    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+  );
 
   Widget _title(ColorScheme scheme) {
     return ValueListenableBuilder(
