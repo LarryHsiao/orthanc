@@ -23,60 +23,20 @@
 
 ---
 
-### Task 1: Verify how Claude Code uses OSC 1 vs OSC 2
+### Task 1: Verify how Claude Code uses OSC 1 vs OSC 2 — DONE (completed by the controller, not dispatched)
 
-**Files:** none — this is a manual investigation task. Its finding determines whether Task 2's channel mapping needs adjusting before being implemented.
-
-**Interfaces:**
-- Consumes: nothing.
-- Produces: a recorded finding (appended to the spec's "Open question" section) that Task 2 reads before writing `Session`'s OSC wiring.
-
-- [ ] **Step 1: Capture raw bytes from a real Claude Code session**
-
-Run, from a normal terminal (not inside Orthanc, so the raw bytes are easy to inspect afterward):
-
-```bash
-script -q /tmp/orthanc-osc-capture.txt claude
-```
-
-This starts an interactive `claude` session with everything it outputs — including escape sequences — logged to `/tmp/orthanc-osc-capture.txt`.
-
-- [ ] **Step 2: Reproduce both moments from the spec's examples**
-
-Inside that session:
-1. Give it a short task (e.g. ask it to check something) and let it work — this is the "activity" moment.
-2. If Claude Code has a way to rename or retitle the current session (check `/help` inside the session for a relevant slash command), use it — this is the "rename" moment.
-3. Exit the session (`exit` or Ctrl-D) to stop the `script` capture.
-
-- [ ] **Step 3: Inspect the capture for OSC sequences**
-
-```bash
-od -c /tmp/orthanc-osc-capture.txt | grep -B1 -A1 '033   \]'
-```
-
-Each hit shows a chunk of the file around an escape (`033` = octal ESC) followed by `]`. An OSC sequence has the shape ESC `]` *Ps* `;` *text* (ESC `\` or BEL) — *Ps* is the parameter that matters: `0` (both channels), `1` (icon/name only), or `2` (title/activity only). Note, for both the activity moment and the rename moment, which *Ps* value appeared and what text followed it.
-
-- [ ] **Step 4: Record the finding in the spec**
-
-Open `docs/superpowers/specs/2026-07-22-orthanc-pane-title-design.md` and append under "Open question, resolved by a verification step, not a guess":
-
-```markdown
-**Verified 2026-07-22:** [one of the three outcomes below], based on capturing
-`claude`'s raw output via `script` during a real session.
-```
-
-Followed by whichever of these matches what was observed:
-
-- If activity used `Ps=2` and the rename used `Ps=1`: `"Confirmed — OSC 2 carries activity, OSC 1 carries the session name, exactly as designed. Task 2 proceeds with its default wiring unchanged."`
-- If the mapping was reversed (activity on `Ps=1`, name on `Ps=2`): `"Reversed from the spec's assumption — OSC 1 carries activity, OSC 2 carries the session name. Task 2's onTitleChange/onIconChange assignments must be swapped from what's written below before committing."`
-- If both moments used the same `Ps` (most likely `Ps=0`, or both `Ps=2`) with no separation: `"No separation — Claude Code does not split name from activity across OSC channels. Task 2 still adds the two fields for forward-compatibility, but name will never populate from Claude Code today; PaneBar's activity-only fallback (paneTitle() with an empty name) is what actually displays. This matches the spec's documented no-regression fallback, not a defect."`
-
-- [ ] **Step 5: Commit the recorded finding**
-
-```bash
-git add docs/superpowers/specs/2026-07-22-orthanc-pane-title-design.md
-git commit -m "Record OSC channel verification finding for pane title spec"
-```
+**Finding, verified 2026-07-22:** No separation. Capturing `claude`'s raw
+output via `script -q /tmp/orthanc-osc-capture3.txt claude < <input>` and
+inspecting it with `od -c` showed `033 ] 0 ; ✳ Claude Code \a` — OSC **0**,
+confirmed byte-for-byte. OSC 0 sets the icon-name and window-title channels
+to the identical string in one call (xterm.dart's parser,
+`parser.dart:1081-1084`, confirms this: `case '0': setTitle(pt);
+setIconName(pt);`). Consequence for this plan: `Session.name` and
+`Session.activity` will always be equal whenever Claude sets a title, not
+merely "name stays empty" — `paneTitle()` (Task 3) must guard against
+`name == activity`, not just `name.isEmpty`. Recorded in the spec's "Open
+question" section and decision 2, commit already made. Task 2 and Task 3
+below already reflect this finding — no further action needed for this task.
 
 ---
 
@@ -90,7 +50,7 @@ git commit -m "Record OSC channel verification finding for pane title spec"
 - Consumes: `Terminal.onTitleChange` and `Terminal.onIconChange` (both `void Function(String)?`, already present on the pinned `xterm.dart` fork's `Terminal` class).
 - Produces: `Session.activity` and `Session.name`, both `ValueNotifier<String>`, for `PaneBar` (Task 3) to read. `Session.title` no longer exists.
 
-If Task 1's finding says the mapping is reversed, swap which callback assigns to which notifier before committing this task. The code below assumes the default (unreversed) mapping.
+Task 1 confirmed Claude Code sets both channels identically via OSC 0 — the wiring below (OSC 2/`onTitleChange` → `activity`, OSC 1/`onIconChange` → `name`) stays as designed; no reversal needed. `Session.name` will in practice always equal `Session.activity` once Claude sets a title (Task 3's `paneTitle()` accounts for this).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -239,10 +199,22 @@ void main() {
     expect(result, expected);
   });
 
-  test('combines name and activity when both are set', () {
+  test('combines name and activity when both are set and differ', () {
     const expected = 'A — check status';
 
     final result = paneTitle(name: 'A', activity: 'check status');
+
+    expect(result, expected);
+  });
+
+  test('shows activity alone when name equals activity', () {
+    // The confirmed behavior of Claude Code's own OSC 0 title-setting
+    // (see the spec's "Verified 2026-07-22" note): both notifiers fire from
+    // the same event with the same string, so a naive combine would show
+    // the value twice.
+    const expected = '✳ Claude Code';
+
+    final result = paneTitle(name: '✳ Claude Code', activity: '✳ Claude Code');
 
     expect(result, expected);
   });
@@ -263,8 +235,14 @@ Create `lib/pane_title.dart`:
 /// [PaneBar] — both are shown together rather than one overwriting the
 /// other, since a running program can set either independently. See
 /// docs/superpowers/specs/2026-07-22-orthanc-pane-title-design.md.
+///
+/// Claude Code sets its title via OSC 0, which sets [name] and [activity]
+/// to the identical string in one call (confirmed empirically — see the
+/// spec's "Verified 2026-07-22" note) — so a [name] equal to [activity] is
+/// treated the same as an empty one, or the pane bar would show the value
+/// twice.
 String paneTitle({required String name, required String activity}) {
-  if (name.isEmpty) return activity;
+  if (name.isEmpty || name == activity) return activity;
   return '$name — $activity';
 }
 ```
@@ -765,9 +743,9 @@ flutter run -d macos
 
 In a pane, run `claude` and give it a short task. Confirm the pane bar's text updates to reflect what it's doing (not just its initial shell/executable label).
 
-- [ ] **Step 3: Confirm name and activity coexist**
+- [ ] **Step 3: Confirm the no-separation fallback shows cleanly**
 
-If Task 1 found a working rename mechanism, use it, then give Claude another short task. Confirm the pane bar shows both — `"$name — $activity"` — and that the activity keeps updating without the name disappearing. If Task 1 found no separation exists, confirm instead that the pane bar still shows activity alone with no visual glitch (the documented fallback).
+Task 1 confirmed Claude Code sets both channels identically via OSC 0, so `name` and `activity` are always equal today. Confirm the pane bar shows the activity text once, not duplicated (`"✳ Claude Code — ✳ Claude Code"` would mean `paneTitle()`'s `name == activity` guard isn't working), while Claude works on a couple of different short tasks in sequence.
 
 - [ ] **Step 4: Confirm idle pwd**
 

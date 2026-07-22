@@ -58,6 +58,19 @@ both channels to the same string — `name` simply never diverges from
 `activity` alone: today's behavior, no regression, no special-casing needed to
 achieve that fallback.
 
+**Verified 2026-07-22:** No separation. Capturing `claude`'s raw output via
+`script` shows it sets its title with `ESC ] 0 ; ✳ Claude Code BEL` — OSC 0,
+confirmed byte-for-byte (`od -c` on the capture) — never OSC 1 or OSC 2 alone.
+Per OSC 0's own semantics (and the xterm.dart parser Orthanc pins:
+`parser.dart:1081-1084`), that sets the icon-name and window-title channels to
+the *identical* string in one call. The consequence is more specific than
+"`name` never populates": `name` and `activity` will always be equal
+whenever Claude sets a title, since both notifiers fire from the same event
+with the same value. `paneTitle()`'s combine rule (decision 2) must guard
+against `name == activity`, not merely `name.isEmpty`, or the pane bar will
+show a duplicated `"✳ Claude Code — ✳ Claude Code"` instead of falling back
+to the single-field display this fallback was meant to produce.
+
 ## Decisions
 
 1. **Two `ValueNotifier<String>` fields on `Session`, replacing the single
@@ -66,9 +79,12 @@ achieve that fallback.
    a new `onIconChange` wiring (OSC 1): Claude's session/conversation name,
    set only when Claude renames it, empty until then.
 
-2. **`PaneBar` combines them as `"$name — $activity"` when a name is set, or
-   `activity` alone when it isn't.** No third state to design for — an empty
-   `name` is simply omitted rather than shown as a dash or placeholder.
+2. **`PaneBar` combines them as `"$name — $activity"` when a name is set and
+   differs from `activity`, or `activity` alone otherwise.** An empty `name`
+   is simply omitted rather than shown as a dash or placeholder; a `name`
+   equal to `activity` — the confirmed OSC 0 case, where both notifiers fire
+   from the same event with the same string — collapses to the same
+   activity-only display, rather than showing the value twice.
 
 3. **A shell prompt hook resets `activity` to the pwd on every prompt
    redraw.** The pane's shell is launched with a small init script — sourcing
