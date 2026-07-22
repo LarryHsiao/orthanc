@@ -106,10 +106,12 @@ DMG_STAGE="$OUTPUT_DIR/dmg-stage"
 rm -rf "$DMG_STAGE"
 mkdir -p "$DMG_STAGE"
 cp -R "$APP_PATH" "$DMG_STAGE/"
-ln -sfn /Applications "$DMG_STAGE/Applications"
 
 if command -v create-dmg >/dev/null 2>&1; then
   echo "==> Building DMG with create-dmg"
+  # create-dmg makes its own Applications symlink via --app-drop-link; a
+  # pre-staged one collides with it ("File exists") and create-dmg aborts,
+  # silently falling through to the plainer hdiutil path below.
   create-dmg \
     --volname "$APP_NAME" \
     --window-pos 200 120 \
@@ -122,6 +124,9 @@ fi
 
 if [ ! -f "$DMG_PATH" ]; then
   echo "==> create-dmg unavailable or failed; falling back to hdiutil"
+  # hdiutil has no equivalent of --app-drop-link, so the symlink must be
+  # staged by hand for this path only.
+  ln -sfn /Applications "$DMG_STAGE/Applications"
   hdiutil create \
     -volname "$APP_NAME" \
     -srcfolder "$DMG_STAGE" \
