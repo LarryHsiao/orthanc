@@ -9,10 +9,12 @@ import 'sessions.dart';
 ///
 /// This walks the tree and nothing more — every decision about shape was
 /// made in [Workspace], where it can be tested. A divider drag reports a
-/// delta and lets the tree decide what it means. A column with one of its
-/// direct children in [collapsedIds] renders that child at full size and
-/// every other direct pane child as a bar-only strip — see
-/// [_buildCollapsedSplitChildren].
+/// delta and lets the tree decide what it means. Each pane's collapse
+/// state is independent: a column with at least one direct pane child in
+/// [collapsedIds] shrinks every collapsed child to bar height and splits
+/// the reclaimed space evenly among whatever remains expanded — see
+/// [_buildCollapsedSplitChildren]. A column with nothing collapsed renders
+/// by its stored ratios exactly as before, dividers and all.
 class SplitView extends StatelessWidget {
   const SplitView({
     super.key,
@@ -48,9 +50,9 @@ class SplitView extends StatelessWidget {
     };
   }
 
-  Widget _pane(String sessionId) => _shrinkablePane(sessionId, shrunk: false);
+  Widget _pane(String sessionId) => _shrinkablePane(sessionId);
 
-  Widget _shrinkablePane(String sessionId, {required bool shrunk}) {
+  Widget _shrinkablePane(String sessionId) {
     final session = sessions[sessionId];
     if (session == null) return const SizedBox.shrink();
     return PaneView(
@@ -60,22 +62,17 @@ class SplitView extends StatelessWidget {
       onKeyEvent: onKeyEvent,
       canCollapse: collapsibleIds.contains(sessionId),
       collapsed: collapsedIds.contains(sessionId),
-      shrunk: shrunk,
       onToggleCollapse: () => onToggleCollapse(sessionId),
     );
   }
 
-  /// The direct child of [split] currently expanded, or null if none of
-  /// [split]'s direct pane children is in [collapsedIds] — including
-  /// whenever [split] doesn't run the column axis at all.
-  String? _expandedChildId(SplitNode split) {
-    if (split.axis != SplitAxis.column) return null;
-    for (final child in split.children) {
-      if (child is PaneNode && collapsedIds.contains(child.sessionId)) {
-        return child.sessionId;
-      }
-    }
-    return null;
+  /// Whether any direct pane child of [split] is currently collapsed —
+  /// always false whenever [split] isn't a column at all.
+  bool _hasCollapsedChild(SplitNode split) {
+    if (split.axis != SplitAxis.column) return false;
+    return split.children.any(
+      (child) => child is PaneNode && collapsedIds.contains(child.sessionId),
+    );
   }
 
   Widget _split(SplitNode split) {
@@ -87,11 +84,10 @@ class SplitView extends StatelessWidget {
             : constraints.maxHeight;
         final dividers = split.children.length - 1;
         final free = extent - dividers * dividerThickness;
-        final expandedId = _expandedChildId(split);
 
-        final children = expandedId == null
-            ? _buildEvenSplitChildren(split, context, horizontal, free)
-            : _buildCollapsedSplitChildren(split, horizontal, free, expandedId);
+        final children = _hasCollapsedChild(split)
+            ? _buildCollapsedSplitChildren(split, free)
+            : _buildRatioSplitChildren(split, context, horizontal, free);
 
         return horizontal
             ? Row(
@@ -106,7 +102,7 @@ class SplitView extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildEvenSplitChildren(
+  List<Widget> _buildRatioSplitChildren(
     SplitNode split,
     BuildContext context,
     bool horizontal,
@@ -117,12 +113,12 @@ class SplitView extends StatelessWidget {
       if (i > 0) {
         children.add(_divider(context, split, i - 1, horizontal, free));
       }
-      children.add(_buildEvenSplitChild(split, i, horizontal, free));
+      children.add(_buildRatioSplitChild(split, i, horizontal, free));
     }
     return children;
   }
 
-  Widget _buildEvenSplitChild(
+  Widget _buildRatioSplitChild(
     SplitNode split,
     int index,
     bool horizontal,
@@ -135,52 +131,40 @@ class SplitView extends StatelessWidget {
     );
   }
 
-  /// Sizes a collapsed column's children: the expanded row absorbs every
-  /// bit of space its shrunk pane-siblings gave up. A sibling that is
-  /// itself a nested split (not a bare pane) has no single bar to shrink
-  /// to, so it keeps its ordinary ratio-based share untouched — a known,
-  /// accepted edge case rather than something this generalizes further.
-  /// No dividers: a fixed-height shrunk row isn't draggable.
-  List<Widget> _buildCollapsedSplitChildren(
-    SplitNode split,
-    bool horizontal,
-    double free,
-    String expandedId,
-  ) {
-    var fixedTotal = 0.0;
-    var ratioTotal = 0.0;
-    for (var i = 0; i < split.children.length; i++) {
-      final child = split.children[i];
-      if (child is PaneNode && child.sessionId != expandedId) {
-        fixedTotal += PaneBar.height;
-      } else if (child is SplitNode) {
-        ratioTotal += free * split.ratios[i];
-      }
-    }
-    final expandedSize = (free - fixedTotal - ratioTotal).clamp(0.0, free);
+  /// Sizes a column with at least one collapsed pane: every collapsed
+  /// direct pane child shrinks to [PaneBar.height]; everything else — an
+  /// expanded pane, or a nested split child, which is never itself
+  /// collapsible — shares the reclaimed space evenly. Ratios are ignored
+  /// entirely in this state. Only ever called for a column split, so
+  /// height is the only dimension that matters here — no [horizontal]
+  /// branch needed. No dividers: a fixed-height collapsed row isn't
+  /// draggable, and an evenly-split expanded row isn't either.
+  List<Widget> _buildCollapsedSplitChildren(SplitNode split, double free) {
+    final collapsedCount = split.children
+        .whereType<PaneNode>()
+        .where((pane) => collapsedIds.contains(pane.sessionId))
+        .length;
+    final expandedCount = split.children.length - collapsedCount;
+    final fixedTotal = collapsedCount * PaneBar.height;
+    final evenSize = expandedCount == 0
+        ? 0.0
+        : ((free - fixedTotal) / expandedCount).clamp(0.0, free);
 
     final children = <Widget>[];
-    for (var i = 0; i < split.children.length; i++) {
-      final child = split.children[i];
-      if (child is PaneNode) {
-        final isExpanded = child.sessionId == expandedId;
-        final size = isExpanded ? expandedSize : PaneBar.height;
+    for (final child in split.children) {
+      if (child is PaneNode && collapsedIds.contains(child.sessionId)) {
         children.add(
           SizedBox(
-            width: horizontal ? size : null,
-            height: horizontal ? null : size,
-            child: _shrinkablePane(child.sessionId, shrunk: !isExpanded),
+            height: PaneBar.height,
+            child: _shrinkablePane(child.sessionId),
           ),
+        );
+      } else if (child is PaneNode) {
+        children.add(
+          SizedBox(height: evenSize, child: _shrinkablePane(child.sessionId)),
         );
       } else {
-        final size = free * split.ratios[i];
-        children.add(
-          SizedBox(
-            width: horizontal ? size : null,
-            height: horizontal ? null : size,
-            child: _childSplitView(child),
-          ),
-        );
+        children.add(SizedBox(height: evenSize, child: _childSplitView(child)));
       }
     }
     return children;

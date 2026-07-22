@@ -4,9 +4,10 @@ import 'package:xterm/xterm.dart';
 import 'pane_bar.dart';
 import 'session.dart';
 
-/// One pane: its bar, and the terminal beneath — unless [shrunk], in which
-/// case only the bar renders, at its own fixed height, and the terminal is
-/// skipped entirely. A pane's [Session] outlives this widget either way.
+/// One pane: its bar, and the terminal beneath — unless [collapsed], in
+/// which case only the bar renders, at its own fixed height, and the
+/// terminal is skipped entirely. A pane's [Session] outlives this widget
+/// either way.
 class PaneView extends StatelessWidget {
   const PaneView({
     super.key,
@@ -16,7 +17,6 @@ class PaneView extends StatelessWidget {
     required this.onKeyEvent,
     required this.canCollapse,
     required this.collapsed,
-    required this.shrunk,
     required this.onToggleCollapse,
   });
 
@@ -26,7 +26,6 @@ class PaneView extends StatelessWidget {
   final FocusOnKeyEventCallback onKeyEvent;
   final bool canCollapse;
   final bool collapsed;
-  final bool shrunk;
   final VoidCallback onToggleCollapse;
 
   @override
@@ -47,7 +46,7 @@ class PaneView extends StatelessWidget {
               collapsed: collapsed,
             ),
           ),
-          if (!shrunk)
+          if (!collapsed)
             Expanded(
               // xterm's RenderTerminal never clips its own paint, so a scroll
               // can draw rows past its box and into PaneBar above it. Clip
