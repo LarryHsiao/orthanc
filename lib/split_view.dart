@@ -157,7 +157,7 @@ class SplitView extends StatelessWidget {
         ratioTotal += free * split.ratios[i];
       }
     }
-    final expandedSize = free - fixedTotal - ratioTotal;
+    final expandedSize = (free - fixedTotal - ratioTotal).clamp(0.0, free);
 
     final children = <Widget>[];
     for (var i = 0; i < split.children.length; i++) {

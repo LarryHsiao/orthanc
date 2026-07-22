@@ -52,10 +52,7 @@ class Workspace {
       return this;
     }
 
-    final siblingIds = {
-      for (final child in parent.children)
-        if (child is PaneNode) child.sessionId,
-    };
+    final siblingIds = _paneChildIds(parent);
     final updated = {...collapsedIds}..removeAll(siblingIds);
     if (!collapsedIds.contains(sessionId)) updated.add(sessionId);
 
@@ -69,10 +66,7 @@ class Workspace {
     final parent = _directParent(root, sessionId);
     if (parent == null || parent.axis != SplitAxis.column) return this;
 
-    final siblingIds = {
-      for (final child in parent.children)
-        if (child is PaneNode) child.sessionId,
-    };
+    final siblingIds = _paneChildIds(parent);
     final hiding = collapsedIds.intersection(siblingIds)..remove(sessionId);
     if (hiding.isEmpty) return this;
 
@@ -95,14 +89,19 @@ class Workspace {
     if (node is PaneNode) return;
     final split = node as SplitNode;
     if (split.axis == SplitAxis.column && split.children.length >= 2) {
-      for (final child in split.children) {
-        if (child is PaneNode) into.add(child.sessionId);
-      }
+      into.addAll(_paneChildIds(split));
     }
     for (final child in split.children) {
       _collectCollapsible(child, into);
     }
   }
+
+  /// The session ids of [split]'s own direct pane children — excludes any
+  /// child that is itself a nested split.
+  static Set<String> _paneChildIds(SplitNode split) => {
+    for (final child in split.children)
+      if (child is PaneNode) child.sessionId,
+  };
 
   /// The nearest ancestor split holding [sessionId] as a direct child, or
   /// null if [sessionId] is the whole tree (no parent at all).

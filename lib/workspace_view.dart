@@ -89,6 +89,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 
   void _toggleCollapse(String id) {
     setState(() => workspace = workspace.toggleCollapse(id));
+    _requestFocus(id);
   }
 
   /// Moves keyboard focus onto [id]'s session, once end of frame arrives.
