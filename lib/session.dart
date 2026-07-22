@@ -7,6 +7,7 @@ import 'package:flutter_pty/flutter_pty.dart';
 import 'package:xterm/xterm.dart';
 
 import 'pty_environment.dart';
+import 'shell_prompt_hook.dart';
 
 /// One running program, its terminal, and what the window needs to know of it.
 ///
@@ -65,14 +66,21 @@ class Session {
     // double-clicked .app, not just this dev session. Default to $HOME.
     final home =
         Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    final hook = shellPromptHook(
+      isWindows: Platform.isWindows,
+      executable: executable,
+      environment: Platform.environment,
+    );
+    final env = ptyEnvironment(
+      isWindows: Platform.isWindows,
+      environment: Platform.environment,
+    );
     return Pty.start(
       executable,
+      arguments: hook.arguments,
       columns: terminal.viewWidth,
       rows: terminal.viewHeight,
-      environment: ptyEnvironment(
-        isWindows: Platform.isWindows,
-        environment: Platform.environment,
-      ),
+      environment: {...?env, ...hook.environment},
       workingDirectory: home,
     );
   }
