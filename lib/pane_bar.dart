@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'pane_title.dart';
 import 'session.dart';
 
 /// The thin strip naming a pane.
@@ -29,14 +30,17 @@ class PaneBar extends StatelessWidget {
 
   Widget _title(ColorScheme scheme) {
     return ValueListenableBuilder(
-      valueListenable: session.title,
-      builder: (context, title, child) => Text(
-        title,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
-          color: scheme.onSurface,
+      valueListenable: session.name,
+      builder: (context, name, child) => ValueListenableBuilder(
+        valueListenable: session.activity,
+        builder: (context, activity, child) => Text(
+          paneTitle(name: name, activity: activity),
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+            color: scheme.onSurface,
+          ),
         ),
       ),
     );

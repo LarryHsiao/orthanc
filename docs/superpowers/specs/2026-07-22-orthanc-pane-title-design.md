@@ -58,6 +58,19 @@ both channels to the same string — `name` simply never diverges from
 `activity` alone: today's behavior, no regression, no special-casing needed to
 achieve that fallback.
 
+**Verified 2026-07-22:** No separation. Capturing `claude`'s raw output via
+`script` shows it sets its title with `ESC ] 0 ; ✳ Claude Code BEL` — OSC 0,
+confirmed byte-for-byte (`od -c` on the capture) — never OSC 1 or OSC 2 alone.
+Per OSC 0's own semantics (and the xterm.dart parser Orthanc pins:
+`parser.dart:1081-1084`), that sets the icon-name and window-title channels to
+the *identical* string in one call. The consequence is more specific than
+"`name` never populates": `name` and `activity` will always be equal
+whenever Claude sets a title, since both notifiers fire from the same event
+with the same value. `paneTitle()`'s combine rule (decision 2) must guard
+against `name == activity`, not merely `name.isEmpty`, or the pane bar will
+show a duplicated `"✳ Claude Code — ✳ Claude Code"` instead of falling back
+to the single-field display this fallback was meant to produce.
+
 ## Decisions
 
 1. **Two `ValueNotifier<String>` fields on `Session`, replacing the single
@@ -66,17 +79,28 @@ achieve that fallback.
    a new `onIconChange` wiring (OSC 1): Claude's session/conversation name,
    set only when Claude renames it, empty until then.
 
-2. **`PaneBar` combines them as `"$name — $activity"` when a name is set, or
-   `activity` alone when it isn't.** No third state to design for — an empty
-   `name` is simply omitted rather than shown as a dash or placeholder.
+2. **`PaneBar` combines them as `"$name — $activity"` when a name is set and
+   differs from `activity`, or `activity` alone otherwise.** An empty `name`
+   is simply omitted rather than shown as a dash or placeholder; a `name`
+   equal to `activity` — the confirmed OSC 0 case, where both notifiers fire
+   from the same event with the same string — collapses to the same
+   activity-only display, rather than showing the value twice.
 
-3. **A shell prompt hook resets `activity` to the pwd on every prompt
-   redraw.** The pane's shell is launched with a small init script — sourcing
-   the user's real rc file first, then adding a precmd/PROMPT_COMMAND hook —
-   that emits an OSC 2 update on each prompt. Scoped to what
-   `shellCommand()` (`lib/shell_command.dart`) actually spawns today: bash/zsh
-   on macOS, `cmd.exe` on Windows. Other shells (fish, PowerShell, etc.) are
-   not handled — see Deferred.
+3. **A shell prompt hook resets both `activity` and `name` to the pwd on
+   every prompt redraw.** The pane's shell is launched with a small init
+   script — sourcing the user's real rc file first, then adding a
+   precmd/PROMPT_COMMAND hook — that emits an OSC 1 update immediately
+   followed by an OSC 2 update on each prompt, both carrying the same pwd.
+   Resetting OSC 1 here is safe specifically because the hook only fires
+   from an idle prompt redraw — no foreground child process could be setting
+   its own name at that moment — so it can only clear a *stale* name a
+   since-exited program left behind, never a live one. That reset is what
+   makes decision 2's `name == activity` collapse actually reach the idle
+   state, rather than a finished program's name lingering as a permanent
+   prefix forever. Scoped to what `shellCommand()`
+   (`lib/shell_command.dart`) actually spawns today: bash/zsh on macOS,
+   `cmd.exe` on Windows. Other shells (fish, PowerShell, etc.) are not
+   handled — see Deferred.
 
 4. **The OS window title bar is untouched.** Confirmed explicitly during
    design discussion: "the title" the user meant throughout was always
@@ -139,9 +163,20 @@ instead of a stale Claude title, on both bash/zsh (macOS) and `cmd.exe`
   name from activity, do not invent a heuristic to fake the split — fall back
   to `activity`-only display, matching today's behavior, and note it plainly
   rather than silently shipping a `name` field that never populates.
-- The shell hook must use OSC 2 specifically. Using OSC 0 for the pwd reset
-  would also overwrite `name` (OSC 1) every time the shell redraws its
-  prompt, silently breaking decision 1 the moment it's exercised.
+- **Corrected during implementation review:** this section originally forbade
+  the shell hook from ever touching OSC 1, reasoning that doing so would
+  overwrite `name` every time the shell redraws its prompt. That reasoning
+  proved too broad — a whole-branch review caught that the *actual* bug it
+  should have named is the opposite one: never resetting OSC 1 meant a
+  finished program's `name` was never cleared, so the pane bar showed a
+  stale name prefix permanently once `claude` had run once in a pane (see
+  decision 3, which now resets OSC 1 deliberately). The real constraint,
+  correctly stated, is: the hook must never fire while a foreground child
+  process could be setting its own OSC 1 — which a prompt-redraw hook
+  structurally cannot, since the shell only reclaims the prompt once nothing
+  foreground owns the terminal. OSC 0 remains unused by this hook regardless
+  (two explicit OSC 1 + OSC 2 sequences are used instead), but not because
+  touching OSC 1 itself is unsafe.
 - The init-script injection must not mutate the user's actual `.bashrc` /
   `.zshrc` on disk — it sources the user's real rc file and layers the hook
   on top, in a temp file or override directory, exactly as VS Code's shell

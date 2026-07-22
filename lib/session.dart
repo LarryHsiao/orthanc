@@ -7,6 +7,7 @@ import 'package:flutter_pty/flutter_pty.dart';
 import 'package:xterm/xterm.dart';
 
 import 'pty_environment.dart';
+import 'shell_prompt_hook.dart';
 
 /// One running program, its terminal, and what the window needs to know of it.
 ///
@@ -27,9 +28,14 @@ class Session {
   /// here rather than in a State.
   late final focusNode = FocusNode(debugLabel: 'session $id');
 
-  /// The title the running program sets for itself, via OSC 0/2 — the same one
-  /// tmux and iTerm show. Claude Code writes its current task there.
-  late final ValueNotifier<String> title = ValueNotifier(executable);
+  /// What the running program is doing right now, via OSC 2 ("window
+  /// title") — Claude Code's current task while it runs, or the shell's own
+  /// prompt hook announcing its pwd once idle (see shell_prompt_hook.dart).
+  late final ValueNotifier<String> activity = ValueNotifier(executable);
+
+  /// The session's own name, via OSC 1 ("icon name") — set only when the
+  /// running program renames itself; empty until then.
+  late final ValueNotifier<String> name = ValueNotifier('');
 
   Pty? _pty;
   final _exited = Completer<int>();
@@ -60,14 +66,21 @@ class Session {
     // double-clicked .app, not just this dev session. Default to $HOME.
     final home =
         Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    final hook = shellPromptHook(
+      isWindows: Platform.isWindows,
+      executable: executable,
+      environment: Platform.environment,
+    );
+    final env = ptyEnvironment(
+      isWindows: Platform.isWindows,
+      environment: Platform.environment,
+    );
     return Pty.start(
       executable,
+      arguments: hook.arguments,
       columns: terminal.viewWidth,
       rows: terminal.viewHeight,
-      environment: ptyEnvironment(
-        isWindows: Platform.isWindows,
-        environment: Platform.environment,
-      ),
+      environment: {...?env, ...hook.environment},
       workingDirectory: home,
     );
   }
@@ -89,7 +102,11 @@ class Session {
     };
 
     terminal.onTitleChange = (value) {
-      if (value.isNotEmpty) title.value = value;
+      if (value.isNotEmpty) activity.value = value;
+    };
+
+    terminal.onIconChange = (value) {
+      if (value.isNotEmpty) name.value = value;
     };
   }
 
@@ -107,6 +124,7 @@ class Session {
     _disposed = true;
     if (!_processExited) _pty?.kill();
     focusNode.dispose();
-    title.dispose();
+    activity.dispose();
+    name.dispose();
   }
 }

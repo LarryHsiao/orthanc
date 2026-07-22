@@ -12,12 +12,20 @@ void main() {
     expect(session.executable, expectedExecutable);
   });
 
-  test('starts titled by its executable', () {
-    const expectedTitle = 'cmd.exe';
+  test('starts with its activity set to its executable', () {
+    const expectedActivity = 'cmd.exe';
 
     final session = Session(id: 'a', executable: 'cmd.exe');
 
-    expect(session.title.value, expectedTitle);
+    expect(session.activity.value, expectedActivity);
+  });
+
+  test('starts with no name', () {
+    const expectedName = '';
+
+    final session = Session(id: 'a', executable: 'cmd.exe');
+
+    expect(session.name.value, expectedName);
   });
 
   test('dispose() on a never-started session does not throw', () {
