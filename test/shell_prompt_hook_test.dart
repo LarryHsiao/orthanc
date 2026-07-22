@@ -46,9 +46,10 @@ void main() {
       expect(result.contains('source'), isFalse);
     });
 
-    test('sets an OSC 2 title, never OSC 0, in the printf line', () {
+    test('resets both OSC 1 and OSC 2 to pwd, never OSC 0', () {
       final result = bashPromptHookScript(userBashrc: null);
 
+      expect(result.contains(']1;%s'), isTrue);
       expect(result.contains(']2;%s'), isTrue);
       expect(result.contains(']0;'), isFalse);
     });
@@ -85,6 +86,33 @@ void main() {
 
       expect(result.contains(expected), isTrue);
     });
+
+    test('resets both OSC 1 and OSC 2 to pwd, never OSC 0', () {
+      final result = zshPromptHookScript(userZshrc: null);
+
+      expect(result.contains(']1;%s'), isTrue);
+      expect(result.contains(']2;%s'), isTrue);
+      expect(result.contains(']0;'), isFalse);
+    });
+  });
+
+  group('zshEnvHookScript', () {
+    test('sources the user zshenv file when one is given', () {
+      final expected =
+          '[ -f "/home/larry/.zshenv" ] && source "/home/larry/.zshenv"';
+
+      final result = zshEnvHookScript(userZshenv: '/home/larry/.zshenv');
+
+      expect(result.contains(expected), isTrue);
+    });
+
+    test('is empty when there is no user zshenv file', () {
+      const expected = '';
+
+      final result = zshEnvHookScript(userZshenv: null);
+
+      expect(result, expected);
+    });
   });
 
   group('cmdPromptHookArguments', () {
@@ -96,12 +124,16 @@ void main() {
       expect(result.first, expected);
     });
 
-    test('sets an OSC 2 title, never OSC 0, via the PROMPT special codes', () {
-      final result = cmdPromptHookArguments();
+    test(
+      'resets both OSC 1 and OSC 2 via the PROMPT special codes, never OSC 0',
+      () {
+        final result = cmdPromptHookArguments();
 
-      expect(result.last.contains(r']2;'), isTrue);
-      expect(result.last.contains(r']0;'), isFalse);
-    });
+        expect(result.last.contains(r']1;'), isTrue);
+        expect(result.last.contains(r']2;'), isTrue);
+        expect(result.last.contains(r']0;'), isFalse);
+      },
+    );
   });
 
   group('shellPromptHook', () {
@@ -164,6 +196,12 @@ void main() {
       expect(
         rcFile.readAsStringSync(),
         zshPromptHookScript(userZshrc: '/home/larry/.zshrc'),
+      );
+      final envFile = File('$zdotdir/.zshenv');
+      expect(envFile.existsSync(), isTrue);
+      expect(
+        envFile.readAsStringSync(),
+        zshEnvHookScript(userZshenv: '/home/larry/.zshenv'),
       );
     });
   });

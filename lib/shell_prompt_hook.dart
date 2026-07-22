@@ -13,13 +13,17 @@ ShellKind? shellKind(String executable) {
   return null;
 }
 
-/// The OSC 2 sequence, in shell syntax, that announces the shell's own
-/// working directory as the pane's current activity. OSC 2 specifically —
-/// never OSC 0 — so it never touches the session name a running program set
-/// on OSC 1.
+/// The OSC 1 + OSC 2 sequence, in shell syntax, that announces the shell's
+/// own working directory as both the pane's current activity (OSC 2) and,
+/// deliberately, its name (OSC 1) — this only ever fires from an idle
+/// prompt redraw, when no foreground child process could have set a name of
+/// its own, so resetting OSC 1 here can only clear a stale name a since-
+/// exited program left behind. That reset is what makes `paneTitle()`'s
+/// `name == activity` collapse apply once idle, instead of a finished
+/// program's name lingering as a permanent prefix.
 const _titleHookFunction = r'''
 __orthanc_title_hook() {
-  printf '\033]2;%s\033\\' "$PWD"
+  printf '\033]1;%s\033\\\033]2;%s\033\\' "$PWD" "$PWD"
 }
 ''';
 
@@ -47,12 +51,24 @@ String zshPromptHookScript({required String? userZshrc}) {
       'precmd_functions+=(__orthanc_title_hook)\n';
 }
 
+/// The `.zshenv` a temporary `ZDOTDIR` should hold: sources the user's own
+/// `.zshenv` (if [userZshenv] is given). zsh reads `.zshenv` for every
+/// invocation, interactive or not — commonly carrying `PATH`/env setup —
+/// and skips it entirely once `ZDOTDIR` points elsewhere unless something
+/// puts one there.
+String zshEnvHookScript({required String? userZshenv}) {
+  if (userZshenv == null) return '';
+  return '[ -f "$userZshenv" ] && source "$userZshenv"\n';
+}
+
 /// The `cmd.exe` arguments that make it announce its own path as the pane's
-/// current activity on every prompt: `$P` (path) and `$G$S` (`> `, cmd's own
-/// default prompt tail) are both re-evaluated by cmd.exe on every prompt
-/// redraw, so — unlike bash/zsh — no rc-file injection is needed.
+/// current activity (and, deliberately, its name — see [_titleHookFunction]
+/// for why resetting both here is safe) on every prompt: `$P` (path) and
+/// `$G$S` (`> `, cmd's own default prompt tail) are both re-evaluated by
+/// cmd.exe on every prompt redraw, so — unlike bash/zsh — no rc-file
+/// injection is needed.
 List<String> cmdPromptHookArguments() {
-  return ['/K', r'prompt $E]2;$P$E\$P$G$S'];
+  return ['/K', r'prompt $E]1;$P$E\$E]2;$P$E\$P$G$S'];
 }
 
 /// What to hand `Pty.start`, on top of what [executable] already needs, so
@@ -107,7 +123,13 @@ ShellLaunch _installBashHook({required Map<String, String> environment}) {
 ShellLaunch _installZshHook({required Map<String, String> environment}) {
   final originalZdotdir = environment['ZDOTDIR'] ?? environment['HOME'];
   final userZshrc = originalZdotdir == null ? null : '$originalZdotdir/.zshrc';
+  final userZshenv = originalZdotdir == null
+      ? null
+      : '$originalZdotdir/.zshenv';
   final dir = Directory.systemTemp.createTempSync('orthanc-zsh-');
+  File(
+    '${dir.path}/.zshenv',
+  ).writeAsStringSync(zshEnvHookScript(userZshenv: userZshenv));
   File(
     '${dir.path}/.zshrc',
   ).writeAsStringSync(zshPromptHookScript(userZshrc: userZshrc));
