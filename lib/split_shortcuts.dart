@@ -23,6 +23,10 @@ class MoveFocus extends PaneAction {
   final Direction direction;
 }
 
+class ToggleCollapse extends PaneAction {
+  const ToggleCollapse();
+}
+
 /// What a key press means to the layout, or null to let the terminal have it.
 ///
 /// Each platform wears the scheme of the terminal already in use there — iTerm2
@@ -73,6 +77,7 @@ PaneAction? _windowsAction(
     if (key == LogicalKeyboardKey.minus) {
       return const SplitPane(SplitAxis.column);
     }
+    if (key == LogicalKeyboardKey.keyZ) return const ToggleCollapse();
   }
   if (isControlPressed &&
       isShiftPressed &&
@@ -109,6 +114,12 @@ PaneAction? _macAction(
   if (isMetaPressed && isAltPressed && !isShiftPressed) {
     final direction = _arrow(key);
     if (direction != null) return MoveFocus(direction);
+  }
+  if (isMetaPressed &&
+      isShiftPressed &&
+      !isAltPressed &&
+      key == LogicalKeyboardKey.enter) {
+    return const ToggleCollapse();
   }
   return null;
 }

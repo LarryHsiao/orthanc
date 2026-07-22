@@ -71,6 +71,16 @@ void main() {
       expect((action as MoveFocus).direction, expected);
     });
 
+    test('Cmd+Shift+Enter toggles collapse', () {
+      final action = macAction(
+        LogicalKeyboardKey.enter,
+        meta: true,
+        shift: true,
+      );
+
+      expect(action, isA<ToggleCollapse>());
+    });
+
     test('Cmd+Shift+W is left for the terminal — extra modifier', () {
       const expected = null;
 
@@ -133,6 +143,16 @@ void main() {
       final action = windowsAction(LogicalKeyboardKey.arrowDown, alt: true);
 
       expect((action as MoveFocus).direction, expected);
+    });
+
+    test('Alt+Shift+Z toggles collapse', () {
+      final action = windowsAction(
+        LogicalKeyboardKey.keyZ,
+        alt: true,
+        shift: true,
+      );
+
+      expect(action, isA<ToggleCollapse>());
     });
 
     test('Ctrl+D is never bound — it is EOF', () {
