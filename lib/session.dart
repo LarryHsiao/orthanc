@@ -8,15 +8,6 @@ import 'package:xterm/xterm.dart';
 
 import 'pty_environment.dart';
 
-/// How long a session goes without output before it is called idle.
-///
-/// There is no busy signal in a pty — nothing in the protocol says a program is
-/// working. Output activity fits by accident of how TUIs work: an animating
-/// spinner is continuous output, and a prompt waiting for input emits nothing.
-/// Too short and the icon flickers between bursts; too long and it lags behind
-/// a finished task. Only a running app settles the number.
-const busyWindow = Duration(milliseconds: 500);
-
 /// One running program, its terminal, and what the window needs to know of it.
 ///
 /// A session outlives any widget: a pane that moves within the layout must not
@@ -40,18 +31,13 @@ class Session {
   /// tmux and iTerm show. Claude Code writes its current task there.
   late final ValueNotifier<String> title = ValueNotifier(executable);
 
-  /// Whether output has arrived within [busyWindow].
-  final busy = ValueNotifier(false);
-
   Pty? _pty;
-  Timer? _idleTimer;
   final _exited = Completer<int>();
 
   // kill() only requests termination; the pty's exitCode future resolves
   // later, once the OS actually reaps the process — which routinely
-  // outlives dispose(). Guard every late callback (exit, output, idle
-  // timer) against touching a ValueNotifier that dispose() already
-  // disposed of.
+  // outlives dispose(). Guard every late callback (exit, output) against
+  // touching a ValueNotifier that dispose() already disposed of.
   bool _disposed = false;
 
   // Set once _handleExit runs, so dispose() knows the OS has already reaped
@@ -90,7 +76,6 @@ class Session {
     pty.output.cast<List<int>>().transform(const Utf8Decoder()).listen((data) {
       if (_disposed) return;
       terminal.write(data);
-      _markBusy();
     });
 
     pty.exitCode.then(_handleExit);
@@ -108,14 +93,6 @@ class Session {
     };
   }
 
-  void _markBusy() {
-    busy.value = true;
-    _idleTimer?.cancel();
-    _idleTimer = Timer(busyWindow, () {
-      if (!_disposed) busy.value = false;
-    });
-  }
-
   // Complete the exit future before touching anything disposal-sensitive, so
   // a caller awaiting exitCode is never left hanging by a late guard.
   void _handleExit(int code) {
@@ -123,17 +100,13 @@ class Session {
     if (!_exited.isCompleted) _exited.complete(code);
     if (_disposed) return;
     terminal.write('the process exited with exit code $code');
-    _idleTimer?.cancel();
-    busy.value = false;
   }
 
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _idleTimer?.cancel();
     if (!_processExited) _pty?.kill();
     focusNode.dispose();
     title.dispose();
-    busy.dispose();
   }
 }
