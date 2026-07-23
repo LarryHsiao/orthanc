@@ -8,8 +8,8 @@ import 'session.dart';
 ///
 /// Carries a title, and — when [canCollapse] is true — a small collapse
 /// affordance a tap on the bar (wired by the caller, not here) toggles.
-/// Right-click opens a context menu to rename the pane; the resulting name
-/// lives on [Session.manualName], set only from here, never by the running
+/// Right-click starts renaming the pane directly; the resulting name lives
+/// on [Session.manualName], set only from here, never by the running
 /// program. See docs/superpowers/specs/2026-07-23-orthanc-pane-rename-design.md.
 class PaneBar extends StatefulWidget {
   const PaneBar({
@@ -45,8 +45,7 @@ class _PaneBarState extends State<PaneBar> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
-      onSecondaryTapUp: (details) =>
-          _showRenameMenu(context, details.globalPosition),
+      onSecondaryTapUp: (_) => _startEditing(),
       child: Container(
         height: PaneBar.height,
         width: double.infinity,
@@ -112,23 +111,6 @@ class _PaneBarState extends State<PaneBar> {
         onSubmitted: _commitEditing,
       ),
     );
-  }
-
-  Future<void> _showRenameMenu(
-    BuildContext context,
-    Offset globalPosition,
-  ) async {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        globalPosition & const Size(1, 1),
-        Offset.zero & overlay.size,
-      ),
-      items: const [PopupMenuItem(value: 'rename', child: Text('Rename'))],
-    );
-    if (!mounted) return;
-    if (selected == 'rename') _startEditing();
   }
 
   void _startEditing() {

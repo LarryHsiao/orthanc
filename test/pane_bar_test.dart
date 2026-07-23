@@ -23,30 +23,31 @@ void main() {
     return session;
   }
 
-  Future<void> openRenameMenu(WidgetTester tester) async {
+  Future<void> rightClickPaneBar(WidgetTester tester) async {
     await tester.tap(
       find.byType(PaneBar),
       buttons: kSecondaryButton,
       kind: PointerDeviceKind.mouse,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Rename'));
-    await tester.pumpAndSettle();
   }
 
-  testWidgets('right-click then Rename opens an edit field', (tester) async {
+  testWidgets('right-click opens an edit field, focused for typing', (
+    tester,
+  ) async {
     await pumpPaneBar(tester);
 
-    await openRenameMenu(tester);
+    await rightClickPaneBar(tester);
 
     expect(find.byType(TextField), findsOneWidget);
+    expect(tester.testTextInput.hasAnyClients, isTrue);
   });
 
   testWidgets('submitting a name commits it to session.manualName', (
     tester,
   ) async {
     final session = await pumpPaneBar(tester);
-    await openRenameMenu(tester);
+    await rightClickPaneBar(tester);
     const expected = 'api-refactor';
 
     await tester.enterText(find.byType(TextField), expected);
@@ -62,7 +63,7 @@ void main() {
   ) async {
     final session = await pumpPaneBar(tester);
     session.manualName.value = 'old-name';
-    await openRenameMenu(tester);
+    await rightClickPaneBar(tester);
     const expected = '';
 
     await tester.enterText(find.byType(TextField), '   ');
@@ -78,7 +79,7 @@ void main() {
     final session = await pumpPaneBar(tester);
     session.manualName.value = 'old-name';
     const expected = 'old-name';
-    await openRenameMenu(tester);
+    await rightClickPaneBar(tester);
 
     await tester.enterText(find.byType(TextField), 'discarded');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -95,7 +96,7 @@ void main() {
     session.manualName.value = 'existing-name';
     const expected = 'existing-name';
 
-    await openRenameMenu(tester);
+    await rightClickPaneBar(tester);
 
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.controller!.text, expected);
