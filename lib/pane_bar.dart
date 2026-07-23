@@ -127,6 +127,7 @@ class _PaneBarState extends State<PaneBar> {
       ),
       items: const [PopupMenuItem(value: 'rename', child: Text('Rename'))],
     );
+    if (!mounted) return;
     if (selected == 'rename') _startEditing();
   }
 
