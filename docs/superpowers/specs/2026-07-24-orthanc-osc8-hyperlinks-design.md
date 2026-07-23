@@ -119,9 +119,12 @@ wired to anything.
   session to reach `renderTerminal.getCellOffset()`, the same conversion
   `onTapUp` already uses internally. A `MouseRegion.onHover` wrapping the
   `TerminalView` recomputes, on each pointer move, whether the modifier is
-  held and the pointer sits over a live link, and swaps a
-  `ValueNotifier<MouseCursor>` between `SystemMouseCursors.text` (today's
-  default) and `SystemMouseCursors.click`.
+  held and the pointer sits over a live link, and passes the result as
+  `TerminalView`'s own `mouseCursor` parameter via a `setState`-held field
+  (not a `ValueNotifier` — `TerminalView` must rebuild to receive a new
+  `mouseCursor` value, since it owns its cursor resolution internally),
+  swapping between `SystemMouseCursors.text` (today's default) and
+  `SystemMouseCursors.click`.
 
 ## Testing
 
@@ -160,3 +163,12 @@ on both platforms.
   chosen per-platform correctly, or macOS users get no working modifier at
   all — worth a specific by-hand check on macOS during the walk, since this
   worktree's own dev loop is Windows-first.
+- Hover and click compute their cell position two different ways: click
+  gets a `CellOffset` handed to it by `TerminalView`'s own internal
+  hit-test; hover recomputes one itself via `renderTerminal.getCellOffset()`
+  against the wrapping `MouseRegion`'s local coordinates. Both should agree
+  since neither `TerminalView` nor its `ClipRect` wrapper adds padding here
+  — but this has not been confirmed by eye. During the manual walk, confirm
+  the hand cursor appears precisely over the underlined link glyphs, not
+  merely somewhere in the pane, including after scrolling a link up into
+  scrollback.

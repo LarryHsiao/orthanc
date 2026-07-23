@@ -490,13 +490,15 @@ Run: `flutter run -d windows` (and again on macOS if available).
    - macOS/Linux shell: `printf '\e]8;;https://example.com\e\\click me\e]8;;\e\\\n'`
 2. Confirm "click me" renders underlined immediately (no hover or modifier needed).
 3. Hover over "click me" without any modifier held — cursor stays the normal text-beam cursor.
-4. Hold Ctrl (Windows) / Cmd (macOS) and hover over "click me" — cursor becomes a pointing hand.
+4. Hold Ctrl (Windows) / Cmd (macOS) and hover over "click me" — cursor becomes a pointing hand **precisely over the underlined glyphs**, not merely somewhere in the pane (the click path and the hover path compute the cell position two different ways — see the design doc's Watch out section — so this is the one thing static review couldn't confirm).
 5. Ctrl/Cmd+click "click me" — the system default browser opens `https://example.com`.
 6. Plain click (no modifier) on "click me" — nothing opens; existing focus behavior (pane gains focus) still works.
 7. Emit a `file://` link the same way and confirm it renders underlined but Ctrl/Cmd+click does nothing.
 8. Click and hover on ordinary, non-link terminal text — behaves exactly as before this change (text cursor, no accidental launches).
+9. Scroll a link up into scrollback (e.g. print enough lines after it), scroll back up, and repeat step 4 against the scrolled link — confirm the hand still lands on the right glyphs.
+10. Hover a link with the modifier held so the hand cursor appears, then release the modifier **without moving the mouse** — the hand persists until the next pointer move. This is a known, accepted gap (see design doc Watch out), not a regression to chase.
 
-If any of 2-8 fails, the bug is in this task's wiring, not the fork (already covered by 18 passing tests there) — re-check the coordinate math in `_onHover` and the modifier/scheme gating before suspecting the pinned dependency.
+If any of 2-9 fails, the bug is in this task's wiring, not the fork (already covered by 18 passing tests there) — re-check the coordinate math in `_onHover` and the modifier/scheme gating before suspecting the pinned dependency.
 
 - [ ] **Step 4: Commit**
 
