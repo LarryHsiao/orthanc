@@ -46,4 +46,18 @@ void main() {
 
     expect(result.executablePath, expected);
   });
+
+  test(
+    'reading valid JSON with wrong-typed field returns the default settings',
+    () {
+      const expected = null;
+      final file = settingsFile(supportDir: tempDir);
+      file.createSync(recursive: true);
+      file.writeAsStringSync('{"executablePath": 123}');
+
+      final result = readSettings(file: file);
+
+      expect(result.executablePath, expected);
+    },
+  );
 }

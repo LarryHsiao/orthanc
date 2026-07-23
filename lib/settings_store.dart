@@ -17,6 +17,8 @@ Settings readSettings({required File file}) {
     return settingsFromJson(decoded);
   } on FormatException {
     return const Settings();
+  } on TypeError {
+    return const Settings();
   }
 }
 
