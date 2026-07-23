@@ -19,11 +19,10 @@ class Workspace {
   final LayoutNode root;
   final String focusedId;
 
-  /// Session ids currently the sole expanded row within their own
-  /// direct-parent column. Scoped per column: two entries can coexist
-  /// freely as long as they belong to different columns, since a
-  /// column's own other rows are never independently reachable while one
-  /// of their siblings is the expanded one.
+  /// Session ids currently collapsed to bar height. Each id is collapsed
+  /// independently of every other — any number of ids may coexist, whether
+  /// they belong to the same column or different ones, and collapsing one
+  /// has no effect on the collapsed state of any other.
   final Set<String> collapsedIds;
 
   /// Every session in the tree, left to right, top to bottom.
@@ -139,10 +138,16 @@ class Workspace {
     if (remaining == null) return null;
 
     final ids = _idsOf(remaining);
+    final collapsibleAfter = <String>{};
+    _collectCollapsible(remaining, collapsibleAfter);
+
     return Workspace(
       root: remaining,
       focusedId: ids.contains(focusedId) ? focusedId : ids.first,
-      collapsedIds: collapsedIds.where((id) => id != sessionId).toSet(),
+      collapsedIds: collapsedIds
+          .where((id) => id != sessionId)
+          .toSet()
+          .intersection(collapsibleAfter),
     );
   }
 

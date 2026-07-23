@@ -165,22 +165,19 @@ void main() {
       expect(workspace!.focusedId, expected);
     });
 
-    test(
-      'clears its own column\'s collapse entry when the collapsed pane closes',
-      () {
-        final expected = <String>{};
+    test('clears its own collapse entry when the collapsed pane closes', () {
+      final expected = <String>{};
 
-        final workspace = Workspace.single('a')
-            .split(axis: SplitAxis.column, newSessionId: 'b')
-            .split(axis: SplitAxis.column, newSessionId: 'c')
-            .toggleCollapse('b')
-            .close('b');
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleCollapse('b')
+          .close('b');
 
-        expect(workspace!.collapsedIds, expected);
-      },
-    );
+      expect(workspace!.collapsedIds, expected);
+    });
 
-    test('leaves an unrelated column\'s collapse entry alone', () {
+    test('leaves another pane\'s collapse entry alone', () {
       final expected = {'d'};
 
       // (a over b) | (c over d) — collapse the right column to 'd', then
@@ -192,6 +189,21 @@ void main() {
           .split(axis: SplitAxis.column, newSessionId: 'd')
           .toggleCollapse('d')
           .close('b');
+
+      expect(workspace!.collapsedIds, expected);
+    });
+
+    test('drops an orphaned collapse entry when closing a sibling dissolves '
+        'its column', () {
+      final expected = <String>{};
+
+      // a over b — collapse 'b', then close its sibling 'a'. The column
+      // dissolves and 'b' is hoisted to the root, where it is no longer
+      // collapsible; its stale collapse entry must not survive with it.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .toggleCollapse('b')
+          .close('a');
 
       expect(workspace!.collapsedIds, expected);
     });
