@@ -29,4 +29,43 @@ void main() {
 
     expect(result, expected);
   });
+
+  test('prefixes manualName ahead of activity when set', () {
+    const expected = 'api-refactor — check status';
+
+    final result = paneTitle(
+      name: '',
+      activity: 'check status',
+      manualName: 'api-refactor',
+    );
+
+    expect(result, expected);
+  });
+
+  test('omits manualName prefix when empty', () {
+    const expected = 'check status';
+
+    final result = paneTitle(
+      name: '',
+      activity: 'check status',
+      manualName: '',
+    );
+
+    expect(result, expected);
+  });
+
+  test(
+    'prefixes manualName ahead of the collapsed name-equals-activity case',
+    () {
+      const expected = 'api-refactor — ✳ Claude Code';
+
+      final result = paneTitle(
+        name: '✳ Claude Code',
+        activity: '✳ Claude Code',
+        manualName: 'api-refactor',
+      );
+
+      expect(result, expected);
+    },
+  );
 }
