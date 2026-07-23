@@ -22,4 +22,27 @@ void main() {
     final result = shellCommand(isWindows: false, environment: const {});
     expect(result, expected);
   });
+
+  test(
+    'returns the configured executable when set, regardless of platform',
+    () {
+      final expected = r'C:\custom\shell.exe';
+      final result = shellCommand(
+        isWindows: true,
+        environment: const {},
+        configured: expected,
+      );
+      expect(result, expected);
+    },
+  );
+
+  test('falls back to platform detection when configured is blank', () {
+    final expected = 'cmd.exe';
+    final result = shellCommand(
+      isWindows: true,
+      environment: const {},
+      configured: '   ',
+    );
+    expect(result, expected);
+  });
 }

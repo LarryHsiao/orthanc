@@ -4,6 +4,23 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+namespace {
+
+// Must be a multiple of 16 — Windows reserves the low 4 bits of a
+// WM_SYSCOMMAND wParam for its own built-in commands.
+constexpr UINT_PTR kSettingsMenuId = 0x1000;
+
+// The title bar's native right-click/system menu has no Flutter-side
+// equivalent, so this appends "Settings…" to it directly via Win32.
+void AppendSettingsMenuItem(HWND hwnd) {
+  HMENU menu = GetSystemMenu(hwnd, FALSE);
+  if (!menu) return;
+  AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
+  AppendMenu(menu, MF_STRING, kSettingsMenuId, L"Settings…");
+}
+
+}  // namespace
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -13,6 +30,8 @@ bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
     return false;
   }
+
+  AppendSettingsMenuItem(GetHandle());
 
   RECT frame = GetClientArea();
 
@@ -25,6 +44,12 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+
+  system_menu_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "orthanc/system_menu",
+          &flutter::StandardMethodCodec::GetInstance());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -64,6 +89,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   switch (message) {
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
+      break;
+    case WM_SYSCOMMAND:
+      if ((wparam & 0xFFF0) == kSettingsMenuId && system_menu_channel_) {
+        system_menu_channel_->InvokeMethod("openSettings", nullptr);
+        return 0;
+      }
       break;
   }
 

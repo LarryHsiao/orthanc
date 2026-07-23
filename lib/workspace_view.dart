@@ -6,20 +6,23 @@ import 'package:flutter/services.dart';
 import 'layout_node.dart';
 import 'session.dart';
 import 'sessions.dart';
+import 'settings.dart';
 import 'split_shortcuts.dart';
 import 'split_view.dart';
 import 'workspace.dart';
 
 /// The window: the sessions, their arrangement, and the keys that change it.
 class WorkspaceView extends StatefulWidget {
-  const WorkspaceView({super.key});
+  const WorkspaceView({super.key, required this.settings});
+
+  final ValueNotifier<Settings> settings;
 
   @override
   State<WorkspaceView> createState() => _WorkspaceViewState();
 }
 
 class _WorkspaceViewState extends State<WorkspaceView> {
-  final sessions = Sessions();
+  late final sessions = Sessions(settings: widget.settings);
   late Workspace workspace;
 
   // kill() (called by Sessions.remove(), via Session.dispose()) only
