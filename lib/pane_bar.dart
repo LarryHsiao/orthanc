@@ -84,6 +84,18 @@ class _PaneBarState extends State<PaneBar> {
               fontSize: 11,
               fontWeight: widget.focused ? FontWeight.w700 : FontWeight.w400,
               color: scheme.onSurface,
+              // Same reasoning as TerminalView's fallback in pane_view.dart:
+              // an activity title set via OSC 2 can carry the same dingbat
+              // glyphs Claude Code uses in-terminal (✢ ✳ ✻ ✽ ⏺), and without
+              // an explicit fallback here the platform's own font cascade
+              // substitutes its color emoji font for them.
+              fontFamilyFallback: const [
+                'Menlo',
+                'Monaco',
+                'Consolas',
+                'Liberation Mono',
+                'Noto Sans Symbols',
+              ],
             ),
           ),
         ),
