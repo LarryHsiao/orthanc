@@ -4,8 +4,16 @@
 
 Let the user give a pane a name of their own choosing, shown as a leading
 prefix in `PaneBar`'s title — independent of whatever the running program
-sets via OSC. Right-click a pane bar, choose "Rename," type a name, `Enter`
-to commit.
+sets via OSC. Right-click a pane bar to start renaming it directly, type a
+name, `Enter` to commit.
+
+**Post-ship update (2026-07-23):** decision 3 below originally routed
+right-click through a `showMenu` context menu with a single "Rename" entry.
+After trying the shipped feature live, that extra step was cut — right-click
+now enters edit mode directly, with no menu in between. The rest of this
+spec (why right-click and not double-click, decisions 1-2 and 4-6) is
+unaffected; only the trigger mechanics in decision 3 changed. See
+`lib/pane_bar.dart` for the current implementation.
 
 ## Why this, and why in this shape
 
