@@ -61,6 +61,19 @@ String zshEnvHookScript({required String? userZshenv}) {
   return '[ -f "$userZshenv" ] && source "$userZshenv"\n';
 }
 
+/// The `.zprofile` a temporary `ZDOTDIR` should hold: sources the user's own
+/// `.zprofile` (if [userZshProfile] is given). zsh reads `.zprofile` only for
+/// login shells — which is why [shellPromptHook] launches zsh with `-l` —
+/// and skips it entirely once `ZDOTDIR` points elsewhere unless something
+/// puts one there. This is where Homebrew's installer places its PATH setup
+/// (`eval "$(brew shellenv)"`), so a released, double-clicked build — which
+/// inherits no shell's PATH to begin with — would never see `/opt/homebrew/bin`
+/// without this.
+String zshProfileHookScript({required String? userZshProfile}) {
+  if (userZshProfile == null) return '';
+  return '[ -f "$userZshProfile" ] && source "$userZshProfile"\n';
+}
+
 /// The `cmd.exe` arguments that make it announce its own path as the pane's
 /// current activity (and, deliberately, its name — see [_titleHookFunction]
 /// for why resetting both here is safe) on every prompt: `$P` (path) and
@@ -126,12 +139,21 @@ ShellLaunch _installZshHook({required Map<String, String> environment}) {
   final userZshenv = originalZdotdir == null
       ? null
       : '$originalZdotdir/.zshenv';
+  final userZshProfile = originalZdotdir == null
+      ? null
+      : '$originalZdotdir/.zprofile';
   final dir = Directory.systemTemp.createTempSync('orthanc-zsh-');
   File(
     '${dir.path}/.zshenv',
   ).writeAsStringSync(zshEnvHookScript(userZshenv: userZshenv));
   File(
+    '${dir.path}/.zprofile',
+  ).writeAsStringSync(zshProfileHookScript(userZshProfile: userZshProfile));
+  File(
     '${dir.path}/.zshrc',
   ).writeAsStringSync(zshPromptHookScript(userZshrc: userZshrc));
-  return ShellLaunch(arguments: const [], environment: {'ZDOTDIR': dir.path});
+  return ShellLaunch(
+    arguments: const ['-l'],
+    environment: {'ZDOTDIR': dir.path},
+  );
 }

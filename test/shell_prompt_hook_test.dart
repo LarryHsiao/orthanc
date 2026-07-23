@@ -115,6 +115,27 @@ void main() {
     });
   });
 
+  group('zshProfileHookScript', () {
+    test('sources the user zprofile file when one is given', () {
+      final expected =
+          '[ -f "/home/larry/.zprofile" ] && source "/home/larry/.zprofile"';
+
+      final result = zshProfileHookScript(
+        userZshProfile: '/home/larry/.zprofile',
+      );
+
+      expect(result.contains(expected), isTrue);
+    });
+
+    test('is empty when there is no user zprofile file', () {
+      const expected = '';
+
+      final result = zshProfileHookScript(userZshProfile: null);
+
+      expect(result, expected);
+    });
+  });
+
   group('cmdPromptHookArguments', () {
     test('runs cmd.exe with /K so it stays interactive', () {
       const expected = '/K';
@@ -181,28 +202,37 @@ void main() {
       );
     });
 
-    test('writes a zsh .zshrc and points ZDOTDIR at its directory', () {
-      final result = shellPromptHook(
-        isWindows: false,
-        executable: '/bin/zsh',
-        environment: const {'HOME': '/home/larry'},
-      );
+    test(
+      'writes a zsh .zshrc and launches it as a login shell so ZDOTDIR is honored',
+      () {
+        final result = shellPromptHook(
+          isWindows: false,
+          executable: '/bin/zsh',
+          environment: const {'HOME': '/home/larry'},
+        );
 
-      expect(result.arguments, isEmpty);
-      final zdotdir = result.environment['ZDOTDIR'];
-      expect(zdotdir, isNotNull);
-      final rcFile = File('$zdotdir/.zshrc');
-      expect(rcFile.existsSync(), isTrue);
-      expect(
-        rcFile.readAsStringSync(),
-        zshPromptHookScript(userZshrc: '/home/larry/.zshrc'),
-      );
-      final envFile = File('$zdotdir/.zshenv');
-      expect(envFile.existsSync(), isTrue);
-      expect(
-        envFile.readAsStringSync(),
-        zshEnvHookScript(userZshenv: '/home/larry/.zshenv'),
-      );
-    });
+        expect(result.arguments, ['-l']);
+        final zdotdir = result.environment['ZDOTDIR'];
+        expect(zdotdir, isNotNull);
+        final rcFile = File('$zdotdir/.zshrc');
+        expect(rcFile.existsSync(), isTrue);
+        expect(
+          rcFile.readAsStringSync(),
+          zshPromptHookScript(userZshrc: '/home/larry/.zshrc'),
+        );
+        final envFile = File('$zdotdir/.zshenv');
+        expect(envFile.existsSync(), isTrue);
+        expect(
+          envFile.readAsStringSync(),
+          zshEnvHookScript(userZshenv: '/home/larry/.zshenv'),
+        );
+        final profileFile = File('$zdotdir/.zprofile');
+        expect(profileFile.existsSync(), isTrue);
+        expect(
+          profileFile.readAsStringSync(),
+          zshProfileHookScript(userZshProfile: '/home/larry/.zprofile'),
+        );
+      },
+    );
   });
 }
