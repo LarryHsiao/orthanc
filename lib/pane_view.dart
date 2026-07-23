@@ -56,6 +56,40 @@ class PaneView extends StatelessWidget {
                   session.terminal,
                   focusNode: session.focusNode,
                   onKeyEvent: onKeyEvent,
+                  // xterm's built-in fallback list is Linux/Android-flavored
+                  // (Noto Color Emoji) and omits the native macOS/Windows
+                  // emoji fonts, so emoji glyphs render as tofu on either
+                  // platform Orthanc targets unless named explicitly here.
+                  // Hack Nerd Font Mono covers the Private-Use-Area glyphs
+                  // shell tools (lsd, oh-my-posh, ...) use for icons — a
+                  // no-op fallback entry on a machine that lacks it.
+                  //
+                  // The trailing entries below are copied verbatim from the
+                  // fork's private _kDefaultFontFamilyFallback (unexported,
+                  // so not importable) — lib/src/ui/terminal_text_style.dart
+                  // at the pinned pubspec.yaml ref. Re-sync if that list
+                  // changes upstream.
+                  textStyle: const TerminalStyle(
+                    fontFamilyFallback: [
+                      'Apple Color Emoji',
+                      'Segoe UI Emoji',
+                      'Hack Nerd Font Mono',
+                      'Menlo',
+                      'Monaco',
+                      'Consolas',
+                      'Liberation Mono',
+                      'Courier New',
+                      'Noto Sans Mono CJK SC',
+                      'Noto Sans Mono CJK TC',
+                      'Noto Sans Mono CJK KR',
+                      'Noto Sans Mono CJK JP',
+                      'Noto Sans Mono CJK HK',
+                      'Noto Color Emoji',
+                      'Noto Sans Symbols',
+                      'monospace',
+                      'sans-serif',
+                    ],
+                  ),
                 ),
               ),
             ),
