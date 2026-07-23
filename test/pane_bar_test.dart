@@ -101,4 +101,44 @@ void main() {
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.controller!.text, expected);
   });
+
+  testWidgets(
+    'steals focus from a sibling node already focused in the same scope',
+    (tester) async {
+      // Mirrors the real app: PaneView focuses the pane's terminal
+      // (session.focusNode) on every pointer-down, including the right-click
+      // that opens this field — so by the time the field mounts, something
+      // else in the same FocusScope already holds focus. `autofocus` only
+      // applies when nothing else does (see workspace_view.dart's
+      // _requestFocus doc comment), so this must be won explicitly.
+      final rivalFocusNode = FocusNode();
+      addTearDown(rivalFocusNode.dispose);
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                Focus(focusNode: rivalFocusNode, child: const SizedBox()),
+                PaneBar(
+                  session: session,
+                  focused: true,
+                  canCollapse: false,
+                  collapsed: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      rivalFocusNode.requestFocus();
+      await tester.pump();
+      expect(rivalFocusNode.hasFocus, isTrue);
+
+      await rightClickPaneBar(tester);
+
+      expect(rivalFocusNode.hasFocus, isFalse);
+      expect(tester.testTextInput.hasAnyClients, isTrue);
+    },
+  );
 }

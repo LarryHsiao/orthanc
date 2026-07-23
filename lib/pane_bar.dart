@@ -34,10 +34,12 @@ class PaneBar extends StatefulWidget {
 class _PaneBarState extends State<PaneBar> {
   bool _editing = false;
   final _controller = TextEditingController();
+  final _fieldFocusNode = FocusNode();
 
   @override
   void dispose() {
     _controller.dispose();
+    _fieldFocusNode.dispose();
     super.dispose();
   }
 
@@ -101,7 +103,7 @@ class _PaneBarState extends State<PaneBar> {
       },
       child: TextField(
         controller: _controller,
-        autofocus: true,
+        focusNode: _fieldFocusNode,
         style: TextStyle(fontSize: 11, color: scheme.onSurface),
         decoration: const InputDecoration(
           isDense: true,
@@ -120,6 +122,18 @@ class _PaneBarState extends State<PaneBar> {
       extentOffset: _controller.text.length,
     );
     setState(() => _editing = true);
+    // The pane's terminal (session.focusNode) already holds focus in the
+    // same scope — right-click reaches PaneView's onPointerDown first, which
+    // (re)focuses it — so `autofocus` alone never wins: it is only honoured
+    // when nothing else in the scope already holds focus (see
+    // workspace_view.dart's _requestFocus doc comment for the same
+    // constraint on the terminal side). Deferred to end of frame for the
+    // same reason: the field's node is not attached until this rebuild
+    // completes.
+    WidgetsBinding.instance.endOfFrame.then((_) {
+      if (!mounted) return;
+      _fieldFocusNode.requestFocus();
+    });
   }
 
   void _commitEditing(String value) {
