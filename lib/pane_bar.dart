@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'pane_title.dart';
 import 'session.dart';
@@ -7,7 +8,10 @@ import 'session.dart';
 ///
 /// Carries a title, and — when [canCollapse] is true — a small collapse
 /// affordance a tap on the bar (wired by the caller, not here) toggles.
-class PaneBar extends StatelessWidget {
+/// Right-click opens a context menu to rename the pane; the resulting name
+/// lives on [Session.manualName], set only from here, never by the running
+/// program. See docs/superpowers/specs/2026-07-23-orthanc-pane-rename-design.md.
+class PaneBar extends StatefulWidget {
   const PaneBar({
     super.key,
     required this.session,
@@ -24,42 +28,123 @@ class PaneBar extends StatelessWidget {
   final bool collapsed;
 
   @override
+  State<PaneBar> createState() => _PaneBarState();
+}
+
+class _PaneBarState extends State<PaneBar> {
+  bool _editing = false;
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      height: height,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      color: focused ? scheme.surfaceContainerHighest : scheme.surfaceContainer,
-      child: Row(
-        children: [
-          Expanded(child: _title(scheme)),
-          if (canCollapse) _collapseIcon(scheme),
-        ],
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          _showRenameMenu(context, details.globalPosition),
+      child: Container(
+        height: PaneBar.height,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        color: widget.focused
+            ? scheme.surfaceContainerHighest
+            : scheme.surfaceContainer,
+        child: Row(
+          children: [
+            Expanded(child: _editing ? _editField(scheme) : _title(scheme)),
+            if (widget.canCollapse) _collapseIcon(scheme),
+          ],
+        ),
       ),
     );
   }
 
   Widget _collapseIcon(ColorScheme scheme) => Text(
-    collapsed ? '⤡' : '⤢',
+    widget.collapsed ? '⤡' : '⤢',
     style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
   );
 
   Widget _title(ColorScheme scheme) {
     return ValueListenableBuilder(
-      valueListenable: session.name,
-      builder: (context, name, child) => ValueListenableBuilder(
-        valueListenable: session.activity,
-        builder: (context, activity, child) => Text(
-          paneTitle(name: name, activity: activity),
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
-            color: scheme.onSurface,
+      valueListenable: widget.session.manualName,
+      builder: (context, manualName, child) => ValueListenableBuilder(
+        valueListenable: widget.session.name,
+        builder: (context, name, child) => ValueListenableBuilder(
+          valueListenable: widget.session.activity,
+          builder: (context, activity, child) => Text(
+            paneTitle(name: name, activity: activity, manualName: manualName),
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: widget.focused ? FontWeight.w700 : FontWeight.w400,
+              color: scheme.onSurface,
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _editField(ColorScheme scheme) {
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
+          _cancelEditing();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: TextField(
+        controller: _controller,
+        autofocus: true,
+        style: TextStyle(fontSize: 11, color: scheme.onSurface),
+        decoration: const InputDecoration(
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+          border: InputBorder.none,
+        ),
+        onSubmitted: _commitEditing,
+      ),
+    );
+  }
+
+  Future<void> _showRenameMenu(
+    BuildContext context,
+    Offset globalPosition,
+  ) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: const [PopupMenuItem(value: 'rename', child: Text('Rename'))],
+    );
+    if (selected == 'rename') _startEditing();
+  }
+
+  void _startEditing() {
+    _controller.text = widget.session.manualName.value;
+    _controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _controller.text.length,
+    );
+    setState(() => _editing = true);
+  }
+
+  void _commitEditing(String value) {
+    widget.session.manualName.value = value.trim();
+    setState(() => _editing = false);
+  }
+
+  void _cancelEditing() {
+    setState(() => _editing = false);
   }
 }
