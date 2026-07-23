@@ -38,6 +38,7 @@ dependencies:
   path: ^1.9.0
   flutter_pty: ^0.4.2
   xterm: ^4.0.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -111,9 +112,18 @@ flutter:
 #    Fork branch: orthanc-text-input-view-id
 #    Upstream PR: https://github.com/TerminalStudio/xterm.dart/pull/231
 #
+# 3. OSC 8 (terminal hyperlinks) was unhandled entirely — the escape parser
+#    only special-cased OSC 0/1/2 (title/icon); everything else, OSC 8
+#    included, fell through to unknownOSC() and was dropped silently.
+#    Adds Terminal.hyperlinkAt(CellOffset) -> String? and a dedicated
+#    CellFlags.hyperlink underline bit. See
+#    docs/superpowers/specs/2026-07-24-orthanc-osc8-hyperlinks-design.md.
+#    Fork branch: orthanc-osc8-hyperlinks
+#    Upstream PR: not filed
+#
 # Override until a real release includes both.
 dependency_overrides:
   xterm:
     git:
       url: https://github.com/LarryHsiao/xterm.dart.git
-      ref: a766197d21a516d7e949bb095acbea2b0b707e09
+      ref: 994d1e5ae5cb3be8efb2f6d96977006b763d9766
