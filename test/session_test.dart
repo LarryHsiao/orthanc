@@ -28,6 +28,14 @@ void main() {
     expect(session.name.value, expectedName);
   });
 
+  test('starts with no manual name', () {
+    const expectedManualName = '';
+
+    final session = Session(id: 'a', executable: 'cmd.exe');
+
+    expect(session.manualName.value, expectedManualName);
+  });
+
   test('dispose() on a never-started session does not throw', () {
     final session = Session(id: 'a', executable: 'cmd.exe');
 

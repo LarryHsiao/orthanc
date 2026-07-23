@@ -37,6 +37,11 @@ class Session {
   /// running program renames itself; empty until then.
   late final ValueNotifier<String> name = ValueNotifier('');
 
+  /// A name the user sets directly, via [PaneBar]'s rename control —
+  /// independent of anything the running program sets. See
+  /// docs/superpowers/specs/2026-07-23-orthanc-pane-rename-design.md.
+  late final ValueNotifier<String> manualName = ValueNotifier('');
+
   Pty? _pty;
   final _exited = Completer<int>();
 
@@ -126,5 +131,6 @@ class Session {
     focusNode.dispose();
     activity.dispose();
     name.dispose();
+    manualName.dispose();
   }
 }
