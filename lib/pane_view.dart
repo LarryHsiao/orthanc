@@ -57,12 +57,17 @@ class PaneView extends StatelessWidget {
                   focusNode: session.focusNode,
                   onKeyEvent: onKeyEvent,
                   // xterm's built-in fallback list is Linux/Android-flavored
-                  // (Noto Color Emoji) and omits the native macOS/Windows
-                  // emoji fonts, so emoji glyphs render as tofu on either
-                  // platform Orthanc targets unless named explicitly here.
-                  // Hack Nerd Font Mono covers the Private-Use-Area glyphs
-                  // shell tools (lsd, oh-my-posh, ...) use for icons — a
-                  // no-op fallback entry on a machine that lacks it.
+                  // and omits Hack Nerd Font Mono, so the Private-Use-Area
+                  // glyphs shell tools (lsd, oh-my-posh, ...) use for icons
+                  // render as tofu unless named explicitly here — a no-op
+                  // fallback entry on a machine that lacks it.
+                  //
+                  // Apple Color Emoji / Segoe UI Emoji are deliberately absent:
+                  // both claim dingbat codepoints that also have a plain-text
+                  // glyph (Claude Code's spinner frames — ✢ ✳ ✻ ✽ — and its
+                  // ⏺ paragraph bullet included), and being first in the list
+                  // would win the match and render them in color instead of
+                  // the monochrome glyph a native terminal shows.
                   //
                   // The trailing entries below are copied verbatim from the
                   // fork's private _kDefaultFontFamilyFallback (unexported,
@@ -71,8 +76,6 @@ class PaneView extends StatelessWidget {
                   // changes upstream.
                   textStyle: const TerminalStyle(
                     fontFamilyFallback: [
-                      'Apple Color Emoji',
-                      'Segoe UI Emoji',
                       'Hack Nerd Font Mono',
                       'Menlo',
                       'Monaco',
