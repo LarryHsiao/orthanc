@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orthanc/hyperlink.dart';
+import 'package:xterm/xterm.dart';
 
 void main() {
   group('isHyperlinkModifierPressed', () {
@@ -109,6 +110,30 @@ void main() {
       const expected = false;
 
       final result = isLaunchableHyperlink('%');
+
+      expect(result, expected);
+    });
+  });
+
+  group('Terminal.hyperlinkAt (xterm fork integration)', () {
+    test('resolves the URI for a cell inside an OSC 8 span', () {
+      const expected = 'https://example.com';
+
+      final terminal = Terminal(maxLines: 100);
+      terminal.write('\x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\');
+      final result = terminal.hyperlinkAt(const CellOffset(0, 0));
+
+      expect(result, expected);
+    });
+
+    test('returns null for a cell outside any hyperlink span', () {
+      const expected = null;
+
+      final terminal = Terminal(maxLines: 100);
+      terminal.write(
+        '\x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\ plain',
+      );
+      final result = terminal.hyperlinkAt(const CellOffset(5, 0));
 
       expect(result, expected);
     });
