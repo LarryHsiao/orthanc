@@ -14,14 +14,16 @@ import 'workspace.dart';
 
 /// The window: the sessions, their arrangement, and the keys that change it.
 class WorkspaceView extends StatefulWidget {
-  const WorkspaceView({super.key});
+  const WorkspaceView({super.key, required this.settings});
+
+  final ValueNotifier<Settings> settings;
 
   @override
   State<WorkspaceView> createState() => _WorkspaceViewState();
 }
 
 class _WorkspaceViewState extends State<WorkspaceView> {
-  final sessions = Sessions(settings: ValueNotifier(const Settings()));
+  late final sessions = Sessions(settings: widget.settings);
   late Workspace workspace;
 
   // kill() (called by Sessions.remove(), via Session.dispose()) only
