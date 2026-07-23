@@ -128,10 +128,9 @@ wired to anything.
 | Unit | Tested by |
 |---|---|
 | Fork: OSC 8 parse open/close, buffer survival, `hyperlinkAt` resolution, painter underline | done — 18 tests, fork repo |
-| Scheme allow-list (`http`/`https` launch; other schemes no-op) | unit test, no engine |
-| Modifier-gated tap-to-open dispatches `url_launcher` only when both the modifier is held and a link resolves | unit test against a fake `hyperlinkAt`/launcher |
-| Hover cursor swap logic (modifier + link-under-pointer → click cursor; either false → text cursor) | unit test, no engine |
-| Underline rendering, hand-cursor feel, actual browser opening, both platforms | by eye, running the app |
+| Modifier check (`isHyperlinkModifierPressed`) and scheme allow-list (`isLaunchableHyperlink`) — the pure decisions the wiring below is built from | unit test, no engine |
+| `Terminal.hyperlinkAt` resolves correctly against the pinned fork commit (integration smoke test, not a re-test of the fork's own 18) | unit test, no engine |
+| Modifier-gated tap-to-open, hover cursor swap, underline rendering, actual browser opening, both platforms | by eye, running the app — this codebase has no widget-test harness for gesture/rendering wiring (`PaneBar`, `PaneView`, `SplitView` all follow this precedent already; see `docs/superpowers/plans/2026-07-23-orthanc-pane-collapse.md`'s Global Constraints), and retrofitting one just for this feature's tap/hover callbacks would add an injection seam (a fake `launchUrl`) the rest of the codebase doesn't use |
 
 ## Definition of done
 
