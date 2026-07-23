@@ -34,6 +34,15 @@ class OrthancApp extends StatefulWidget {
 
 class _OrthancAppState extends State<OrthancApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  static const _systemMenuChannel = MethodChannel('orthanc/system_menu');
+
+  @override
+  void initState() {
+    super.initState();
+    _systemMenuChannel.setMethodCallHandler((call) async {
+      if (call.method == 'openSettings') _openSettings();
+    });
+  }
 
   void _openSettings() {
     final context = _navigatorKey.currentContext;
