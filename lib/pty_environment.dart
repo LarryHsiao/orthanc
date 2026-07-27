@@ -8,6 +8,17 @@
 /// and gone, with an empty stderr to show for it. Forward the whole environment
 /// there, as a terminal emulator is expected to.
 ///
+/// NO_COLOR is withheld too, and that one corrects an asymmetry rather than
+/// setting a policy: flutter_pty copies only LOGNAME/USER/DISPLAY/LC_TYPE/
+/// HOME/PATH, so NO_COLOR has never reached a macOS pane at all — only the
+/// Windows branch's wholesale forwarding let it through. It describes whether
+/// the *launcher's* output sink can render color, which says nothing about a
+/// fresh xterm-256color pane that plainly can. This app is a Claude Code
+/// companion and Claude Code sets NO_COLOR for its subprocesses, so being
+/// launched from one is an ordinary path, not an exotic one — and every pane
+/// under such a launch came up colorless. A program inside a pane that truly
+/// wants no color can still set it for itself.
+///
 /// TERM and LANG are withheld from that forwarding. flutter_pty hardcodes both
 /// and applies the caller's map *last*, so passing them through would let
 /// whatever shell happened to launch the app override the emulator's own
@@ -25,7 +36,8 @@ Map<String, String>? ptyEnvironment({
   if (isWindows) {
     return Map.of(environment)
       ..remove('TERM')
-      ..remove('LANG');
+      ..remove('LANG')
+      ..remove('NO_COLOR');
   }
 
   final colorterm = environment['COLORTERM'];

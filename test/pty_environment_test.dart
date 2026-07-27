@@ -29,6 +29,17 @@ void main() {
     expect(result, expected);
   });
 
+  test('withholds NO_COLOR on Windows, as macOS already does', () {
+    final expected = {'SystemRoot': r'C:\Windows'};
+
+    final result = ptyEnvironment(
+      isWindows: true,
+      environment: const {'SystemRoot': r'C:\Windows', 'NO_COLOR': '1'},
+    );
+
+    expect(result, expected);
+  });
+
   test('returns only COLORTERM on non-Windows when it is set', () {
     final expected = {'COLORTERM': 'truecolor'};
 

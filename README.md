@@ -15,7 +15,7 @@ Linux is not supported.
 
 Four tagged releases stand, `v1.0.0` through `v1.1.1`, built and published for
 both platforms. Milestones 0 and 1 are complete and walked by hand on macOS and
-Windows alike. `flutter test` runs 165 green.
+Windows alike. `flutter test` runs 166 green.
 
 Everything since Milestone 1 has been ordinary feature work, each piece carrying
 its own design spec and implementation plan under `docs/superpowers/`: pane
@@ -140,10 +140,13 @@ which macOS App Sandbox forbids — sandboxing is disabled in
 Store distribution while sandboxed; direct/notarized distribution (the standard
 path for terminal-emulator-style developer tools) is unaffected.
 
-**If the TUI comes up colorless:** Orthanc forwards the environment on Windows,
-`NO_COLOR` included. If the parent process sets it — Claude Code does, for its
-own subprocesses — the spawned `claude` will honor it. That is inheritance
-working correctly, not a bug.
+**On color:** Orthanc forwards the whole environment to a pane on Windows, but
+withholds `NO_COLOR` along with `TERM` and `LANG`. Earlier versions passed it
+through, so a pane opened from a parent that sets it — Claude Code does, for its
+own subprocesses — came up colorless. That was never a deliberate policy: macOS
+panes never saw `NO_COLOR` at all, since flutter_pty builds their environment
+from a short allowlist that omits it. Windows now matches. A program inside a
+pane that wants no color can still set `NO_COLOR` for itself.
 
 ## Tests
 
@@ -151,7 +154,7 @@ working correctly, not a bug.
 flutter test
 ```
 
-165 tests across 16 files. The pure decisions above are unit-tested directly,
+166 tests across 16 files. The pure decisions above are unit-tested directly,
 along with the layout tree, title composition, and settings validation and
 (de)serialization; the pane bar and the settings dialog carry widget tests. The
 pty/terminal wiring itself can only be judged by actually running the app — see
