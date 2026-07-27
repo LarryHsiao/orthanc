@@ -122,8 +122,25 @@ flutter:
 #    Upstream PR: not filed
 #
 # Override until a real release includes both.
+#
+# flutter_pty 0.4.2's Windows backend (build_command(), flutter_pty_win.c)
+# joins the executable and arguments into one Win32 command-line string with
+# no quoting, so any executable under a space-containing path — e.g. Git for
+# Windows' default install location, "C:\Program Files\Git\bin\bash.exe" —
+# breaks: the child's own argv-recovery misparses the space as a token
+# boundary. It also writes the executable twice (options->arguments[0]
+# already duplicates it, for Unix's execvp() convention, but build_command()
+# unconditionally wrote its own executable parameter first too).
+# Fork branch: orthanc-windows-command-quoting
+# Upstream PR: not filed
+#
+# Override until a real release includes this fix.
 dependency_overrides:
   xterm:
     git:
       url: https://github.com/LarryHsiao/xterm.dart.git
       ref: 994d1e5ae5cb3be8efb2f6d96977006b763d9766
+  flutter_pty:
+    git:
+      url: https://github.com/LarryHsiao/flutter_pty.git
+      ref: c7c9deb

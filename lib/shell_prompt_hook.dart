@@ -3,14 +3,28 @@ import 'dart:io';
 /// A shell this app knows how to add a title-on-prompt hook to.
 enum ShellKind { bash, zsh }
 
+/// [executable]'s final path segment, lowercased and stripped of a Windows
+/// `.exe` extension — so `C:\Program Files\Git\bin\bash.exe` and `/bin/bash`
+/// name the same shell.
+String _baseName(String executable) {
+  final segment = executable.split(RegExp(r'[\\/]')).last.toLowerCase();
+  return segment.endsWith('.exe')
+      ? segment.substring(0, segment.length - 4)
+      : segment;
+}
+
 /// Which [ShellKind] [executable] is, or null for a shell this app leaves
 /// alone — its pane then just shows whatever title it last happened to set,
 /// as before this feature existed.
 ShellKind? shellKind(String executable) {
-  final name = executable.split('/').last;
-  if (name == 'bash') return ShellKind.bash;
-  if (name == 'zsh') return ShellKind.zsh;
-  return null;
+  switch (_baseName(executable)) {
+    case 'bash':
+      return ShellKind.bash;
+    case 'zsh':
+      return ShellKind.zsh;
+    default:
+      return null;
+  }
 }
 
 /// The OSC 1 + OSC 2 sequence, in shell syntax, that announces the shell's
@@ -98,24 +112,28 @@ class ShellLaunch {
 
 /// Builds [executable]'s [ShellLaunch], writing whatever temp rc file its
 /// shell needs. Returns [ShellLaunch.none] for a shell this app doesn't know
-/// how to hook — see [shellKind].
+/// how to hook — see [shellKind]. `cmd.exe` is hooked by name rather than by
+/// [ShellKind]: its hook is launch arguments, not an rc file, and only
+/// cmd.exe understands the `$P`/`$G$S` prompt syntax they carry — handing
+/// them to a Windows shell configured to something else (Git Bash's
+/// `bash.exe`, say) makes that shell fail to start.
 ShellLaunch shellPromptHook({
   required bool isWindows,
   required String executable,
   required Map<String, String> environment,
 }) {
-  if (isWindows) {
-    return ShellLaunch(
-      arguments: cmdPromptHookArguments(),
-      environment: const {},
-    );
-  }
   switch (shellKind(executable)) {
     case ShellKind.bash:
       return _installBashHook(environment: environment);
     case ShellKind.zsh:
       return _installZshHook(environment: environment);
     case null:
+      if (isWindows && _baseName(executable) == 'cmd') {
+        return ShellLaunch(
+          arguments: cmdPromptHookArguments(),
+          environment: const {},
+        );
+      }
       return ShellLaunch.none;
   }
 }

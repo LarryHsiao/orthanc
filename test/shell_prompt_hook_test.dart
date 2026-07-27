@@ -28,6 +28,22 @@ void main() {
 
       expect(result, expected);
     });
+
+    test('recognizes bash on Windows, backslash path and .exe extension', () {
+      const expected = ShellKind.bash;
+
+      final result = shellKind(r'C:\Program Files\Git\bin\bash.exe');
+
+      expect(result, expected);
+    });
+
+    test('recognizes zsh regardless of case in the .exe extension', () {
+      const expected = ShellKind.zsh;
+
+      final result = shellKind(r'C:\tools\zsh.EXE');
+
+      expect(result, expected);
+    });
   });
 
   group('bashPromptHookScript', () {
@@ -158,7 +174,7 @@ void main() {
   });
 
   group('shellPromptHook', () {
-    test('uses the cmd.exe hook on Windows regardless of executable', () {
+    test('uses the cmd.exe hook on Windows when the shell is cmd.exe', () {
       final expected = cmdPromptHookArguments();
 
       final result = shellPromptHook(
@@ -185,6 +201,33 @@ void main() {
         expect(result.environment, expected.environment);
       },
     );
+
+    test('never hands cmd.exe arguments to a non-cmd shell configured on '
+        'Windows', () {
+      const expected = ShellLaunch.none;
+
+      final result = shellPromptHook(
+        isWindows: true,
+        executable:
+            r'C:\Windows\System32\WindowsPowerShell\v1.0\'
+            'powershell.exe',
+        environment: const {},
+      );
+
+      expect(result.arguments, expected.arguments);
+      expect(result.environment, expected.environment);
+    });
+
+    test('installs the bash rc hook for Git Bash configured on Windows, not '
+        'the cmd.exe hook', () {
+      final result = shellPromptHook(
+        isWindows: true,
+        executable: r'C:\Program Files\Git\bin\bash.exe',
+        environment: const {'HOME': r'C:\Users\larry'},
+      );
+
+      expect(result.arguments.first, '--rcfile');
+    });
 
     test('writes a bash rcfile and points --rcfile at it', () {
       final result = shellPromptHook(
