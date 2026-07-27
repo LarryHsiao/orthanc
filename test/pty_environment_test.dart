@@ -40,6 +40,35 @@ void main() {
     expect(result, expected);
   });
 
+  test('withholds the same names whatever their case, since Windows treats '
+      'environment variable names case-insensitively', () {
+    final expected = {'SystemRoot': r'C:\Windows'};
+
+    final result = ptyEnvironment(
+      isWindows: true,
+      environment: const {
+        'SystemRoot': r'C:\Windows',
+        'term': 'cygwin',
+        'Lang': 'C',
+        'No_Color': '1',
+      },
+    );
+
+    expect(result, expected);
+  });
+
+  test('keeps variables that merely contain a withheld name', () {
+    final expected = {
+      'TERMINAL': 'wezterm',
+      'LANGUAGE': 'en_US',
+      'NO_COLOR_SCHEME': 'dark',
+    };
+
+    final result = ptyEnvironment(isWindows: true, environment: expected);
+
+    expect(result, expected);
+  });
+
   test('returns only COLORTERM on non-Windows when it is set', () {
     final expected = {'COLORTERM': 'truecolor'};
 

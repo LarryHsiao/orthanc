@@ -29,15 +29,23 @@
 /// Elsewhere the allowlist is right, and only COLORTERM is missing from it: the
 /// host may be truecolor-capable, but a spawned CLI that cannot read COLORTERM
 /// may settle for a more limited color mode.
+/// Names never handed to a pane on Windows, held lowercase because each
+/// candidate is folded to that before the comparison. Windows treats
+/// environment variable names case-insensitively, so a parent exporting `Term`
+/// or `No_Color` names the same variable the child would read as `TERM` or
+/// `NO_COLOR` — an exact-match removal would let it straight through.
+const _withheldOnWindows = {'term', 'lang', 'no_color'};
+
 Map<String, String>? ptyEnvironment({
   required bool isWindows,
   required Map<String, String> environment,
 }) {
   if (isWindows) {
-    return Map.of(environment)
-      ..remove('TERM')
-      ..remove('LANG')
-      ..remove('NO_COLOR');
+    return {
+      for (final entry in environment.entries)
+        if (!_withheldOnWindows.contains(entry.key.toLowerCase()))
+          entry.key: entry.value,
+    };
   }
 
   final colorterm = environment['COLORTERM'];
