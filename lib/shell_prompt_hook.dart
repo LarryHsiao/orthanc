@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'home_directory.dart';
+
 /// A shell this app knows how to add a title-on-prompt hook to.
 enum ShellKind { bash, zsh }
 
@@ -124,9 +126,9 @@ ShellLaunch shellPromptHook({
 }) {
   switch (shellKind(executable)) {
     case ShellKind.bash:
-      return _installBashHook(environment: environment);
+      return _installBashHook(isWindows: isWindows, environment: environment);
     case ShellKind.zsh:
-      return _installZshHook(environment: environment);
+      return _installZshHook(isWindows: isWindows, environment: environment);
     case null:
       if (isWindows && _baseName(executable) == 'cmd') {
         return ShellLaunch(
@@ -138,8 +140,17 @@ ShellLaunch shellPromptHook({
   }
 }
 
-ShellLaunch _installBashHook({required Map<String, String> environment}) {
-  final home = environment['HOME'];
+// Resolved through homeDirectory(), not environment['HOME'] directly: Windows
+// never sets HOME of its own, so a double-clicked or Start-menu launch has
+// none, and reading it alone silently drops the source line — the user's rc
+// file then never loads, while /etc/bash.bashrc still does, leaving a pane
+// that looks almost right. Only a launch descended from a shell that exports
+// HOME behaved correctly, which is why this hid for so long.
+ShellLaunch _installBashHook({
+  required bool isWindows,
+  required Map<String, String> environment,
+}) {
+  final home = homeDirectory(isWindows: isWindows, environment: environment);
   final userBashrc = home == null ? null : '$home/.bashrc';
   final dir = Directory.systemTemp.createTempSync('orthanc-bash-');
   File(
@@ -151,8 +162,16 @@ ShellLaunch _installBashHook({required Map<String, String> environment}) {
   );
 }
 
-ShellLaunch _installZshHook({required Map<String, String> environment}) {
-  final originalZdotdir = environment['ZDOTDIR'] ?? environment['HOME'];
+// Same home resolution as [_installBashHook], for the same reason. On macOS,
+// where zsh actually lives, homeDirectory() returns HOME verbatim, so nothing
+// changes there; it only closes the identical hole on Windows.
+ShellLaunch _installZshHook({
+  required bool isWindows,
+  required Map<String, String> environment,
+}) {
+  final originalZdotdir =
+      environment['ZDOTDIR'] ??
+      homeDirectory(isWindows: isWindows, environment: environment);
   final userZshrc = originalZdotdir == null ? null : '$originalZdotdir/.zshrc';
   final userZshenv = originalZdotdir == null
       ? null

@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:xterm/xterm.dart';
 
+import 'home_directory.dart';
 import 'pty_environment.dart';
 import 'shell_prompt_hook.dart';
 
@@ -68,9 +69,13 @@ class Session {
   Pty _spawn() {
     // Without an explicit workingDirectory, Pty.start() defaults to wherever
     // this process's own cwd happens to be — unpredictable for a real
-    // double-clicked .app, not just this dev session. Default to $HOME.
-    final home =
-        Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    // double-clicked .app, not just this dev session. Default to the user's
+    // home, which is not the same variable on every platform: see
+    // homeDirectory().
+    final home = homeDirectory(
+      isWindows: Platform.isWindows,
+      environment: Platform.environment,
+    );
     final hook = shellPromptHook(
       isWindows: Platform.isWindows,
       executable: executable,

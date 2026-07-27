@@ -245,6 +245,62 @@ void main() {
       );
     });
 
+    test('falls back to USERPROFILE for the bash rc when Windows has no '
+        'HOME, as a double-clicked launch does not', () {
+      final result = shellPromptHook(
+        isWindows: true,
+        executable: r'C:\Program Files\Git\bin\bash.exe',
+        environment: const {'USERPROFILE': r'C:\Users\larry'},
+      );
+
+      expect(
+        File(result.arguments.last).readAsStringSync(),
+        bashPromptHookScript(userBashrc: r'C:\Users\larry/.bashrc'),
+      );
+    });
+
+    test('still prefers HOME for the bash rc when Windows has both', () {
+      final result = shellPromptHook(
+        isWindows: true,
+        executable: r'C:\Program Files\Git\bin\bash.exe',
+        environment: const {
+          'HOME': r'C:\Users\larry',
+          'USERPROFILE': r'D:\elsewhere',
+        },
+      );
+
+      expect(
+        File(result.arguments.last).readAsStringSync(),
+        bashPromptHookScript(userBashrc: r'C:\Users\larry/.bashrc'),
+      );
+    });
+
+    test('omits the bash source line when Windows offers no home at all', () {
+      final result = shellPromptHook(
+        isWindows: true,
+        executable: r'C:\Program Files\Git\bin\bash.exe',
+        environment: const {'PATH': r'C:\Windows'},
+      );
+
+      expect(
+        File(result.arguments.last).readAsStringSync().contains('source'),
+        isFalse,
+      );
+    });
+
+    test('falls back to USERPROFILE for ZDOTDIR when Windows has no HOME', () {
+      final result = shellPromptHook(
+        isWindows: true,
+        executable: r'C:\tools\zsh.exe',
+        environment: const {'USERPROFILE': r'C:\Users\larry'},
+      );
+
+      expect(
+        File('${result.environment['ZDOTDIR']}/.zshrc').readAsStringSync(),
+        zshPromptHookScript(userZshrc: r'C:\Users\larry/.zshrc'),
+      );
+    });
+
     test(
       'writes a zsh .zshrc and launches it as a login shell so ZDOTDIR is honored',
       () {
