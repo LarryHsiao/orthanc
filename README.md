@@ -1,15 +1,21 @@
 # Orthanc
 
-A Flutter desktop app that spawns [Claude Code](https://claude.com/claude-code)
-sessions inside embedded terminals — one window watching and directing several
-running agents at once, the way its namesake tower watches over Middle-earth
+A Flutter desktop app for **Windows and macOS** that holds several embedded
+terminals in one window — split by hotkey, each running its own shell, so a
+handful of [Claude Code](https://claude.com/claude-code) sessions can be watched
+and directed side by side, the way its namesake tower watches over Middle-earth
 through a palantír.
+
+To be exact about what it does on launch: **each pane starts a shell**, not
+`claude` itself. You type `claude` in the pane, as you would in any terminal.
+The shell is chosen per platform by default and can be changed in Settings.
+Linux is not supported.
 
 ## Status: shipping
 
 Four tagged releases stand, `v1.0.0` through `v1.1.1`, built and published for
 both platforms. Milestones 0 and 1 are complete and walked by hand on macOS and
-Windows alike. `flutter test` runs 155 green.
+Windows alike. `flutter test` runs 169 green.
 
 Everything since Milestone 1 has been ordinary feature work, each piece carrying
 its own design spec and implementation plan under `docs/superpowers/`: pane
@@ -77,11 +83,15 @@ Around those two:
 Five files hold pure decisions with no I/O, which is why they carry the bulk of
 the tests:
 
-- `lib/shell_command.dart`, `lib/claude_command.dart` — resolve an executable's
-  absolute path per platform, since a GUI app launched outside a shell does not
-  inherit an interactive shell's `PATH`.
+- `lib/shell_command.dart` — resolves the shell's absolute path per platform,
+  since a GUI app launched outside a shell does not inherit an interactive
+  shell's `PATH`. (`lib/claude_command.dart` does the same for `claude` but has
+  no caller today — it is a leftover of Milestone 0, kept only by its test.)
 - `lib/pty_environment.dart` — what environment the spawned process gets, which
   differs per platform for the reason given under *History*.
+- `lib/home_directory.dart` — where a pane starts and where its rc files live.
+  Windows never sets `HOME`, so this prefers it only when it names a path
+  Windows can actually use, and falls back to `USERPROFILE`.
 - `lib/split_shortcuts.dart` — what a key press means to the layout, or null to
   let the terminal have it.
 - `lib/hyperlink.dart` — which modifier opens a link, and which URI schemes are
@@ -89,12 +99,41 @@ the tests:
 - `lib/shell_prompt_hook.dart` — which shell an executable names, and the
   title-on-prompt hook to feed it.
 
+## Prerequisites
+
+Built and tested against **Flutter 3.38.7 (stable), Dart 3.10.7**. Nothing in
+the repo pins the version, so if you hit an SDK error that is the first thing to
+check; `pubspec.yaml` requires Dart `^3.10.7` at minimum.
+
+- **Windows** — Visual Studio 2022 with the *"Desktop development with C++"*
+  workload. Flutter's Windows target builds native C++; the workload is not
+  optional, and Build Tools alone will not do.
+- **macOS** — Xcode with its command-line tools.
+- **Both** — run `flutter doctor` first and clear anything it flags for your
+  platform. Android and web toolchains are irrelevant here.
+
 ## Running it
 
 ```bash
 flutter pub get
-flutter run -d macos    # or: -d windows
+flutter run -d windows   # or: -d macos
 ```
+
+The first build pulls two git-pinned forks (see *The pinned dependencies*) and
+compiles native code, so expect it to be slow; later builds are quick.
+
+## Developing
+
+```bash
+flutter analyze                      # expected: no issues
+flutter test                         # the whole suite
+flutter test test/workspace_test.dart   # one file
+```
+
+Pure decisions live in their own files with their own tests — that is the
+convention to follow when adding behaviour, and why the suite is as large as it
+is relative to the app. Anything touching a pty or a real terminal cannot be
+covered there and has to be walked by hand.
 
 **macOS note:** this app spawns arbitrary child processes (the whole point),
 which macOS App Sandbox forbids — sandboxing is disabled in
@@ -113,7 +152,7 @@ working correctly, not a bug.
 flutter test
 ```
 
-155 tests across 16 files. The pure decisions above are unit-tested directly,
+169 tests across 17 files. The pure decisions above are unit-tested directly,
 along with the layout tree, title composition, and settings validation and
 (de)serialization; the pane bar and the settings dialog carry widget tests. The
 pty/terminal wiring itself can only be judged by actually running the app — see
@@ -125,15 +164,24 @@ cannot exercise it.
 There is no CI workflow in this repository; the scripts below are written to run
 either by hand or on an unattended runner configured elsewhere.
 
+Each script fails on the first missing tool rather than part-way through, so
+check its prerequisites before the first run.
+
 - **Windows** — `scripts/build_windows.ps1` builds a signed installer (via
-  `installer/orthanc.iss`, Inno Setup) and a raw zip, taking code-signing
-  secrets from environment variables. `scripts/release_github.ps1` then uploads
-  them to a GitHub Release, skipping silently unless the build sits on a `v*`
-  tag.
+  `installer/orthanc.iss`) and a raw zip. *Needs:* **Inno Setup 6** (`ISCC.exe`
+  at its default path or on `PATH`), the **Windows SDK** (`signtool.exe` on
+  `PATH`), and a code-signing certificate supplied through environment
+  variables. `scripts/release_github.ps1` then uploads the artifacts to a GitHub
+  Release — *needs* the `gh` CLI, authenticated — and skips silently unless the
+  build sits on a `v*` tag.
 - **macOS** — `scripts/publish_macos.sh` builds a signed, notarized DMG
-  interactively, using the Developer ID identity already in the local login
-  keychain. `scripts/ci_build_macos_dmg.sh` does the same unattended, creating a
-  temporary keychain scoped to the build.
+  interactively. *Needs:* a **"Developer ID Application"** identity in the login
+  keychain, Apple ID plus app-specific password for notarization, and `gh` for
+  `--publish`. `scripts/ci_build_macos_dmg.sh` does the same unattended, taking
+  the certificate and credentials from environment variables and building its
+  own temporary keychain.
+
+**None of this is needed to run or develop the app** — only to cut a release.
 - **Icons** — `scripts/generate_app_icon.py` draws the app icon and writes every
   size both platforms consume, in place. It *is* the artwork's source; no vector
   file stands behind it. Requires Pillow.
@@ -159,6 +207,11 @@ defects. Each is documented in full beside its override.
    space-bearing path — Git for Windows' `C:\Program Files\Git\bin\bash.exe`
    among them — was misparsed by the child. It also wrote the executable twice.
    Not filed upstream.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). The pinned forks of `xterm` and `flutter_pty`
+carry their own upstream licenses.
 
 ## History
 
