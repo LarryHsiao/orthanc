@@ -29,7 +29,9 @@ $installer = Get-ChildItem 'build\installer\orthanc-setup-*.exe' -ErrorAction St
 $zip       = Get-ChildItem 'build\publish\orthanc-*-windows.zip' -ErrorAction Stop | Select-Object -First 1
 
 Write-Host "==> Ensuring release exists for $tag"
-& gh release create $tag --title $tag --generate-notes --repo LarryHsiao/orthanc 2>&1 | Out-Null
+# gh writes "already exists" to stderr on repeat runs; don't capture it with 2>&1 —
+# under EAP='Stop' that wraps it into a terminating NativeCommandError.
+& gh release create $tag --title $tag --generate-notes --repo LarryHsiao/orthanc | Out-Null
 
 Write-Host "==> Uploading $($installer.Name) and $($zip.Name)"
 & gh release upload $tag $installer.FullName $zip.FullName --clobber --repo LarryHsiao/orthanc
