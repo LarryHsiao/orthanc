@@ -15,7 +15,7 @@ Linux is not supported.
 
 Four tagged releases stand, `v1.0.0` through `v1.1.1`, built and published for
 both platforms. Milestones 0 and 1 are complete and walked by hand on macOS and
-Windows alike. `flutter test` runs 169 green.
+Windows alike. `flutter test` runs 165 green.
 
 Everything since Milestone 1 has been ordinary feature work, each piece carrying
 its own design spec and implementation plan under `docs/superpowers/`: pane
@@ -85,8 +85,7 @@ the tests:
 
 - `lib/shell_command.dart` — resolves the shell's absolute path per platform,
   since a GUI app launched outside a shell does not inherit an interactive
-  shell's `PATH`. (`lib/claude_command.dart` does the same for `claude` but has
-  no caller today — it is a leftover of Milestone 0, kept only by its test.)
+  shell's `PATH`.
 - `lib/pty_environment.dart` — what environment the spawned process gets, which
   differs per platform for the reason given under *History*.
 - `lib/home_directory.dart` — where a pane starts and where its rc files live.
@@ -152,7 +151,7 @@ working correctly, not a bug.
 flutter test
 ```
 
-169 tests across 17 files. The pure decisions above are unit-tested directly,
+165 tests across 16 files. The pure decisions above are unit-tested directly,
 along with the layout tree, title composition, and settings validation and
 (de)serialization; the pane bar and the settings dialog carry widget tests. The
 pty/terminal wiring itself can only be judged by actually running the app — see
