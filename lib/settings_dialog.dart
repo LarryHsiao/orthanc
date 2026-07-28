@@ -14,6 +14,7 @@ Future<void> showSettingsDialog(
   required File file,
   required bool Function(String) exists,
   required String detectedDefault,
+  required String version,
 }) {
   return showDialog(
     context: context,
@@ -22,6 +23,7 @@ Future<void> showSettingsDialog(
       file: file,
       exists: exists,
       detectedDefault: detectedDefault,
+      version: version,
     ),
   );
 }
@@ -32,12 +34,14 @@ class _SettingsDialog extends StatefulWidget {
     required this.file,
     required this.exists,
     required this.detectedDefault,
+    required this.version,
   });
 
   final ValueNotifier<Settings> settings;
   final File file;
   final bool Function(String) exists;
   final String detectedDefault;
+  final String version;
 
   @override
   State<_SettingsDialog> createState() => _SettingsDialogState();
@@ -82,6 +86,13 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                     ? null
                     : 'No file exists at this path — the old value is kept.',
               ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'v${widget.version}',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey),
             ),
           ],
         ),

@@ -22,6 +22,7 @@ void main() {
     WidgetTester tester, {
     Settings initial = const Settings(),
     bool Function(String)? exists,
+    String version = '1.1.4',
   }) async {
     final settings = ValueNotifier(initial);
     final file = File('${tempDir.path}/settings.json');
@@ -35,6 +36,7 @@ void main() {
               file: file,
               exists: exists ?? (_) => true,
               detectedDefault: 'cmd.exe',
+              version: version,
             ),
             child: const Text('open'),
           ),
@@ -55,6 +57,14 @@ void main() {
 
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.controller!.text, expected);
+  });
+
+  testWidgets('shows the app version', (tester) async {
+    const expected = 'v1.1.4';
+
+    await pumpDialog(tester, version: '1.1.4');
+
+    expect(find.text(expected), findsOneWidget);
   });
 
   testWidgets('shows the detected default as placeholder text when unset', (

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'app_root.dart';
@@ -44,9 +45,11 @@ class _OrthancAppState extends State<OrthancApp> {
     });
   }
 
-  void _openSettings() {
+  Future<void> _openSettings() async {
     final context = _navigatorKey.currentContext;
     if (context == null) return;
+    final info = await PackageInfo.fromPlatform();
+    if (!context.mounted) return;
     showSettingsDialog(
       context,
       settings: widget.settings,
@@ -56,6 +59,7 @@ class _OrthancAppState extends State<OrthancApp> {
         isWindows: Platform.isWindows,
         environment: Platform.environment,
       ),
+      version: info.version,
     );
   }
 
