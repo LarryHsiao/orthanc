@@ -12,6 +12,7 @@
     - GH_TOKEN env var with repo scope
     - Built artifacts at build\installer\orthanc-setup-*.exe and
       build\publish\orthanc-*-windows.zip
+    - FVM on PATH (to reach the pinned Dart SDK for auto_updater:sign_update)
 
   Argument:
     -Branch — TeamCity's %teamcity.build.branch% (e.g. refs/tags/v1.0.1)
@@ -40,7 +41,7 @@ if ($LASTEXITCODE -ne 0) { throw "gh release upload exited $LASTEXITCODE" }
 $version = $tag -replace '^v', ''
 
 Write-Host "==> Signing update for WinSparkle"
-$signOutput = & dart run auto_updater:sign_update $installer.FullName
+$signOutput = & fvm dart run auto_updater:sign_update $installer.FullName
 if ($LASTEXITCODE -ne 0) { throw "auto_updater:sign_update exited $LASTEXITCODE" }
 if ($signOutput -notmatch 'sparkle:dsaSignature="([^"]+)"' -or $signOutput -notmatch 'length="([0-9]+)"') {
   throw "could not parse sign_update output: $signOutput"
