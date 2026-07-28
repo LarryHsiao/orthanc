@@ -87,8 +87,25 @@ if [ ! -f "$ENTITLEMENTS_SRC" ]; then
   exit 1
 fi
 
+FRAMEWORKS_DIR="$APP_PATH/Contents/Frameworks"
+if [ -d "$FRAMEWORKS_DIR" ]; then
+  echo "==> Code-signing nested frameworks/XPC services (inside-out)"
+  # --deep re-signs every nested bundle with the app's own entitlements,
+  # which clobbers Sparkle's bundled Autoupdate/Updater.app/XPC services and
+  # breaks their own signatures — Sparkle's docs call --deep unsupported for
+  # exactly this reason. Sparkle.framework also ships a loose `Autoupdate`
+  # executable directly under Versions/B/ (not a .framework/.xpc/.app
+  # bundle), so bundle-name matching alone misses it — notarization caught
+  # this the first time this script ran with the fix below still missing
+  # the `-perm +111` branch. `find -depth` visits the deepest nested files
+  # and bundles before their containing directory, so everything is signed
+  # once, inside-out, before the outer app is signed below.
+  find "$FRAMEWORKS_DIR" -depth \( -type f -perm +111 -o -name "*.framework" -o -name "*.xpc" -o -name "*.app" \) -print0 \
+    | xargs -0 -I{} codesign --force --options runtime --timestamp --sign "$IDENTITY_HASH" "{}"
+fi
+
 echo "==> Code-signing $APP_PATH"
-codesign --force --deep --verify --verbose \
+codesign --force --verify --verbose \
   --options runtime \
   --timestamp \
   --entitlements "$ENTITLEMENTS_SRC" \
