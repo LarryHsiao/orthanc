@@ -56,11 +56,21 @@ and regenerate/commit `appcast.xml`. Nothing upstream of that step changes.
 - **Check**: on launch only, fire-and-forget. `main()` calls
   `autoUpdater.setFeedURL(...)` then `autoUpdater.checkForUpdates()`
   non-blocking — the terminal opens immediately regardless of outcome.
-- **Apply**: silent. If a newer version is found, Sparkle/WinSparkle
-  downloads and verifies it in the background and marks it ready. Nothing is
-  shown to the user at this point. The update installs as a side effect of
-  the next natural quit-and-relaunch — never a forced restart, so it can't
-  interrupt a live Claude Code session running in a pane.
+- **Apply**: mostly silent, with one unavoidable exception found by the
+  Task 7 manual walk. `auto_updater_macos` hardcodes Sparkle's
+  `SPUStandardUserDriver` — there is no code path in the plugin for a fully
+  silent driver. `checkForUpdates(inBackground: true)` suppresses only the
+  "checking…" indicator; once a valid update is found, Sparkle's standard
+  one-time "an update is available, install?" alert still shows. Accepted
+  as-is rather than forking `auto_updater_macos` for a custom silent
+  `SPUUserDriver` or dropping Sparkle for a hand-rolled updater — this is
+  how virtually every Sparkle-based Mac app behaves, and it's a single
+  consent gate, not a recurring interruption. If the user accepts, Sparkle
+  downloads, verifies, and installs — either immediately (if the user
+  clicks through right away) or on the next natural quit-and-relaunch — but
+  never a forced restart Orthanc itself initiates, so a live Claude Code
+  session in a pane is never killed out from under the user without their
+  own action.
 - **Post-relaunch note**: on every launch, compare the running version
   against a "last-seen version" value in local prefs. If they differ, show a
   small one-time banner naming the new version (and release notes, if
@@ -92,7 +102,12 @@ hand on both macOS and Windows, the same way Milestone 0's pty layer was.
 
 ## Deferred
 
-- Any UI to manually trigger a check, skip a version, or roll back.
+- Any UI to manually trigger a check, skip a version, or roll back —
+  Orthanc builds none of this itself. Sparkle's own standard alert (see
+  Runtime behavior's Apply note) happens to offer "Skip This Version" and
+  "Remind Me Later" regardless, as part of the UI this design accepted
+  rather than suppressed; that's Sparkle's behavior, not a feature Orthanc
+  implemented.
 - Periodic/background checks while the app stays open — launch-time only.
 - Release notes formatting beyond whatever plain text the appcast carries.
 - Any integration with metis's update-serving backend — considered and
@@ -112,3 +127,19 @@ hand on both macOS and Windows, the same way Milestone 0's pty layer was.
 - Sparkle/WinSparkle's actual download-and-swap behavior cannot be
   meaningfully unit tested; don't let that gap get papered over with a
   mocked-out "integration test" that doesn't exercise the real engine.
+
+## What the macOS walk found (2026-07-28)
+
+The original "Apply: silent" line assumed `checkForUpdates(inBackground:
+true)` produced a fully invisible check-and-install. It doesn't:
+`auto_updater_macos`'s `AutoUpdater.swift` always constructs Sparkle with
+`SPUStandardUserDriver`, and `inBackground` (per
+`AutoUpdaterMacosPlugin.swift`) only routes to `checkForUpdatesInBackground()`,
+which suppresses Sparkle's "checking…" indicator but not its "an update is
+available, install?" alert once a valid item is found. Confirmed by cutting
+a real signed `v1.1.3` release and watching a running `v1.1.2` build's
+launch-time check surface that alert. No amount of unit or widget testing
+would have caught this — only running the real engine did, which is exactly
+why this task exists. Resolved by accepting Sparkle's one-time consent
+alert rather than forking the plugin or dropping Sparkle; see Runtime
+behavior's Apply note, above, for the corrected description.

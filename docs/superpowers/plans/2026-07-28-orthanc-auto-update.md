@@ -13,8 +13,8 @@
 - Design spec: `docs/superpowers/specs/2026-07-28-orthanc-auto-update-design.md`. Every decision there is binding; this plan implements it and adds nothing.
 - Distribution source is GitHub Releases, direct, on both platforms — no metis integration, no app store.
 - Checks happen on launch only. No periodic/background timer, no manual "check for updates" UI.
-- Updates download and apply silently — never a forced restart, never a dialog blocking input.
-- The post-relaunch note is the only user-facing surface this plan builds; it must not block typing or steal focus from the terminal.
+- Updates download and apply as silently as `auto_updater_macos` allows — never a forced restart Orthanc itself initiates. Amended after Task 7's macOS walk (2026-07-28): the plugin hardcodes Sparkle's `SPUStandardUserDriver`, so a one-time "an update is available, install?" alert is unavoidable without forking it; that alert is accepted, not eliminated. See the design spec's "What the macOS walk found" section.
+- The post-relaunch note is a user-facing surface this plan builds; it must not block typing or steal focus from the terminal. (Sparkle's own standard alert, accepted above, is a separate, native surface this plan does not control.)
 - Errors (network, missing feed) fail silent — no retry loop, no user-facing error state.
 - Private signing keys (macOS EdDSA private half, Windows `dsa_priv.pem`) must never be committed. Public halves (the `SUPublicEDKey` string, `dsa_pub.pem`) are safe to commit.
 - Deferred, do not build: manual update-check UI, skip-version/rollback UI, periodic checks, release-notes formatting beyond plain text, any metis integration.
