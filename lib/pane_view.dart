@@ -22,6 +22,7 @@ class PaneView extends StatefulWidget {
     required this.onKeyEvent,
     required this.canCollapse,
     required this.collapsed,
+    required this.theme,
     required this.onToggleCollapse,
   });
 
@@ -31,6 +32,7 @@ class PaneView extends StatefulWidget {
   final FocusOnKeyEventCallback onKeyEvent;
   final bool canCollapse;
   final bool collapsed;
+  final TerminalTheme theme;
   final VoidCallback onToggleCollapse;
 
   @override
@@ -75,6 +77,7 @@ class _PaneViewState extends State<PaneView> {
                     onKeyEvent: widget.onKeyEvent,
                     onTapUp: _onTapUp,
                     mouseCursor: _cursor,
+                    theme: widget.theme,
                     // xterm's built-in fallback list is Linux/Android-flavored
                     // and omits Hack Nerd Font Mono, so the Private-Use-Area
                     // glyphs shell tools (lsd, oh-my-posh, ...) use for icons

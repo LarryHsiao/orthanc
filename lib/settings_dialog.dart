@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'settings.dart';
 import 'settings_store.dart';
 import 'settings_validation.dart';
+import 'terminal_color_schemes.dart';
 
 /// Opens the Settings dialog, letting the user override the executable each
 /// new pane spawns.
@@ -51,6 +52,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   late final _controller = TextEditingController(
     text: widget.settings.value.executablePath ?? '',
   );
+  late var _colorScheme = widget.settings.value.colorScheme;
 
   @override
   void initState() {
@@ -88,6 +90,22 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               ),
             ),
             const SizedBox(height: 16),
+            const Text('Terminal color scheme'),
+            const SizedBox(height: 4),
+            DropdownButton<TerminalColorScheme>(
+              value: _colorScheme,
+              isExpanded: true,
+              onChanged: (scheme) =>
+                  setState(() => _colorScheme = scheme ?? _colorScheme),
+              items: [
+                for (final scheme in TerminalColorScheme.values)
+                  DropdownMenuItem(
+                    value: scheme,
+                    child: Text(terminalColorSchemeLabel(scheme)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
             Text(
               'v${widget.version}',
               style: Theme.of(
@@ -116,6 +134,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   void _save() {
     final updated = Settings(
       executablePath: normalizeExecutablePath(_controller.text),
+      colorScheme: _colorScheme,
     );
     widget.settings.value = updated;
     writeSettings(updated, file: widget.file);

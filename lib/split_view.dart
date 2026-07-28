@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xterm/xterm.dart';
 
 import 'layout_node.dart';
 import 'pane_bar.dart';
@@ -23,6 +24,7 @@ class SplitView extends StatelessWidget {
     required this.focusedId,
     required this.collapsedIds,
     required this.collapsibleIds,
+    required this.theme,
     required this.onFocus,
     required this.onResize,
     required this.onToggleCollapse,
@@ -36,6 +38,7 @@ class SplitView extends StatelessWidget {
   final String focusedId;
   final Set<String> collapsedIds;
   final Set<String> collapsibleIds;
+  final TerminalTheme theme;
   final void Function(String id) onFocus;
   final void Function(LayoutNode split, int dividerIndex, double delta)
   onResize;
@@ -62,6 +65,7 @@ class SplitView extends StatelessWidget {
       onKeyEvent: onKeyEvent,
       canCollapse: collapsibleIds.contains(sessionId),
       collapsed: collapsedIds.contains(sessionId),
+      theme: theme,
       onToggleCollapse: () => onToggleCollapse(sessionId),
     );
   }
@@ -177,6 +181,7 @@ class SplitView extends StatelessWidget {
       focusedId: focusedId,
       collapsedIds: collapsedIds,
       collapsibleIds: collapsibleIds,
+      theme: theme,
       onFocus: onFocus,
       onResize: onResize,
       onToggleCollapse: onToggleCollapse,

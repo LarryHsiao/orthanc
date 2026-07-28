@@ -9,6 +9,7 @@ import 'sessions.dart';
 import 'settings.dart';
 import 'split_shortcuts.dart';
 import 'split_view.dart';
+import 'terminal_color_schemes.dart';
 import 'workspace.dart';
 
 /// The window: the sessions, their arrangement, and the keys that change it.
@@ -174,27 +175,34 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      // Re-runs _onKey for keys a terminal returns `ignored` on; see
-      // _onKey's doc for why this is not a backstop for the no-focus case.
-      onKeyEvent: _onKey,
-      child: SplitView(
-        node: workspace.root,
-        sessions: sessions,
-        focusedId: workspace.focusedId,
-        collapsedIds: workspace.collapsedIds,
-        collapsibleIds: workspace.collapsibleIds,
-        onFocus: _onPaneFocus,
-        onKeyEvent: _onKey,
-        onToggleCollapse: _toggleCollapse,
-        onResize: (split, index, delta) => setState(() {
-          workspace = workspace.resizeSplit(
-            split: split,
-            dividerIndex: index,
-            delta: delta,
-          );
-        }),
-      ),
+    return ValueListenableBuilder<Settings>(
+      valueListenable: widget.settings,
+      builder: (context, settings, _) {
+        return Focus(
+          // Re-runs _onKey for keys a terminal returns `ignored` on; see
+          // _onKey's doc for why this is not a backstop for the no-focus
+          // case.
+          onKeyEvent: _onKey,
+          child: SplitView(
+            node: workspace.root,
+            sessions: sessions,
+            focusedId: workspace.focusedId,
+            collapsedIds: workspace.collapsedIds,
+            collapsibleIds: workspace.collapsibleIds,
+            theme: terminalThemeFor(settings.colorScheme),
+            onFocus: _onPaneFocus,
+            onKeyEvent: _onKey,
+            onToggleCollapse: _toggleCollapse,
+            onResize: (split, index, delta) => setState(() {
+              workspace = workspace.resizeSplit(
+                split: split,
+                dividerIndex: index,
+                delta: delta,
+              );
+            }),
+          ),
+        );
+      },
     );
   }
 }

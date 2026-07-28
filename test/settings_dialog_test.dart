@@ -59,6 +59,33 @@ void main() {
     expect(field.controller!.text, expected);
   });
 
+  testWidgets('color scheme dropdown is prefilled with the current selection', (
+    tester,
+  ) async {
+    const expected = TerminalColorScheme.dracula;
+
+    await pumpDialog(tester, initial: const Settings(colorScheme: expected));
+
+    final dropdown = tester.widget<DropdownButton<TerminalColorScheme>>(
+      find.byType(DropdownButton<TerminalColorScheme>),
+    );
+    expect(dropdown.value, expected);
+  });
+
+  testWidgets('Save persists the picked color scheme', (tester) async {
+    const expected = TerminalColorScheme.monokai;
+    final settings = await pumpDialog(tester);
+
+    await tester.tap(find.byType(DropdownButton<TerminalColorScheme>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Monokai').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(settings.value.colorScheme, expected);
+  });
+
   testWidgets('shows the app version', (tester) async {
     const expected = 'v1.1.4';
 
