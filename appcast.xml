@@ -11,5 +11,10 @@
             <pubDate>Tue, 28 Jul 2026 15:29:51 +0000</pubDate>
             <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.1.5/orthanc.dmg" sparkle:edSignature="OMNqmK3h8o7aNkvMkFqFSpr4pyuoKWI34bpnynZOFiEhgfVrlGoQ9zvTWyOAmoN+6AVFepcPoy0ya62E5T6yBA==" sparkle:os="macos" length="21457977" type="application/octet-stream" />
         </item>
+        <item>
+            <title>Version 1.1.5</title>
+            <pubDate>Tue, 28 Jul 2026 15:30:00 +0000</pubDate>
+            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.1.5/orthanc-setup-1.1.5.exe" sparkle:dsaSignature="MDwCHB2LZy4SrFJZE5cetSrUvGrSr1sfTJA0N6PlJY0CHEq+808hqIh/7l3mxBLSLL8Mk/BaMZ0qN8nQmmA=" sparkle:version="1.1.5+9" sparkle:os="windows" length="0" type="application/octet-stream" />
+        </item>
     </channel>
 </rss>
