@@ -207,7 +207,7 @@ if [ "$PUBLISH" -eq 1 ]; then
   xmllint --noout appcast.xml
   git add appcast.xml
   git commit -m "chore: publish $TAG to the update feed"
-  git push
+  git push origin HEAD:master
   echo "==> appcast.xml published for $TAG"
 else
   echo "==> Skipping publish (pass --publish to create/update the GitHub release)"
