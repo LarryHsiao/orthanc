@@ -90,7 +90,7 @@ class Session {
       arguments: hook.arguments,
       columns: terminal.viewWidth,
       rows: terminal.viewHeight,
-      environment: {...?env, ...hook.environment},
+      environment: {...env, ...hook.environment},
       workingDirectory: home,
     );
   }

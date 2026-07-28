@@ -1,4 +1,4 @@
-/// The environment handed to the spawned process, or null to add nothing.
+/// The environment overrides to hand the spawned process.
 ///
 /// flutter_pty does not inherit the parent environment — it builds the child's
 /// from scratch, hardcoding TERM and LANG and copying only a fixed allowlist
@@ -36,18 +36,26 @@
 /// `NO_COLOR` — an exact-match removal would let it straight through.
 const _withheldOnWindows = {'term', 'lang', 'no_color'};
 
-Map<String, String>? ptyEnvironment({
+/// FORCE_HYPERLINK is always injected, on every platform. A hyperlink-aware
+/// CLI (Claude Code included) only emits OSC 8 once it recognizes the
+/// terminal as capable — typically by TERM_PROGRAM matching a known emulator
+/// (iTerm.app, WezTerm, vscode, ghostty) or VTE_VERSION being set — checks
+/// this pane's TERM=xterm-256color will never satisfy, since Orthanc is none
+/// of those. FORCE_HYPERLINK is the escape hatch such CLIs already honor to
+/// skip that detection.
+Map<String, String> ptyEnvironment({
   required bool isWindows,
   required Map<String, String> environment,
 }) {
-  if (isWindows) {
-    return {
-      for (final entry in environment.entries)
-        if (!_withheldOnWindows.contains(entry.key.toLowerCase()))
-          entry.key: entry.value,
-    };
-  }
-
-  final colorterm = environment['COLORTERM'];
-  return colorterm != null ? {'COLORTERM': colorterm} : null;
+  final base = isWindows
+      ? {
+          for (final entry in environment.entries)
+            if (!_withheldOnWindows.contains(entry.key.toLowerCase()))
+              entry.key: entry.value,
+        }
+      : {
+          if (environment['COLORTERM'] case final colorterm?)
+            'COLORTERM': colorterm,
+        };
+  return {...base, 'FORCE_HYPERLINK': '1'};
 }
