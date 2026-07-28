@@ -84,6 +84,10 @@ if ($LASTEXITCODE -ne 0) { throw "update_appcast.py exited $LASTEXITCODE" }
 if ($LASTEXITCODE -ne 0) { throw "appcast.xml is not valid XML after update" }
 & git add appcast.xml
 & git commit -m "chore: publish $tag to the update feed"
+& git fetch origin master
+if ($LASTEXITCODE -ne 0) { throw "git fetch origin master exited $LASTEXITCODE" }
+& git rebase origin/master
+if ($LASTEXITCODE -ne 0) { throw "git rebase onto origin/master failed - appcast.xml needs manual reconciliation" }
 & git push origin HEAD:master
 if ($LASTEXITCODE -ne 0) { throw "git push exited $LASTEXITCODE" }
 Write-Host "==> appcast.xml published for $tag"
