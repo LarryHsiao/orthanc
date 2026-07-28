@@ -42,6 +42,9 @@ Write-Host "==> Uploading $($installer.Name) and $($zip.Name)"
 if ($LASTEXITCODE -ne 0) { throw "gh release upload exited $LASTEXITCODE" }
 
 $version = $tag -replace '^v', ''
+$versionLine = Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)' | Select-Object -First 1
+if (-not $versionLine) { throw "could not read version from pubspec.yaml" }
+$fullVersion = $versionLine.Matches.Groups[1].Value
 
 Write-Host "==> Resolving WinSparkle signing key from Vaultwarden"
 $dsaKeyB64 = & bash "$env:USERPROFILE\.claude\hooks\secret.sh" orthanc-winsparkle-dsa password
@@ -70,6 +73,7 @@ $pubDate = (Get-Date).ToUniversalTime().ToString("ddd, dd MMM yyyy HH:mm:ss +000
   --appcast appcast.xml `
   --os windows `
   --version $version `
+  --full-version $fullVersion `
   --pub-date $pubDate `
   --url "https://github.com/LarryHsiao/orthanc/releases/download/$tag/$($installer.Name)" `
   --length $length `
