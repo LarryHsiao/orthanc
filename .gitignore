@@ -37,6 +37,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# WinSparkle private signing key (dart run auto_updater:generate_keys) — never commit
+dsa_priv.pem
+
 # Symbolication related
 app.*.symbols
 

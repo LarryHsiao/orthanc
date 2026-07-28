@@ -169,6 +169,12 @@ either by hand or on an unattended runner configured elsewhere.
 Each script fails on the first missing tool rather than part-way through, so
 check its prerequisites before the first run.
 
+Orthanc also checks for updates on launch and downloads them automatically via
+Sparkle/WinSparkle — Sparkle shows its own one-time "install now?" consent
+alert before applying — see [`docs/releasing.md`](docs/releasing.md) for the
+one extra step this adds to the flow below: signing each artifact and
+publishing it to the `appcast.xml` feed.
+
 - **Windows** — `scripts/build_windows.ps1` builds a signed installer (via
   `installer/orthanc.iss`) and a raw zip. *Needs:* **Inno Setup 6** (`ISCC.exe`
   at its default path or on `PATH`), the **Windows SDK** (`signtool.exe` on
