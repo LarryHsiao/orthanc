@@ -25,16 +25,16 @@
 |---|---|
 | `lib/update_note.dart` | Pure logic: whether the running version differs from the last one seen (`checkForUpdateNote`), plus the read-compute-write orchestration over injected persistence functions (`updateNoteOnLaunch`). No Flutter import. |
 | `lib/update_note_banner.dart` | The one-time banner widget: names the version, dismissible. |
-| `lib/app_root.dart` | Wires `PackageInfo`, `SharedPreferences`, and `auto_updater` together on startup; owns banner-visibility state; hosts `WorkspaceView`. |
-| `lib/main.dart` | Modified: hosts `AppRoot` instead of `WorkspaceView` directly. |
+| `lib/app_root.dart` | Wires `PackageInfo`, `SharedPreferences`, and `auto_updater` together on startup; owns banner-visibility state; forwards `Settings` into `WorkspaceView`. |
+| `lib/main.dart` | Modified: `_OrthancAppState` hosts `AppRoot(settings: widget.settings)` instead of `WorkspaceView(settings: widget.settings)` directly. Its `Settings` loading, `PlatformMenuBar`, and everything else are untouched. |
 | `pubspec.yaml` | Modified: adds `auto_updater`, `package_info_plus`, `shared_preferences`. |
 | `appcast.xml` | Created: the Sparkle/WinSparkle feed, seeded empty (no `<item>`s) until the first release goes through the new signing step. |
 | `macos/Runner/Info.plist` | Modified: adds `SUPublicEDKey`. |
 | `macos/Runner/Release.entitlements`, `macos/Runner/DebugProfile.entitlements` | Modified: adds `com.apple.security.network.client`, required by Sparkle to reach the feed and download. |
 | `windows/runner/Runner.rc` | Modified: embeds `dsa_pub.pem` as a `DSAPub` resource, required by WinSparkle to verify signatures. |
 | `.gitignore` | Modified: excludes `dsa_priv.pem`. |
-| `docs/releasing.md` | Created: the per-release signing + appcast-update steps, layered onto the existing local `/publish-macos` flow. |
-| `README.md` | Modified: one new "Releasing" section pointing at `docs/releasing.md`. |
+| `docs/releasing.md` | Created: the per-release signing + appcast-update step, layered onto the existing `scripts/publish_macos.sh` / `scripts/build_windows.ps1` + `scripts/release_github.ps1` flow. |
+| `README.md` | Modified: one new paragraph in "Building a release" pointing at `docs/releasing.md`. |
 
 ---
 
@@ -338,8 +338,10 @@ rtk git commit -m "feat: add the post-relaunch update-note banner"
 - Modify: `lib/main.dart`
 
 **Interfaces:**
-- Consumes: `checkForUpdateNote`/`updateNoteOnLaunch`/`UpdateNoteState` from `lib/update_note.dart` (Task 1); `UpdateNoteBanner` from `lib/update_note_banner.dart` (Task 2); `WorkspaceView` (existing, `lib/workspace_view.dart`).
-- Produces: `class AppRoot extends StatefulWidget` with a no-arg const constructor, hosted by `main.dart` in place of `WorkspaceView`.
+- Consumes: `checkForUpdateNote`/`updateNoteOnLaunch`/`UpdateNoteState` from `lib/update_note.dart` (Task 1); `UpdateNoteBanner` from `lib/update_note_banner.dart` (Task 2); `WorkspaceView` (existing, `lib/workspace_view.dart`, constructor `WorkspaceView({required ValueNotifier<Settings> settings})`); `Settings` (existing, `lib/settings.dart`).
+- Produces: `class AppRoot extends StatefulWidget` with constructor `AppRoot({required ValueNotifier<Settings> settings})`, hosted by `main.dart`'s `_OrthancAppState` in place of its current direct `WorkspaceView(settings: widget.settings)`.
+
+Note on drift: this plan was authored against an older snapshot of `main.dart` (a bare `StatelessWidget` hosting `WorkspaceView()` directly). The current `main.dart` has since grown a `Settings` system — `main()` is now `async`, loads `Settings` from disk, and `OrthancApp` is a `StatefulWidget` holding a `ValueNotifier<Settings>`, a `PlatformMenuBar`, and a `Scaffold` whose body is `SafeArea(child: WorkspaceView(settings: widget.settings))`. `AppRoot` now takes that same `settings` notifier and forwards it to `WorkspaceView` — it does not touch settings loading, the menu bar, or anything else `OrthancApp` already owns.
 
 - [ ] **Step 1: Add the three dependencies**
 
@@ -364,6 +366,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'settings.dart';
 import 'update_note.dart';
 import 'update_note_banner.dart';
 import 'workspace_view.dart';
@@ -377,7 +380,9 @@ const _appcastFeedUrl =
 /// check already landed one. Both are best-effort — neither may ever block
 /// the terminal from opening or stand between the user and their keyboard.
 class AppRoot extends StatefulWidget {
-  const AppRoot({super.key});
+  const AppRoot({super.key, required this.settings});
+
+  final ValueNotifier<Settings> settings;
 
   @override
   State<AppRoot> createState() => _AppRootState();
@@ -428,7 +433,7 @@ class _AppRootState extends State<AppRoot> {
             version: note.version,
             onDismiss: () => setState(() => _note = null),
           ),
-        const Expanded(child: WorkspaceView()),
+        Expanded(child: WorkspaceView(settings: widget.settings)),
       ],
     );
   }
@@ -437,29 +442,42 @@ class _AppRootState extends State<AppRoot> {
 
 - [ ] **Step 3: Host `AppRoot` from `main.dart`**
 
-Edit `lib/main.dart` — replace the whole file:
+`main.dart` currently ends with `_OrthancAppState`, whose `build()` returns a
+`PlatformMenuBar` wrapping a `MaterialApp` whose `home` is
+`Scaffold(body: SafeArea(child: WorkspaceView(settings: widget.settings)))`.
+Two edits, both inside the existing file — nothing else in it changes.
 
-```dart
-import 'package:flutter/material.dart';
+Edit `lib/main.dart`'s import block:
 
-import 'app_root.dart';
+```diff
+ import 'dart:io';
 
-void main() {
-  runApp(const OrthancApp());
-}
+ import 'package:flutter/material.dart';
+ import 'package:flutter/services.dart';
+ import 'package:path_provider/path_provider.dart';
 
-class OrthancApp extends StatelessWidget {
-  const OrthancApp({super.key});
++import 'app_root.dart';
+ import 'settings.dart';
+ import 'settings_dialog.dart';
+ import 'settings_store.dart';
+ import 'shell_command.dart';
+-import 'workspace_view.dart';
+```
 
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Orthanc',
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(body: SafeArea(child: AppRoot())),
-    );
-  }
-}
+Edit `_OrthancAppState.build()`'s `home:`:
+
+```diff
+       child: MaterialApp(
+         navigatorKey: _navigatorKey,
+         title: 'Orthanc',
+         debugShowCheckedModeBanner: false,
+-        home: Scaffold(
+-          body: SafeArea(child: WorkspaceView(settings: widget.settings)),
+-        ),
++        home: Scaffold(
++          body: SafeArea(child: AppRoot(settings: widget.settings)),
++        ),
+       ),
 ```
 
 - [ ] **Step 4: Verify the whole suite still analyzes and passes**
@@ -644,8 +662,10 @@ rtk git commit -m "feat(windows): wire WinSparkle signing key"
 - Modify: `README.md`
 
 **Interfaces:**
-- Consumes: the exact commands verified in Tasks 4 and 5.
+- Consumes: the exact commands verified in Tasks 4 and 5, and the real build scripts already in the repo (`scripts/publish_macos.sh`, `scripts/build_windows.ps1`, `scripts/release_github.ps1`).
 - Produces: nothing consumed by other tasks — this is the human-facing process doc that Task 7 exercises for real.
+
+Note on drift: this plan was authored against an older snapshot of the repo, before `scripts/publish_macos.sh`, `scripts/build_windows.ps1`, and `scripts/release_github.ps1` existed and before README grew its own "Building a release" section. The steps below name those real scripts and their real artifact filenames instead of the placeholder flow originally assumed.
 
 - [ ] **Step 1: Write the release doc**
 
@@ -654,28 +674,38 @@ Create `docs/releasing.md`:
 ```markdown
 # Releasing
 
-Orthanc ships via GitHub Releases, built and signed locally (there is no
-CI). Existing steps — bumping the version and building/notarizing the
-macOS artifact — are unchanged; this adds one step at the end so the
-`auto_updater` feed picks up the new build.
+Orthanc checks for updates on launch and applies them silently via
+Sparkle (macOS) / WinSparkle (Windows). The existing build-and-publish
+flow, documented in the README's "Building a release" section, is
+unchanged; this adds one step at the end so the `auto_updater` feed
+(`appcast.xml`) picks up the new build.
 
-## 1. Build the platform artifacts (existing flow)
+## 1. Build and publish the platform artifacts (existing flow)
 
-- macOS: `/publish-macos` (bumps version, builds, signs, notarizes).
-- Windows: `fvm flutter build windows`, then zip the `Release` output.
+- **macOS**: `scripts/publish_macos.sh --publish` — builds, signs,
+  notarizes, and uploads `build/publish/orthanc.dmg` to a GitHub Release
+  tagged `v<VERSION>` (created if it doesn't exist yet).
+- **Windows**: `scripts/build_windows.ps1` produces
+  `build\publish\orthanc-setup-<VERSION>.exe` (signed installer) and
+  `build\publish\orthanc-<VERSION>-windows.zip`; `scripts/release_github.ps1`
+  then uploads both to the same `v<VERSION>` GitHub Release.
+
+Both artifacts stay on disk after their script runs — step 2 signs them
+in place, order doesn't matter relative to the upload.
 
 ## 2. Sign each artifact for Sparkle/WinSparkle
 
 macOS:
 
 ```bash
-dart run auto_updater:sign_update path/to/Orthanc-<version>-macos.zip
+dart run auto_updater:sign_update build/publish/orthanc.dmg
 ```
 
-Windows (run on a Windows machine):
+Windows (run on a Windows machine, against the installer — that's the
+artifact WinSparkle actually runs to apply the update):
 
 ```bash
-dart run auto_updater:sign_update path/to/Orthanc-<version>-windows.zip
+dart run auto_updater:sign_update build\publish\orthanc-setup-<VERSION>.exe
 ```
 
 Each command prints a signature attribute — `sparkle:edSignature="..."
@@ -685,7 +715,8 @@ Windows. Keep both outputs for step 3.
 ## 3. Add an `<item>` to `appcast.xml`
 
 Append one `<item>` per platform inside `<channel>`, using the signatures
-from step 2 and the real GitHub Release download URL for `url`:
+from step 2 and the real GitHub Release download URLs (both scripts
+publish to `https://github.com/LarryHsiao/orthanc/releases/download/v<VERSION>/...`):
 
 ```xml
         <item>
@@ -693,7 +724,7 @@ from step 2 and the real GitHub Release download URL for `url`:
             <sparkle:version><BUILD_NUMBER></sparkle:version>
             <sparkle:shortVersionString><VERSION></sparkle:shortVersionString>
             <pubDate><RFC_2822_DATE></pubDate>
-            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v<VERSION>/Orthanc-<VERSION>-macos.zip"
+            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v<VERSION>/orthanc.dmg"
                        sparkle:edSignature="<FROM_STEP_2>"
                        sparkle:os="macos"
                        length="<FROM_STEP_2>"
@@ -702,7 +733,7 @@ from step 2 and the real GitHub Release download URL for `url`:
         <item>
             <title>Version <VERSION></title>
             <pubDate><RFC_2822_DATE></pubDate>
-            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v<VERSION>/Orthanc-<VERSION>-windows.zip"
+            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v<VERSION>/orthanc-setup-<VERSION>.exe"
                        sparkle:dsaSignature="<FROM_STEP_2>"
                        sparkle:version="<VERSION>"
                        sparkle:os="windows"
@@ -723,27 +754,25 @@ rtk git commit -m "chore: publish v<VERSION> to the update feed"
 rtk git push
 ```
 
-## 5. Create the GitHub Release (existing flow)
-
-Upload the built artifacts from step 1 to a GitHub Release tagged
-`v<VERSION>`, matching the `url`s used in step 3.
+Step 1 already created and uploaded the GitHub Release itself — this is
+the only remaining step once step 3's signatures are in place.
 ```
 
 - [ ] **Step 2: Link it from the README**
 
-Edit `README.md`, adding a new section after "## Tests" (at the end of the file):
+Edit `README.md`'s "Building a release" section — add one paragraph right
+after its introductory two paragraphs (before the "**Windows**" bullet):
 
 ```diff
- Pure logic (shell/executable resolution) is unit-tested directly. The
- pty/terminal wiring itself can only be judged by actually running the app —
- see the plan's Global Constraints for why `flutter test`'s harness can't
- exercise it.
+ Each script fails on the first missing tool rather than part-way through, so
+ check its prerequisites before the first run.
+
++Orthanc also checks for updates on launch and applies them silently via
++Sparkle/WinSparkle — see [`docs/releasing.md`](docs/releasing.md) for the
++one extra step this adds to the flow below: signing each artifact and
++publishing it to the `appcast.xml` feed.
 +
-+## Releasing
-+
-+Orthanc checks for updates on launch and applies them silently via
-+Sparkle/WinSparkle. See [`docs/releasing.md`](docs/releasing.md) for the
-+per-release signing and feed-update steps.
+ - **Windows** — `scripts/build_windows.ps1` builds a signed installer (via
 ```
 
 - [ ] **Step 3: Commit**
@@ -769,10 +798,10 @@ actually cutting a release and watching an old build pick it up.
 
 - [ ] **Step 1: Cut a real, signed test release**
 
-Bump `pubspec.yaml`'s `version:` by one patch (e.g. `1.1.0+4` →
-`1.1.1+5`), then follow `docs/releasing.md` end to end for both platforms:
-build, sign, add feed items, commit `appcast.xml`, push, create the GitHub
-Release.
+Bump `pubspec.yaml`'s `version:` by one patch (e.g. `1.1.2+6` →
+`1.1.3+7`), then follow `docs/releasing.md` end to end for both platforms:
+build/publish (creates the GitHub Release), sign, add feed items, commit
+and push `appcast.xml`.
 
 - [ ] **Step 2: Walk the macOS path**
 
@@ -815,4 +844,6 @@ rtk git commit -m "Confirm auto-update on macOS and Windows"
 
 **Placeholder scan.** No TBD/TODO in any step. `docs/releasing.md`'s `<VERSION>`/`<FROM_STEP_2>` tokens are template placeholders *within a document a human fills in per release* — not a gap in this plan's own instructions, which give every surrounding command verbatim.
 
-**Type consistency.** `UpdateNoteState`, `checkForUpdateNote`, `updateNoteOnLaunch` (Task 1) match their use in Task 3 exactly. `UpdateNoteBanner(version:, onDismiss:)` (Task 2) matches its construction in Task 3 exactly.
+**Type consistency.** `UpdateNoteState`, `checkForUpdateNote`, `updateNoteOnLaunch` (Task 1) match their use in Task 3 exactly. `UpdateNoteBanner(version:, onDismiss:)` (Task 2) matches its construction in Task 3 exactly. `AppRoot(settings:)` matches its construction in Task 3's `main.dart` edit exactly.
+
+**Drift reconciliation (added before execution).** This plan was originally written against master at `af18799`; the implementation worktree branched from `origin/master` at `937a114`, 34 commits ahead (a Settings system, OSC 8 hyperlinks, real release scripts, a rewritten README). Reconciled before any task was dispatched: Task 3's `AppRoot`/`main.dart` now thread the existing `ValueNotifier<Settings>` through instead of assuming a bare `WorkspaceView()`; Task 6's release doc and README edit now name the real `scripts/publish_macos.sh` / `scripts/build_windows.ps1` / `scripts/release_github.ps1` and their real artifact filenames instead of a placeholder flow; Task 7's version-bump example uses the current `1.1.2+6`. Tasks 1, 2, 4, and 5 were checked against the current tree and needed no changes — Info.plist and both entitlements files, in particular, are byte-identical to what those tasks already assumed.
