@@ -121,6 +121,10 @@ flutter:
 #    Adds Terminal.hyperlinkAt(CellOffset) -> String? and a dedicated
 #    CellFlags.hyperlink underline bit. See
 #    docs/superpowers/specs/2026-07-24-orthanc-osc8-hyperlinks-design.md.
+#    Also fixes TerminalView.onTapUp being dead: TerminalGestureDetector's
+#    TapGestureRecognizer only ever calls onSingleTapUp on a real tap-up,
+#    but TerminalView never wired onSingleTapUp through, so a click never
+#    reached PaneView's hyperlink-open callback.
 #    Fork branch: orthanc-osc8-hyperlinks
 #    Upstream PR: not filed
 #
@@ -142,7 +146,7 @@ dependency_overrides:
   xterm:
     git:
       url: https://github.com/LarryHsiao/xterm.dart.git
-      ref: 994d1e5ae5cb3be8efb2f6d96977006b763d9766
+      ref: 4eda00d
   flutter_pty:
     git:
       url: https://github.com/LarryHsiao/flutter_pty.git
