@@ -182,6 +182,33 @@ if [ "$PUBLISH" -eq 1 ]; then
   fi
   gh release upload "$TAG" "$DMG_PATH" --clobber
   echo "==> Published: $(gh release view "$TAG" --json url -q .url)"
+
+  BUILD_NUMBER=$(grep -E '^version:' pubspec.yaml | head -1 | sed -E 's/^version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+\+([0-9]+).*/\1/')
+  echo "==> Signing update for Sparkle"
+  SIGN_OUTPUT=$(dart run auto_updater:sign_update "$DMG_PATH")
+  ED_SIGNATURE=$(echo "$SIGN_OUTPUT" | sed -E 's/.*sparkle:edSignature="([^"]+)".*/\1/')
+  DMG_LENGTH=$(echo "$SIGN_OUTPUT" | sed -E 's/.*length="([0-9]+)".*/\1/')
+  if [ -z "$ED_SIGNATURE" ] || [ -z "$DMG_LENGTH" ]; then
+    echo "error: could not parse sign_update output: $SIGN_OUTPUT" >&2
+    exit 1
+  fi
+
+  echo "==> Updating appcast.xml"
+  python3 scripts/update_appcast.py \
+    --appcast appcast.xml \
+    --os macos \
+    --version "$VERSION" \
+    --build "$BUILD_NUMBER" \
+    --pub-date "$(date -u '+%a, %d %b %Y %H:%M:%S +0000')" \
+    --url "https://github.com/LarryHsiao/orthanc/releases/download/$TAG/orthanc.dmg" \
+    --length "$DMG_LENGTH" \
+    --ed-signature "$ED_SIGNATURE"
+
+  xmllint --noout appcast.xml
+  git add appcast.xml
+  git commit -m "chore: publish $TAG to the update feed"
+  git push
+  echo "==> appcast.xml published for $TAG"
 else
   echo "==> Skipping publish (pass --publish to create/update the GitHub release)"
 fi
