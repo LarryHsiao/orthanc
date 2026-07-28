@@ -629,16 +629,27 @@ Edit `.gitignore`, in the "Flutter/Dart/Pub related" section:
 
 - [ ] **Step 4: Embed the public key as a Windows resource**
 
-Edit `windows/runner/Runner.rc`, appending at the end of the file:
+`windows/runner/Runner.rc` already carries an app-icon resource block
+(`IDI_APP_ICON ICON "resources\\app_icon.ico"`) and a version-info block,
+both inside the `#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)`
+guard, closed by `#endif    // English (United States) resources`. Add the
+new resource inside that same guard, right after the version-info block's
+closing `END`, so it sits alongside the other resource declarations rather
+than after the file's trailing `#ifndef APSTUDIO_INVOKED` block:
 
-```rc
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// WinSparkle
-//
-// Verify update signatures using this DSA public key:
-DSAPub      DSAPEM      "../../dsa_pub.pem"
+```diff
+     VALUE "Translation", 0x409, 1252
+         END
+     END
+ 
++/////////////////////////////////////////////////////////////////////////////
++//
++// WinSparkle
++//
++// Verify update signatures using this DSA public key:
++DSAPub      DSAPEM      "../../dsa_pub.pem"
++
+ #endif    // English (United States) resources
 ```
 
 - [ ] **Step 5: Verify the Windows build still launches**
