@@ -53,9 +53,6 @@ Map<String, String> ptyEnvironment({
             if (!_withheldOnWindows.contains(entry.key.toLowerCase()))
               entry.key: entry.value,
         }
-      : {
-          if (environment['COLORTERM'] case final colorterm?)
-            'COLORTERM': colorterm,
-        };
+      : {'COLORTERM': ?environment['COLORTERM']};
   return {...base, 'FORCE_HYPERLINK': '1'};
 }
