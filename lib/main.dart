@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'app_root.dart';
 import 'settings.dart';
 import 'settings_dialog.dart';
 import 'settings_store.dart';
 import 'shell_command.dart';
-import 'workspace_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -82,7 +82,7 @@ class _OrthancAppState extends State<OrthancApp> {
         title: 'Orthanc',
         debugShowCheckedModeBanner: false,
         home: Scaffold(
-          body: SafeArea(child: WorkspaceView(settings: widget.settings)),
+          body: SafeArea(child: AppRoot(settings: widget.settings)),
         ),
       ),
     );
