@@ -8,8 +8,8 @@
             <title>Version 1.1.5</title>
             <sparkle:version>9</sparkle:version>
             <sparkle:shortVersionString>1.1.5</sparkle:shortVersionString>
-            <pubDate>Tue, 28 Jul 2026 13:19:21 +0000</pubDate>
-            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.1.5/orthanc.dmg" sparkle:edSignature="tI9/BfuGa06PkY0OTdyKvYU6IpzPbXjh9E5G6fFMdgwtDzpVjOlfHl85e0z4vjZ78oA3WEU2AfAV3uhMaPkABQ==" sparkle:os="macos" length="21457946" type="application/octet-stream" />
+            <pubDate>Tue, 28 Jul 2026 14:33:00 +0000</pubDate>
+            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.1.5/orthanc.dmg" sparkle:edSignature="6fz3h49tXA0iDQ5BOTneBwErxwIPkCf84iOKbOSl/S9/80Gt+CLgxz5As8TaUX1gq8Pc4cMY9fuQBlgI7TQwCQ==" sparkle:os="macos" length="21457976" type="application/octet-stream" />
         </item>
     </channel>
 </rss>
