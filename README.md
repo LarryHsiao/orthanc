@@ -169,8 +169,9 @@ either by hand or on an unattended runner configured elsewhere.
 Each script fails on the first missing tool rather than part-way through, so
 check its prerequisites before the first run.
 
-Orthanc also checks for updates on launch and applies them silently via
-Sparkle/WinSparkle — see [`docs/releasing.md`](docs/releasing.md) for the
+Orthanc also checks for updates on launch and downloads them automatically via
+Sparkle/WinSparkle — Sparkle shows its own one-time "install now?" consent
+alert before applying — see [`docs/releasing.md`](docs/releasing.md) for the
 one extra step this adds to the flow below: signing each artifact and
 publishing it to the `appcast.xml` feed.
 

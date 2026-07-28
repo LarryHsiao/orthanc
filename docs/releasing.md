@@ -1,10 +1,25 @@
 # Releasing
 
-Orthanc checks for updates on launch and applies them silently via
-Sparkle (macOS) / WinSparkle (Windows). The existing build-and-publish
+Orthanc checks for updates on launch and downloads them automatically via
+Sparkle (macOS) / WinSparkle (Windows); Sparkle shows its own one-time
+"install now?" consent alert before applying. The existing build-and-publish
 flow, documented in the README's "Building a release" section, is
 unchanged; this adds one step at the end so the `auto_updater` feed
 (`appcast.xml`) picks up the new build.
+
+## 0. One-time setup: signing keys
+
+Both platforms need a signing keypair before the first release goes out,
+generated via `dart run auto_updater:generate_keys` — run once per platform,
+not once per release:
+
+- **macOS**: writes an EdDSA keypair to the signer's local keychain; the
+  public half is already committed in `macos/Runner/Info.plist` (done as
+  part of Task 4 — nothing further to generate here).
+- **Windows**: writes `dsa_priv.pem` / `dsa_pub.pem` to the working
+  directory. The private half must never be committed — it's excluded via
+  `.gitignore` — and instead lives only on the machine that runs the
+  release build.
 
 ## 1. Build and publish the platform artifacts (existing flow)
 
