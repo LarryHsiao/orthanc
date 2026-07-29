@@ -90,6 +90,32 @@ const _monokai = TerminalTheme(
   searchHitForeground: _searchHitForeground,
 );
 
+const _solarizedLight = TerminalTheme(
+  cursor: _cursor,
+  selection: _selection,
+  foreground: Color(0xFF657B83),
+  background: Color(0xFFFDF6E3),
+  black: Color(0xFF073642),
+  red: Color(0xFFDC322F),
+  green: Color(0xFF859900),
+  yellow: Color(0xFFB58900),
+  blue: Color(0xFF268BD2),
+  magenta: Color(0xFFD33682),
+  cyan: Color(0xFF2AA198),
+  white: Color(0xFFEEE8D5),
+  brightBlack: Color(0xFF002B36),
+  brightRed: Color(0xFFCB4B16),
+  brightGreen: Color(0xFF586E75),
+  brightYellow: Color(0xFF657B83),
+  brightBlue: Color(0xFF839496),
+  brightMagenta: Color(0xFF6C71C4),
+  brightCyan: Color(0xFF93A1A1),
+  brightWhite: Color(0xFFFDF6E3),
+  searchHitBackground: _searchHitBackground,
+  searchHitBackgroundCurrent: _searchHitBackgroundCurrent,
+  searchHitForeground: _searchHitForeground,
+);
+
 const _oneDark = TerminalTheme(
   cursor: _cursor,
   selection: _selection,
@@ -116,6 +142,58 @@ const _oneDark = TerminalTheme(
   searchHitForeground: _searchHitForeground,
 );
 
+const _nord = TerminalTheme(
+  cursor: _cursor,
+  selection: _selection,
+  foreground: Color(0xFFD8DEE9),
+  background: Color(0xFF2E3440),
+  black: Color(0xFF3B4252),
+  red: Color(0xFFBF616A),
+  green: Color(0xFFA3BE8C),
+  yellow: Color(0xFFEBCB8B),
+  blue: Color(0xFF81A1C1),
+  magenta: Color(0xFFB48EAD),
+  cyan: Color(0xFF88C0D0),
+  white: Color(0xFFE5E9F0),
+  brightBlack: Color(0xFF4C566A),
+  brightRed: Color(0xFFBF616A),
+  brightGreen: Color(0xFFA3BE8C),
+  brightYellow: Color(0xFFEBCB8B),
+  brightBlue: Color(0xFF81A1C1),
+  brightMagenta: Color(0xFFB48EAD),
+  brightCyan: Color(0xFF8FBCBB),
+  brightWhite: Color(0xFFECEFF4),
+  searchHitBackground: _searchHitBackground,
+  searchHitBackgroundCurrent: _searchHitBackgroundCurrent,
+  searchHitForeground: _searchHitForeground,
+);
+
+const _gruvboxDark = TerminalTheme(
+  cursor: _cursor,
+  selection: _selection,
+  foreground: Color(0xFFEBDBB2),
+  background: Color(0xFF282828),
+  black: Color(0xFF282828),
+  red: Color(0xFFCC241D),
+  green: Color(0xFF98971A),
+  yellow: Color(0xFFD79921),
+  blue: Color(0xFF458588),
+  magenta: Color(0xFFB16286),
+  cyan: Color(0xFF689D6A),
+  white: Color(0xFFA89984),
+  brightBlack: Color(0xFF928374),
+  brightRed: Color(0xFFFB4934),
+  brightGreen: Color(0xFFB8BB26),
+  brightYellow: Color(0xFFFABD2F),
+  brightBlue: Color(0xFF83A598),
+  brightMagenta: Color(0xFFD3869B),
+  brightCyan: Color(0xFF8EC07C),
+  brightWhite: Color(0xFFEBDBB2),
+  searchHitBackground: _searchHitBackground,
+  searchHitBackgroundCurrent: _searchHitBackgroundCurrent,
+  searchHitForeground: _searchHitForeground,
+);
+
 /// The actual xterm [TerminalTheme] a persisted [TerminalColorScheme] maps
 /// to.
 TerminalTheme terminalThemeFor(TerminalColorScheme scheme) {
@@ -124,8 +202,11 @@ TerminalTheme terminalThemeFor(TerminalColorScheme scheme) {
     TerminalColorScheme.whiteOnBlack => TerminalThemes.whiteOnBlack,
     TerminalColorScheme.dracula => _dracula,
     TerminalColorScheme.solarizedDark => _solarizedDark,
+    TerminalColorScheme.solarizedLight => _solarizedLight,
     TerminalColorScheme.monokai => _monokai,
     TerminalColorScheme.oneDark => _oneDark,
+    TerminalColorScheme.nord => _nord,
+    TerminalColorScheme.gruvboxDark => _gruvboxDark,
   };
 }
 
@@ -136,7 +217,10 @@ String terminalColorSchemeLabel(TerminalColorScheme scheme) {
     TerminalColorScheme.whiteOnBlack => 'White on Black',
     TerminalColorScheme.dracula => 'Dracula',
     TerminalColorScheme.solarizedDark => 'Solarized Dark',
+    TerminalColorScheme.solarizedLight => 'Solarized Light',
     TerminalColorScheme.monokai => 'Monokai',
     TerminalColorScheme.oneDark => 'One Dark',
+    TerminalColorScheme.nord => 'Nord',
+    TerminalColorScheme.gruvboxDark => 'Gruvbox Dark',
   };
 }

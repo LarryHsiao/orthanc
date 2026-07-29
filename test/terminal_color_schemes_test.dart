@@ -42,8 +42,11 @@ void main() {
       TerminalColorScheme.whiteOnBlack: 'White on Black',
       TerminalColorScheme.dracula: 'Dracula',
       TerminalColorScheme.solarizedDark: 'Solarized Dark',
+      TerminalColorScheme.solarizedLight: 'Solarized Light',
       TerminalColorScheme.monokai: 'Monokai',
       TerminalColorScheme.oneDark: 'One Dark',
+      TerminalColorScheme.nord: 'Nord',
+      TerminalColorScheme.gruvboxDark: 'Gruvbox Dark',
     };
 
     for (final entry in expected.entries) {
