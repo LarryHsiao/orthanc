@@ -1,0 +1,45 @@
+import 'package:flutter/widgets.dart';
+import 'package:xterm/xterm.dart';
+
+import 'settings.dart';
+import 'terminal_color_schemes.dart';
+
+/// Static sample lines written into every preview terminal — a prompt, a
+/// colored directory listing exercising the palette's accents, an error
+/// line, and a git-branch-style accent row.
+const _sampleContent =
+    'orthanc:~ \$ ls -la\r\n'
+    '\x1B[34mDocuments\x1B[0m  \x1B[32mDownloads\x1B[0m  '
+    '\x1B[33mProjects\x1B[0m  notes.txt\r\n'
+    '\x1B[31mzsh: command not found: fzf\x1B[0m\r\n'
+    '\x1B[36m‣ main\x1B[0m \x1B[35m✗\x1B[0m';
+
+/// A [Terminal] pre-loaded with [_sampleContent], for a non-interactive
+/// preview. No PTY is attached — nothing is spawned, nothing can be typed
+/// into it.
+Terminal buildPreviewTerminal() {
+  final terminal = Terminal(maxLines: 100);
+  terminal.write(_sampleContent);
+  return terminal;
+}
+
+/// A small, read-only terminal viewport rendering [scheme] against
+/// [buildPreviewTerminal]'s sample content, so a color scheme can be judged
+/// before it's saved.
+class ColorSchemePreview extends StatelessWidget {
+  const ColorSchemePreview({super.key, required this.scheme});
+
+  final TerminalColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 120,
+      child: TerminalView(
+        buildPreviewTerminal(),
+        theme: terminalThemeFor(scheme),
+        readOnly: true,
+      ),
+    );
+  }
+}

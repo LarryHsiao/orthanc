@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orthanc/color_scheme_preview.dart';
 import 'package:orthanc/settings.dart';
 import 'package:orthanc/settings_dialog.dart';
 
@@ -70,6 +71,33 @@ void main() {
       find.byType(DropdownButton<TerminalColorScheme>),
     );
     expect(dropdown.value, expected);
+  });
+
+  testWidgets('preview reflects the pending selection before Save', (
+    tester,
+  ) async {
+    const initial = TerminalColorScheme.dracula;
+    const expected = TerminalColorScheme.monokai;
+    final settings = await pumpDialog(
+      tester,
+      initial: const Settings(colorScheme: initial),
+    );
+
+    final before = tester.widget<ColorSchemePreview>(
+      find.byType(ColorSchemePreview),
+    );
+    expect(before.scheme, initial);
+
+    await tester.tap(find.byType(DropdownButton<TerminalColorScheme>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Monokai').last);
+    await tester.pumpAndSettle();
+
+    final after = tester.widget<ColorSchemePreview>(
+      find.byType(ColorSchemePreview),
+    );
+    expect(after.scheme, expected);
+    expect(settings.value.colorScheme, initial);
   });
 
   testWidgets('Save persists the picked color scheme', (tester) async {

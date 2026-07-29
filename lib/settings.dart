@@ -6,8 +6,11 @@ enum TerminalColorScheme {
   whiteOnBlack,
   dracula,
   solarizedDark,
+  solarizedLight,
   monokai,
   oneDark,
+  nord,
+  gruvboxDark,
 }
 
 /// The user's persisted preferences.
