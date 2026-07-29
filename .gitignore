@@ -2,6 +2,9 @@
 # Superpowers scratch (subagent-driven-development ledger, etc.)
 .superpowers/
 
+# Claude Code project-local settings (machine-specific, may carry secrets)
+.claude/
+
 # Miscellaneous
 *.class
 *.log

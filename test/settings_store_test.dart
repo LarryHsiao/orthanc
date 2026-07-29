@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orthanc/settings.dart';
 import 'package:orthanc/settings_store.dart';
+import 'package:path/path.dart' as p;
 
 void main() {
   late Directory tempDir;
@@ -56,6 +57,20 @@ void main() {
     final result = readSettings(file: file);
 
     expect(result.colorScheme, expected);
+  });
+
+  test('writing leaves no leftover temp file beside settings.json', () {
+    const expected = <String>[];
+    final file = settingsFile(supportDir: tempDir);
+
+    writeSettings(const Settings(), file: file);
+    final result = tempDir
+        .listSync()
+        .map((entity) => p.basename(entity.path))
+        .where((name) => name != p.basename(file.path))
+        .toList();
+
+    expect(result, expected);
   });
 
   test('reading an unknown color scheme name returns the default scheme', () {
