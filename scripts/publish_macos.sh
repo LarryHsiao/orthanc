@@ -194,22 +194,45 @@ if [ "$PUBLISH" -eq 1 ]; then
   fi
 
   echo "==> Updating appcast.xml"
-  python3 scripts/update_appcast.py \
-    --appcast appcast.xml \
-    --os macos \
-    --version "$VERSION" \
-    --build "$BUILD_NUMBER" \
-    --pub-date "$(date -u '+%a, %d %b %Y %H:%M:%S +0000')" \
-    --url "https://github.com/LarryHsiao/orthanc/releases/download/$TAG/orthanc.dmg" \
-    --length "$DMG_LENGTH" \
-    --ed-signature "$ED_SIGNATURE"
-
-  xmllint --noout appcast.xml
-  git add appcast.xml
-  git commit -m "chore: publish $TAG to the update feed"
+  PUB_DATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
   git fetch origin master
-  git rebase origin/master
-  git push origin HEAD:master
+
+  # The Windows deploy pipeline updates the same file and can win the push
+  # race. update_appcast.py replaces only this OS's <item>, so on a lost
+  # race we reset to the winner's commit and regenerate on top of it rather
+  # than rebasing a stale edit into a conflict.
+  MAX_ATTEMPTS=5
+  PUSHED=0
+  for ATTEMPT in $(seq 1 "$MAX_ATTEMPTS"); do
+    git reset --hard origin/master
+
+    python3 scripts/update_appcast.py \
+      --appcast appcast.xml \
+      --os macos \
+      --version "$VERSION" \
+      --build "$BUILD_NUMBER" \
+      --pub-date "$PUB_DATE" \
+      --url "https://github.com/LarryHsiao/orthanc/releases/download/$TAG/orthanc.dmg" \
+      --length "$DMG_LENGTH" \
+      --ed-signature "$ED_SIGNATURE"
+
+    xmllint --noout appcast.xml
+    git add appcast.xml
+    git commit -m "chore: publish $TAG to the update feed"
+
+    if git push origin HEAD:master; then
+      PUSHED=1
+      break
+    fi
+
+    echo "==> push race on attempt $ATTEMPT/$MAX_ATTEMPTS - refetching origin/master and retrying"
+    sleep 5
+    git fetch origin master
+  done
+  if [ "$PUSHED" -ne 1 ]; then
+    echo "error: git push to master failed after $MAX_ATTEMPTS attempts - appcast.xml needs manual reconciliation" >&2
+    exit 1
+  fi
   echo "==> appcast.xml published for $TAG"
 else
   echo "==> Skipping publish (pass --publish to create/update the GitHub release)"

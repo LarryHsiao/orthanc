@@ -69,25 +69,44 @@ $length = ($signOutput | Select-String -Pattern 'length="([0-9]+)"').Matches.Gro
 
 Write-Host "==> Updating appcast.xml"
 $pubDate = (Get-Date).ToUniversalTime().ToString("ddd, dd MMM yyyy HH:mm:ss +0000")
-& python3 scripts/update_appcast.py `
-  --appcast appcast.xml `
-  --os windows `
-  --version $version `
-  --full-version $fullVersion `
-  --pub-date $pubDate `
-  --url "https://github.com/LarryHsiao/orthanc/releases/download/$tag/$($installer.Name)" `
-  --length $length `
-  --dsa-signature $dsaSignature
-if ($LASTEXITCODE -ne 0) { throw "update_appcast.py exited $LASTEXITCODE" }
 
-& xmllint --noout appcast.xml
-if ($LASTEXITCODE -ne 0) { throw "appcast.xml is not valid XML after update" }
-& git add appcast.xml
-& git commit -m "chore: publish $tag to the update feed"
 & git fetch origin master
 if ($LASTEXITCODE -ne 0) { throw "git fetch origin master exited $LASTEXITCODE" }
-& git rebase origin/master
-if ($LASTEXITCODE -ne 0) { throw "git rebase onto origin/master failed - appcast.xml needs manual reconciliation" }
-& git push origin HEAD:master
-if ($LASTEXITCODE -ne 0) { throw "git push exited $LASTEXITCODE" }
+
+# The macOS deploy pipeline updates the same file and can win the push race.
+# update_appcast.py replaces only this OS's <item>, so on a lost race we
+# reset to the winner's commit and regenerate on top of it rather than
+# rebasing a stale edit into a conflict.
+$maxAttempts = 5
+$pushed = $false
+for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+  & git reset --hard origin/master
+  if ($LASTEXITCODE -ne 0) { throw "git reset to origin/master exited $LASTEXITCODE" }
+
+  & python3 scripts/update_appcast.py `
+    --appcast appcast.xml `
+    --os windows `
+    --version $version `
+    --full-version $fullVersion `
+    --pub-date $pubDate `
+    --url "https://github.com/LarryHsiao/orthanc/releases/download/$tag/$($installer.Name)" `
+    --length $length `
+    --dsa-signature $dsaSignature
+  if ($LASTEXITCODE -ne 0) { throw "update_appcast.py exited $LASTEXITCODE" }
+
+  & xmllint --noout appcast.xml
+  if ($LASTEXITCODE -ne 0) { throw "appcast.xml is not valid XML after update" }
+  & git add appcast.xml
+  & git commit -m "chore: publish $tag to the update feed"
+  if ($LASTEXITCODE -ne 0) { throw "git commit exited $LASTEXITCODE" }
+
+  & git push origin HEAD:master
+  if ($LASTEXITCODE -eq 0) { $pushed = $true; break }
+
+  Write-Host "==> push race on attempt $attempt/$maxAttempts - refetching origin/master and retrying"
+  Start-Sleep -Seconds 5
+  & git fetch origin master
+  if ($LASTEXITCODE -ne 0) { throw "git fetch origin master exited $LASTEXITCODE" }
+}
+if (-not $pushed) { throw "git push to master failed after $maxAttempts attempts - appcast.xml needs manual reconciliation" }
 Write-Host "==> appcast.xml published for $tag"
