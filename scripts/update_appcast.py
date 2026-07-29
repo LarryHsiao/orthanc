@@ -15,9 +15,14 @@ Usage (macOS):
 
 Usage (Windows):
   update_appcast.py --appcast appcast.xml --os windows --version 1.1.4 \
+    --full-version 1.1.4+7 \
     --pub-date "Tue, 28 Jul 2026 12:00:00 +0000" \
     --url https://github.com/.../orthanc-setup-1.1.4.exe --length 12345678 \
     --dsa-signature "..."
+
+--full-version must match the built exe's ProductVersion string exactly
+(pubspec.yaml's version field, e.g. "1.1.4+7") — WinSparkle compares
+sparkle:version against that resource value, not against --version.
 """
 
 import argparse
@@ -53,7 +58,7 @@ def build_item(args: argparse.Namespace) -> ET.Element:
         enclosure.set(sparkle_tag("edSignature"), args.ed_signature)
     else:
         enclosure.set(sparkle_tag("dsaSignature"), args.dsa_signature)
-        enclosure.set(sparkle_tag("version"), args.version)
+        enclosure.set(sparkle_tag("version"), args.full_version)
     enclosure.set(sparkle_tag("os"), args.os)
     enclosure.set("length", args.length)
     enclosure.set("type", "application/octet-stream")
@@ -74,6 +79,11 @@ def main() -> int:
     parser.add_argument("--os", required=True, choices=["macos", "windows"])
     parser.add_argument("--version", required=True, help="e.g. 1.1.4")
     parser.add_argument("--build", help="macOS only: the +N build number")
+    parser.add_argument(
+        "--full-version",
+        help="Windows only: full pubspec version incl. build suffix "
+        "(e.g. 1.1.4+7), must match the exe's ProductVersion exactly",
+    )
     parser.add_argument("--pub-date", required=True, help="RFC 2822, e.g. 'Tue, 28 Jul 2026 12:00:00 +0000'")
     parser.add_argument("--url", required=True)
     parser.add_argument("--length", required=True)
@@ -83,8 +93,8 @@ def main() -> int:
 
     if args.os == "macos" and not (args.build and args.ed_signature):
         parser.error("--os macos requires --build and --ed-signature")
-    if args.os == "windows" and not args.dsa_signature:
-        parser.error("--os windows requires --dsa-signature")
+    if args.os == "windows" and not (args.dsa_signature and args.full_version):
+        parser.error("--os windows requires --dsa-signature and --full-version")
 
     tree = ET.parse(args.appcast)
     channel = tree.getroot().find("channel")

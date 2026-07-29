@@ -12,6 +12,10 @@
     - GH_TOKEN env var with repo scope
     - Built artifacts at build\installer\orthanc-setup-*.exe and
       build\publish\orthanc-*-windows.zip
+    - FVM on PATH (to reach the pinned Dart SDK for auto_updater:sign_update)
+    - bash on PATH and Vaultwarden reachable via
+      ~/.claude/hooks/secret.sh, item "orthanc-winsparkle-dsa" (password
+      field = base64 of dsa_priv.pem, the WinSparkle signing key)
 
   Argument:
     -Branch — TeamCity's %teamcity.build.branch% (e.g. refs/tags/v1.0.1)
@@ -38,12 +42,27 @@ Write-Host "==> Uploading $($installer.Name) and $($zip.Name)"
 if ($LASTEXITCODE -ne 0) { throw "gh release upload exited $LASTEXITCODE" }
 
 $version = $tag -replace '^v', ''
+$versionLine = Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)' | Select-Object -First 1
+if (-not $versionLine) { throw "could not read version from pubspec.yaml" }
+$fullVersion = $versionLine.Matches.Groups[1].Value
+
+Write-Host "==> Resolving WinSparkle signing key from Vaultwarden"
+$dsaKeyB64 = & bash "$env:USERPROFILE\.claude\hooks\secret.sh" orthanc-winsparkle-dsa password
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($dsaKeyB64)) {
+  throw "could not resolve WinSparkle signing key from Vaultwarden (item: orthanc-winsparkle-dsa)"
+}
+$dsaKeyPath = Join-Path (Get-Location) 'dsa_priv.pem'
+[IO.File]::WriteAllBytes($dsaKeyPath, [Convert]::FromBase64String($dsaKeyB64))
 
 Write-Host "==> Signing update for WinSparkle"
-$signOutput = & dart run auto_updater:sign_update $installer.FullName
-if ($LASTEXITCODE -ne 0) { throw "auto_updater:sign_update exited $LASTEXITCODE" }
-if ($signOutput -notmatch 'sparkle:dsaSignature="([^"]+)"' -or $signOutput -notmatch 'length="([0-9]+)"') {
-  throw "could not parse sign_update output: $signOutput"
+try {
+  $signOutput = & fvm dart run auto_updater:sign_update $installer.FullName
+  if ($LASTEXITCODE -ne 0) { throw "auto_updater:sign_update exited $LASTEXITCODE" }
+  if ($signOutput -notmatch 'sparkle:dsaSignature="([^"]+)"' -or $signOutput -notmatch 'length="([0-9]+)"') {
+    throw "could not parse sign_update output: $signOutput"
+  }
+} finally {
+  Remove-Item -Force $dsaKeyPath -ErrorAction SilentlyContinue
 }
 $dsaSignature = ($signOutput | Select-String -Pattern 'sparkle:dsaSignature="([^"]+)"').Matches.Groups[1].Value
 $length = ($signOutput | Select-String -Pattern 'length="([0-9]+)"').Matches.Groups[1].Value
@@ -54,6 +73,7 @@ $pubDate = (Get-Date).ToUniversalTime().ToString("ddd, dd MMM yyyy HH:mm:ss +000
   --appcast appcast.xml `
   --os windows `
   --version $version `
+  --full-version $fullVersion `
   --pub-date $pubDate `
   --url "https://github.com/LarryHsiao/orthanc/releases/download/$tag/$($installer.Name)" `
   --length $length `
@@ -64,6 +84,10 @@ if ($LASTEXITCODE -ne 0) { throw "update_appcast.py exited $LASTEXITCODE" }
 if ($LASTEXITCODE -ne 0) { throw "appcast.xml is not valid XML after update" }
 & git add appcast.xml
 & git commit -m "chore: publish $tag to the update feed"
-& git push
+& git fetch origin master
+if ($LASTEXITCODE -ne 0) { throw "git fetch origin master exited $LASTEXITCODE" }
+& git rebase origin/master
+if ($LASTEXITCODE -ne 0) { throw "git rebase onto origin/master failed - appcast.xml needs manual reconciliation" }
+& git push origin HEAD:master
 if ($LASTEXITCODE -ne 0) { throw "git push exited $LASTEXITCODE" }
 Write-Host "==> appcast.xml published for $tag"

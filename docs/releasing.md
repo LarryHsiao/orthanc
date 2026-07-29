@@ -61,5 +61,9 @@ python3 scripts/update_appcast.py \
   --length <BYTES> --ed-signature "<FROM sign_update>"
 ```
 
-(`--dsa-signature` in place of `--build`/`--ed-signature` for `--os windows`.)
+(`--dsa-signature --full-version <VERSION>+<BUILD>` in place of
+`--build`/`--ed-signature` for `--os windows` — `--full-version` must match
+the built exe's `ProductVersion` string exactly, since that's what
+WinSparkle compares against; a bare `<VERSION>` without the build suffix
+makes it think every install is out of date.)
 Always `xmllint --noout appcast.xml` after a manual edit before committing.
