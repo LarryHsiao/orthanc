@@ -50,4 +50,54 @@ void main() {
 
     expect(result, expected);
   });
+
+  test('round-trips fontFamily through json', () {
+    const expected = TerminalFontFamily.jetBrainsMono;
+    final settings = Settings(fontFamily: expected);
+
+    final result = settingsFromJson(settingsToJson(settings));
+
+    expect(result.fontFamily, expected);
+  });
+
+  test('a missing fontFamily field decodes to defaultFamily', () {
+    const expected = TerminalFontFamily.defaultFamily;
+
+    final result = settingsFromJson(const {});
+
+    expect(result.fontFamily, expected);
+  });
+
+  test('an unrecognized fontFamily name decodes to defaultFamily', () {
+    const expected = TerminalFontFamily.defaultFamily;
+
+    final result = settingsFromJson(const {'fontFamily': 'not-a-real-font'});
+
+    expect(result.fontFamily, expected);
+  });
+
+  test('round-trips fontSize through json', () {
+    const expected = 18.0;
+    final settings = Settings(fontSize: expected);
+
+    final result = settingsFromJson(settingsToJson(settings));
+
+    expect(result.fontSize, expected);
+  });
+
+  test('a missing fontSize field decodes to null', () {
+    const expected = null;
+
+    final result = settingsFromJson(const {});
+
+    expect(result.fontSize, expected);
+  });
+
+  test('an integer fontSize in json decodes to a double', () {
+    const expected = 16.0;
+
+    final result = settingsFromJson(const {'fontSize': 16});
+
+    expect(result.fontSize, expected);
+  });
 }

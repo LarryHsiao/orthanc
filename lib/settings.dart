@@ -13,15 +13,34 @@ enum TerminalColorScheme {
   gruvboxDark,
 }
 
+/// The named terminal font families a user may pick in Settings. The actual
+/// font-family string each maps to lives in terminal_font_families.dart —
+/// this file only needs the closed set of identifiers a preference can hold.
+enum TerminalFontFamily {
+  defaultFamily,
+  hackNerdFontMono,
+  menlo,
+  monaco,
+  consolas,
+  jetBrainsMono,
+  firaCode,
+  cascadiaCode,
+  courierNew,
+}
+
 /// The user's persisted preferences.
 class Settings {
   const Settings({
     this.executablePath,
     this.colorScheme = TerminalColorScheme.defaultScheme,
+    this.fontFamily = TerminalFontFamily.defaultFamily,
+    this.fontSize,
   });
 
   final String? executablePath;
   final TerminalColorScheme colorScheme;
+  final TerminalFontFamily fontFamily;
+  final double? fontSize;
 }
 
 /// A blank path means "use the default" — normalized to null wherever a
@@ -35,6 +54,8 @@ Map<String, dynamic> settingsToJson(Settings settings) {
   return {
     'executablePath': settings.executablePath,
     'colorScheme': settings.colorScheme.name,
+    'fontFamily': settings.fontFamily.name,
+    'fontSize': settings.fontSize,
   };
 }
 
@@ -42,6 +63,8 @@ Settings settingsFromJson(Map<String, dynamic> json) {
   return Settings(
     executablePath: normalizeExecutablePath(json['executablePath'] as String?),
     colorScheme: _colorSchemeFromName(json['colorScheme'] as String?),
+    fontFamily: _fontFamilyFromName(json['fontFamily'] as String?),
+    fontSize: (json['fontSize'] as num?)?.toDouble(),
   );
 }
 
@@ -49,5 +72,12 @@ TerminalColorScheme _colorSchemeFromName(String? name) {
   return TerminalColorScheme.values.firstWhere(
     (scheme) => scheme.name == name,
     orElse: () => TerminalColorScheme.defaultScheme,
+  );
+}
+
+TerminalFontFamily _fontFamilyFromName(String? name) {
+  return TerminalFontFamily.values.firstWhere(
+    (family) => family.name == name,
+    orElse: () => TerminalFontFamily.defaultFamily,
   );
 }
