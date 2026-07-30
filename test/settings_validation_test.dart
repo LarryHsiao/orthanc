@@ -31,4 +31,28 @@ void main() {
 
     expect(result, expected);
   });
+
+  test('clampFontSize passes a value already in range through unchanged', () {
+    const expected = 16.0;
+
+    final result = clampFontSize(16);
+
+    expect(result, expected);
+  });
+
+  test('clampFontSize raises a value below the minimum to the minimum', () {
+    const expected = minTerminalFontSize;
+
+    final result = clampFontSize(2);
+
+    expect(result, expected);
+  });
+
+  test('clampFontSize lowers a value above the maximum to the maximum', () {
+    const expected = maxTerminalFontSize;
+
+    final result = clampFontSize(50);
+
+    expect(result, expected);
+  });
 }
