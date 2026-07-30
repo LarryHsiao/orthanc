@@ -25,6 +25,8 @@ class SplitView extends StatelessWidget {
     required this.collapsedIds,
     required this.collapsibleIds,
     required this.theme,
+    required this.fontFamily,
+    required this.fontSize,
     required this.onFocus,
     required this.onResize,
     required this.onToggleCollapse,
@@ -39,6 +41,8 @@ class SplitView extends StatelessWidget {
   final Set<String> collapsedIds;
   final Set<String> collapsibleIds;
   final TerminalTheme theme;
+  final String fontFamily;
+  final double fontSize;
   final void Function(String id) onFocus;
   final void Function(LayoutNode split, int dividerIndex, double delta)
   onResize;
@@ -66,6 +70,8 @@ class SplitView extends StatelessWidget {
       canCollapse: collapsibleIds.contains(sessionId),
       collapsed: collapsedIds.contains(sessionId),
       theme: theme,
+      fontFamily: fontFamily,
+      fontSize: fontSize,
       onToggleCollapse: () => onToggleCollapse(sessionId),
     );
   }
@@ -182,6 +188,8 @@ class SplitView extends StatelessWidget {
       collapsedIds: collapsedIds,
       collapsibleIds: collapsibleIds,
       theme: theme,
+      fontFamily: fontFamily,
+      fontSize: fontSize,
       onFocus: onFocus,
       onResize: onResize,
       onToggleCollapse: onToggleCollapse,
