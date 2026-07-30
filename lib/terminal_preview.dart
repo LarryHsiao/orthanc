@@ -3,6 +3,7 @@ import 'package:xterm/xterm.dart';
 
 import 'settings.dart';
 import 'terminal_color_schemes.dart';
+import 'terminal_font_families.dart';
 
 /// Static sample lines written into every preview terminal — a prompt, a
 /// colored directory listing exercising the palette's accents, an error
@@ -23,13 +24,20 @@ Terminal buildPreviewTerminal() {
   return terminal;
 }
 
-/// A small, read-only terminal viewport rendering [scheme] against
-/// [buildPreviewTerminal]'s sample content, so a color scheme can be judged
-/// before it's saved.
-class ColorSchemePreview extends StatelessWidget {
-  const ColorSchemePreview({super.key, required this.scheme});
+/// A small, read-only terminal viewport rendering [scheme]/[fontFamily]/
+/// [fontSize] against [buildPreviewTerminal]'s sample content, so a pending
+/// pick can be judged before it's saved.
+class TerminalPreview extends StatelessWidget {
+  const TerminalPreview({
+    super.key,
+    required this.scheme,
+    this.fontFamily = defaultTerminalFontFamily,
+    this.fontSize = defaultTerminalFontSize,
+  });
 
   final TerminalColorScheme scheme;
+  final String fontFamily;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +47,7 @@ class ColorSchemePreview extends StatelessWidget {
         buildPreviewTerminal(),
         theme: terminalThemeFor(scheme),
         readOnly: true,
+        textStyle: TerminalStyle(fontFamily: fontFamily, fontSize: fontSize),
       ),
     );
   }

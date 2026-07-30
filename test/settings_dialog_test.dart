@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:orthanc/color_scheme_preview.dart';
 import 'package:orthanc/settings.dart';
 import 'package:orthanc/settings_dialog.dart';
+import 'package:orthanc/terminal_preview.dart';
 
 void main() {
   late Directory tempDir;
@@ -83,9 +83,7 @@ void main() {
       initial: const Settings(colorScheme: initial),
     );
 
-    final before = tester.widget<ColorSchemePreview>(
-      find.byType(ColorSchemePreview),
-    );
+    final before = tester.widget<TerminalPreview>(find.byType(TerminalPreview));
     expect(before.scheme, initial);
 
     await tester.tap(find.byType(DropdownButton<TerminalColorScheme>));
@@ -93,9 +91,7 @@ void main() {
     await tester.tap(find.text('Monokai').last);
     await tester.pumpAndSettle();
 
-    final after = tester.widget<ColorSchemePreview>(
-      find.byType(ColorSchemePreview),
-    );
+    final after = tester.widget<TerminalPreview>(find.byType(TerminalPreview));
     expect(after.scheme, expected);
     expect(settings.value.colorScheme, initial);
   });

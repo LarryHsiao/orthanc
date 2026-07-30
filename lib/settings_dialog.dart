@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'color_scheme_preview.dart';
 import 'settings.dart';
 import 'settings_store.dart';
 import 'settings_validation.dart';
 import 'terminal_color_schemes.dart';
+import 'terminal_preview.dart';
 
 /// Opens the Settings dialog, letting the user override the executable each
 /// new pane spawns.
@@ -107,7 +107,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               ],
             ),
             const SizedBox(height: 8),
-            ColorSchemePreview(scheme: _colorScheme),
+            TerminalPreview(scheme: _colorScheme),
             const SizedBox(height: 16),
             Text(
               'v${widget.version}',
