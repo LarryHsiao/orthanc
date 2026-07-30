@@ -98,22 +98,45 @@ size is a scalar with one sane default, not a closed set worth enumerating.
 `settingsToJson`/`settingsFromJson` extend exactly as `colorScheme` already
 does: `fontFamily.name` round-trips via a `_fontFamilyFromName` lookup
 (`orElse` ⇒ `defaultFamily`, same shape as `_colorSchemeFromName`); `fontSize`
-serializes as a nullable `double` and deserializes with a plain `as double?`
-cast (no normalization function needed — unlike `executablePath`, there is no
-"empty string means null" ambiguity for a numeric field).
+serializes as a nullable `double` and deserializes via
+`(json['fontSize'] as num?)?.toDouble()` rather than a plain `as double?`
+cast — a hand-edited settings file is more likely to write a whole number
+(`16`) than `16.0`, and `jsonDecode` parses that as `int`, which a bare
+`as double?` cast rejects with a `TypeError` even though `readSettings()`
+already catches that broadly and falls back to `const Settings()` wholesale.
+The `num?` cast accepts either JSON number shape without needing that
+coarser, whole-file fallback for something this narrow (no normalization
+function needed either way — unlike `executablePath`, there is no "empty
+string means null" ambiguity for a numeric field).
 
 ```dart
 // terminal_font_families.dart
-String? terminalFontFamilyName(TerminalFontFamily family);
+const defaultTerminalFontFamily = 'monospace';
+const defaultTerminalFontSize = 13.0;
+
+String terminalFontFamilyName(TerminalFontFamily family);
 String terminalFontFamilyLabel(TerminalFontFamily family);
 ```
 
-`terminalFontFamilyName` mirrors `terminalThemeFor`'s shape: a `switch`
-mapping every enum value to the literal font-family string `TerminalStyle`
-should receive, except `defaultFamily`, which maps to `null` (letting
-`TerminalStyle`'s own `fontFamily` default of `'monospace'` apply, unchanged
-from today). `terminalFontFamilyLabel` mirrors `terminalColorSchemeLabel`
-exactly — the dropdown's display string per value (e.g. `jetBrainsMono` ⇒
+`TerminalStyle.fontFamily` and `TerminalStyle.fontSize` (the pinned xterm
+fork, `lib/src/ui/terminal_text_style.dart`) are both **non-nullable**
+fields with constructor defaults (`'monospace'`, `13.0`) that activate only
+when the named parameter is *omitted* — passing `fontFamily: null` or
+`fontSize: null` explicitly is a compile error, not a fallback trigger. So
+`terminalFontFamilyName` cannot return `String?`: it mirrors
+`terminalThemeFor`'s shape as a `switch` over every enum value, but
+`defaultFamily` maps to the literal `defaultTerminalFontFamily` constant
+(`'monospace'`, matching the fork's own private, unexported
+`_kDefaultFontFamily`) rather than to `null`. Every call site that would
+otherwise pass a `null` `fontSize` uses `defaultTerminalFontSize` the same
+way. Both constants live here, next to the resolver that needs them, mirroring
+how `pane_view.dart` already copies the fork's private
+`_kDefaultFontFamilyFallback` verbatim rather than importing it (unexported,
+so not importable). Runtime behavior is unchanged either way — an explicit
+`'monospace'`/`13.0` argument and an omitted parameter defaulting to the same
+literal values render identically; only the mechanism differs.
+`terminalFontFamilyLabel` mirrors `terminalColorSchemeLabel` exactly — the
+dropdown's display string per value (e.g. `jetBrainsMono` ⇒
 `'JetBrains Mono'`).
 
 ### Applying the setting — `lib/pane_view.dart`, `lib/split_view.dart`, `lib/workspace_view.dart`
@@ -127,29 +150,35 @@ SplitView(
   ...
   theme: terminalThemeFor(settings.colorScheme),
   fontFamily: terminalFontFamilyName(settings.fontFamily),
-  fontSize: settings.fontSize,
+  fontSize: settings.fontSize ?? defaultTerminalFontSize,
   ...
 )
 ```
 
-`SplitView` and `PaneView` both gain matching `String? fontFamily` and
-`double? fontSize` parameters, pure passthrough exactly as `theme` already
-is today — no new state, no new logic in either widget. `PaneView` forwards
-both into `TerminalView`'s `textStyle`:
+`SplitView` and `PaneView` both gain matching `String fontFamily` and
+`double fontSize` parameters — **non-nullable**, mirroring the existing
+`TerminalTheme theme` field exactly, since `TerminalStyle` cannot accept
+`null` for either (see above). Resolution from the `Settings`-shaped
+optional/enum values to these concrete rendering values happens once, at
+this one call site — the same place `colorScheme` is already resolved to a
+concrete `TerminalTheme` — not inside `SplitView` or `PaneView`, which stay
+pure passthrough with no new state or logic. `PaneView` forwards both into
+`TerminalView`'s `textStyle`:
 
 ```dart
 textStyle: TerminalStyle(
-  fontFamily: widget.fontFamily,  // null ⇒ TerminalStyle's own default
-  fontSize: widget.fontSize,      // null ⇒ TerminalStyle's own default
+  fontFamily: widget.fontFamily,
+  fontSize: widget.fontSize,
   fontFamilyFallback: [ /* unchanged existing list */ ],
 ),
 ```
 
-Because `TerminalStyle`'s constructor defaults (`fontFamily = 'monospace'`,
-`fontSize = 13.0`) already activate on a `null` argument, passing `null`
-straight through for `defaultFamily`/unset `fontSize` reproduces exactly
-today's unconfigured behavior — no separate "is this the default" branching
-needed in `PaneView`.
+Because `terminalFontFamilyName(TerminalFontFamily.defaultFamily)` and
+`settings.fontSize ?? defaultTerminalFontSize` (when `fontSize` is unset)
+resolve to exactly the literal values (`'monospace'`, `13.0`)
+`TerminalStyle`'s own constructor defaults already use, this reproduces
+exactly today's unconfigured behavior — via an explicit resolved value
+rather than an omitted parameter.
 
 Because this rides the same `ValueListenableBuilder` as `colorScheme`, saving
 in the Settings dialog updates every already-open pane's rendering
@@ -170,9 +199,15 @@ preview:
 - A font-size row: `−`/`+` `IconButton`s flanking a small numeric `Text`
   (not a raw editable `TextField` — the stepper is the only input surface,
   keeping this a closed, always-valid interaction rather than needing its
-  own validation state). Each tap adjusts by 1pt, clamped to `[8, 32]`;
-  `−`/`+` disable at the respective bound. Unset (`null`) displays and steps
-  from the resolved default (13).
+  own validation state). Each tap adjusts by 1pt; `−`/`+` disable at the
+  respective bound. Unset (`null`) displays and steps from the resolved
+  default (13).
+- The clamp range lives in `lib/settings_validation.dart`, alongside the
+  existing `executableExists()`: two constants, `minTerminalFontSize = 8.0`
+  and `maxTerminalFontSize = 32.0`, and a pure `clampFontSize(double size)`
+  function the stepper's tap handlers call — same rationale as
+  `executableExists()`: a pure, injection-free function the dialog calls
+  into, unit-testable with no widget involved.
 - "Reset font" `TextButton`, laid out at this block's bottom-right (a `Row`
   with `MainAxisAlignment.spaceBetween` pairing it against the stepper, not
   a sixth entry in the dialog's bottom actions row) — disabled when family
@@ -182,9 +217,13 @@ preview:
 
 `lib/color_scheme_preview.dart` is renamed `lib/terminal_preview.dart`; its
 `ColorSchemePreview` class is renamed `TerminalPreview` and gains
-`fontFamily`/`fontSize` parameters alongside its existing `scheme`, forwarded
-into the same non-interactive `TerminalView`'s `textStyle` exactly as
-`PaneView` does. The existing sample content (colored
+`fontFamily`/`fontSize` parameters (`String`/`double`, non-nullable, same
+constraint and same resolved-not-raw shape as `PaneView`'s) alongside its
+existing `scheme`, forwarded into the same non-interactive `TerminalView`'s
+`textStyle` exactly as `PaneView` does. The dialog resolves `_fontFamily`/
+`_fontSize` (its own pending, `Settings`-shaped state) through
+`terminalFontFamilyName()`/`?? defaultTerminalFontSize` at the call site,
+the same as `workspace_view.dart` does. The existing sample content (colored
 `ls` output, an error line, a git-branch accent row) is left unchanged — it
 already exercises the glyphs a font pick most needs judged against. Every
 existing call site (`ColorSchemePreview(scheme: _colorScheme)`) becomes
@@ -196,6 +235,14 @@ scheme`, `Cancel`, `Save`) — since `Reset font` lives inside the font block
 instead. This was a deliberate layout decision after the reset-scheme
 button's addition proved the actions row is width-constrained (see
 `af8f083`); a fifth button there was not re-attempted.
+
+The content column itself grows by two more rows (family dropdown, size
+row) on top of an already-tall dialog — the same session that added the
+reset-scheme button also hit a 4px vertical `RenderFlex` overflow purely
+from the error-text state at the *previous*, shorter content height. Rather
+than wait to discover the same class of failure again, `content`'s `Column`
+is wrapped in a `SingleChildScrollView` as part of this change, so a
+genuinely short window scrolls instead of hard-overflowing.
 
 See `wireframe-settings-dialog-font.html` (rendered via `/henneth`) for the
 visual layout in both the all-default and a custom-pick state.
@@ -230,9 +277,10 @@ User opens Settings
 
 - **Missing `fontFamily`/`fontSize` keys** (settings file written by an
   older version): `_fontFamilyFromName(null)` falls to `defaultFamily` via
-  its `orElse`, exactly as `_colorSchemeFromName` already does; `fontSize`
-  casts `null` straight through as `as double?`. No migration step, no
-  crash — same posture the existing fields already take on an old file.
+  its `orElse`, exactly as `_colorSchemeFromName` already does; `fontSize`'s
+  `(json['fontSize'] as num?)?.toDouble()` passes a missing/`null` key
+  straight through as `null`. No migration step, no crash — same posture the
+  existing fields already take on an old file.
 - **Corrupt/unparseable JSON**: unchanged — `readSettings()` already falls
   back to `const Settings()` wholesale, which now also carries the new
   fields' defaults.
@@ -255,6 +303,9 @@ User opens Settings
   statements over every `TerminalFontFamily` value, mirroring whatever
   `terminal_color_schemes_test.dart` already covers for the color-scheme
   equivalents.
+- `settings_validation_test.dart` — extended for `clampFontSize()`: below
+  the minimum, above the maximum, and within range, mirroring the existing
+  `executableExists()` coverage style.
 - `settings_dialog_test.dart` — extended with: family dropdown prefilled
   from current selection; size stepper prefilled/clamped at 8 and 32;
   preview reflects the pending family/size before Save; "Reset font"
