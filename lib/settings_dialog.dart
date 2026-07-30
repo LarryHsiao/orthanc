@@ -6,6 +6,7 @@ import 'settings.dart';
 import 'settings_store.dart';
 import 'settings_validation.dart';
 import 'terminal_color_schemes.dart';
+import 'terminal_font_families.dart';
 import 'terminal_preview.dart';
 
 /// Opens the Settings dialog, letting the user override the executable each
@@ -54,6 +55,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     text: widget.settings.value.executablePath ?? '',
   );
   late var _colorScheme = widget.settings.value.colorScheme;
+  late var _fontFamily = widget.settings.value.fontFamily;
+  late var _fontSize = widget.settings.value.fontSize;
 
   @override
   void initState() {
@@ -69,53 +72,109 @@ class _SettingsDialogState extends State<_SettingsDialog> {
 
   bool get _valid => executableExists(_controller.text, exists: widget.exists);
 
+  double get _displayedFontSize => _fontSize ?? defaultTerminalFontSize;
+
+  bool get _fontIsDefault =>
+      _fontFamily == TerminalFontFamily.defaultFamily && _fontSize == null;
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Settings'),
       content: SizedBox(
         width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Startup executable path'),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _controller,
-              decoration: InputDecoration(
-                hintText: 'default: ${widget.detectedDefault} (detected)',
-                errorText: _valid
-                    ? null
-                    : 'No file exists at this path — the old value is kept.',
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Startup executable path'),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _controller,
+                decoration: InputDecoration(
+                  hintText: 'default: ${widget.detectedDefault} (detected)',
+                  errorText: _valid
+                      ? null
+                      : 'No file exists at this path — the old value is kept.',
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text('Terminal color scheme'),
-            const SizedBox(height: 4),
-            DropdownButton<TerminalColorScheme>(
-              value: _colorScheme,
-              isExpanded: true,
-              onChanged: (scheme) =>
-                  setState(() => _colorScheme = scheme ?? _colorScheme),
-              items: [
-                for (final scheme in TerminalColorScheme.values)
-                  DropdownMenuItem(
-                    value: scheme,
-                    child: Text(terminalColorSchemeLabel(scheme)),
+              const SizedBox(height: 16),
+              const Text('Terminal color scheme'),
+              const SizedBox(height: 4),
+              DropdownButton<TerminalColorScheme>(
+                value: _colorScheme,
+                isExpanded: true,
+                onChanged: (scheme) =>
+                    setState(() => _colorScheme = scheme ?? _colorScheme),
+                items: [
+                  for (final scheme in TerminalColorScheme.values)
+                    DropdownMenuItem(
+                      value: scheme,
+                      child: Text(terminalColorSchemeLabel(scheme)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('Terminal font family'),
+              const SizedBox(height: 4),
+              DropdownButton<TerminalFontFamily>(
+                value: _fontFamily,
+                isExpanded: true,
+                onChanged: (family) =>
+                    setState(() => _fontFamily = family ?? _fontFamily),
+                items: [
+                  for (final family in TerminalFontFamily.values)
+                    DropdownMenuItem(
+                      value: family,
+                      child: Text(terminalFontFamilyLabel(family)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text('Terminal font size'),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove),
+                        onPressed: _displayedFontSize <= minTerminalFontSize
+                            ? null
+                            : _decrementFontSize,
+                      ),
+                      Text('${_displayedFontSize.round()}'),
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: _displayedFontSize >= maxTerminalFontSize
+                            ? null
+                            : _incrementFontSize,
+                      ),
+                    ],
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TerminalPreview(scheme: _colorScheme),
-            const SizedBox(height: 16),
-            Text(
-              'v${widget.version}',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-            ),
-          ],
+                  TextButton(
+                    onPressed: _fontIsDefault ? null : _resetFont,
+                    child: const Text('Reset font'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TerminalPreview(
+                scheme: _colorScheme,
+                fontFamily: terminalFontFamilyName(_fontFamily),
+                fontSize: _displayedFontSize,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'v${widget.version}',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -143,10 +202,23 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   void _resetColorScheme() =>
       setState(() => _colorScheme = TerminalColorScheme.defaultScheme);
 
+  void _incrementFontSize() =>
+      setState(() => _fontSize = clampFontSize(_displayedFontSize + 1));
+
+  void _decrementFontSize() =>
+      setState(() => _fontSize = clampFontSize(_displayedFontSize - 1));
+
+  void _resetFont() => setState(() {
+    _fontFamily = TerminalFontFamily.defaultFamily;
+    _fontSize = null;
+  });
+
   void _save() {
     final updated = Settings(
       executablePath: normalizeExecutablePath(_controller.text),
       colorScheme: _colorScheme,
+      fontFamily: _fontFamily,
+      fontSize: _fontSize,
     );
     widget.settings.value = updated;
     writeSettings(updated, file: widget.file);

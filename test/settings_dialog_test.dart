@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orthanc/settings.dart';
 import 'package:orthanc/settings_dialog.dart';
+import 'package:orthanc/settings_validation.dart';
+import 'package:orthanc/terminal_font_families.dart';
 import 'package:orthanc/terminal_preview.dart';
 
 void main() {
@@ -220,5 +222,160 @@ void main() {
 
     expect(settings.value.executablePath, expected);
     expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('font family dropdown is prefilled with the current selection', (
+    tester,
+  ) async {
+    const expected = TerminalFontFamily.jetBrainsMono;
+
+    await pumpDialog(tester, initial: const Settings(fontFamily: expected));
+
+    final dropdown = tester.widget<DropdownButton<TerminalFontFamily>>(
+      find.byType(DropdownButton<TerminalFontFamily>),
+    );
+    expect(dropdown.value, expected);
+  });
+
+  testWidgets('font size shows the default when unset', (tester) async {
+    const expected = '13';
+
+    await pumpDialog(tester);
+
+    expect(find.text(expected), findsOneWidget);
+  });
+
+  testWidgets('font size shows the persisted value when set', (tester) async {
+    const expected = '18';
+
+    await pumpDialog(tester, initial: const Settings(fontSize: 18));
+
+    expect(find.text(expected), findsOneWidget);
+  });
+
+  testWidgets('the + button increments font size', (tester) async {
+    const expected = '14';
+    await pumpDialog(tester);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump();
+
+    expect(find.text(expected), findsOneWidget);
+  });
+
+  testWidgets('the - button decrements font size', (tester) async {
+    const expected = '12';
+    await pumpDialog(tester);
+
+    await tester.tap(find.byIcon(Icons.remove));
+    await tester.pump();
+
+    expect(find.text(expected), findsOneWidget);
+  });
+
+  testWidgets('the + button disables at the maximum font size', (tester) async {
+    await pumpDialog(
+      tester,
+      initial: const Settings(fontSize: maxTerminalFontSize),
+    );
+
+    final button = tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byIcon(Icons.add),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('the - button disables at the minimum font size', (tester) async {
+    await pumpDialog(
+      tester,
+      initial: const Settings(fontSize: minTerminalFontSize),
+    );
+
+    final button = tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byIcon(Icons.remove),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets(
+    'Reset font is disabled when family and size are both already default',
+    (tester) async {
+      await pumpDialog(tester);
+
+      final reset = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Reset font'),
+      );
+      expect(reset.onPressed, isNull);
+    },
+  );
+
+  testWidgets('Reset font reverts family and size to default', (tester) async {
+    const expectedFamily = TerminalFontFamily.defaultFamily;
+    const expectedSize = '13';
+    await pumpDialog(
+      tester,
+      initial: const Settings(
+        fontFamily: TerminalFontFamily.jetBrainsMono,
+        fontSize: 20,
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(TextButton, 'Reset font'));
+    await tester.pumpAndSettle();
+
+    final dropdown = tester.widget<DropdownButton<TerminalFontFamily>>(
+      find.byType(DropdownButton<TerminalFontFamily>),
+    );
+    expect(dropdown.value, expectedFamily);
+    expect(find.text(expectedSize), findsOneWidget);
+    final reset = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Reset font'),
+    );
+    expect(reset.onPressed, isNull);
+  });
+
+  testWidgets('preview reflects the pending font family and size before Save', (
+    tester,
+  ) async {
+    const expectedFamily = TerminalFontFamily.jetBrainsMono;
+    const expectedSize = 14.0;
+    await pumpDialog(tester);
+
+    await tester.tap(find.byType(DropdownButton<TerminalFontFamily>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('JetBrains Mono').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    final preview = tester.widget<TerminalPreview>(
+      find.byType(TerminalPreview),
+    );
+    expect(preview.fontFamily, terminalFontFamilyName(expectedFamily));
+    expect(preview.fontSize, expectedSize);
+  });
+
+  testWidgets('Save persists the picked font family and size', (tester) async {
+    const expectedFamily = TerminalFontFamily.jetBrainsMono;
+    const expectedSize = 14.0;
+    final settings = await pumpDialog(tester);
+
+    await tester.tap(find.byType(DropdownButton<TerminalFontFamily>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('JetBrains Mono').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(settings.value.fontFamily, expectedFamily);
+    expect(settings.value.fontSize, expectedSize);
   });
 }
