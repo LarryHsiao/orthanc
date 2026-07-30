@@ -253,6 +253,16 @@ void main() {
     expect(find.text(expected), findsOneWidget);
   });
 
+  testWidgets('font size below the minimum displays clamped to the minimum', (
+    tester,
+  ) async {
+    const expected = '8';
+
+    await pumpDialog(tester, initial: const Settings(fontSize: 0));
+
+    expect(find.text(expected), findsOneWidget);
+  });
+
   testWidgets('the + button increments font size', (tester) async {
     const expected = '14';
     await pumpDialog(tester);

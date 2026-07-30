@@ -31,8 +31,8 @@ class TerminalPreview extends StatelessWidget {
   const TerminalPreview({
     super.key,
     required this.scheme,
-    this.fontFamily = defaultTerminalFontFamily,
-    this.fontSize = defaultTerminalFontSize,
+    required this.fontFamily,
+    required this.fontSize,
   });
 
   final TerminalColorScheme scheme;
@@ -47,7 +47,11 @@ class TerminalPreview extends StatelessWidget {
         buildPreviewTerminal(),
         theme: terminalThemeFor(scheme),
         readOnly: true,
-        textStyle: TerminalStyle(fontFamily: fontFamily, fontSize: fontSize),
+        textStyle: TerminalStyle(
+          fontFamily: fontFamily,
+          fontSize: fontSize,
+          fontFamilyFallback: terminalFontFamilyFallback,
+        ),
       ),
     );
   }

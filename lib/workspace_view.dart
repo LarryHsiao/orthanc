@@ -7,6 +7,7 @@ import 'layout_node.dart';
 import 'session.dart';
 import 'sessions.dart';
 import 'settings.dart';
+import 'settings_validation.dart';
 import 'split_shortcuts.dart';
 import 'split_view.dart';
 import 'terminal_color_schemes.dart';
@@ -192,7 +193,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             collapsibleIds: workspace.collapsibleIds,
             theme: terminalThemeFor(settings.colorScheme),
             fontFamily: terminalFontFamilyName(settings.fontFamily),
-            fontSize: settings.fontSize ?? defaultTerminalFontSize,
+            fontSize: clampFontSize(
+              settings.fontSize ?? defaultTerminalFontSize,
+            ),
             onFocus: _onPaneFocus,
             onKeyEvent: _onKey,
             onToggleCollapse: _toggleCollapse,

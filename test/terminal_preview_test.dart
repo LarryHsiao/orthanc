@@ -36,7 +36,11 @@ void main() {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
-        child: TerminalPreview(scheme: scheme),
+        child: TerminalPreview(
+          scheme: scheme,
+          fontFamily: defaultTerminalFontFamily,
+          fontSize: defaultTerminalFontSize,
+        ),
       ),
     );
 
@@ -66,7 +70,7 @@ void main() {
     expect(view.textStyle.fontSize, expectedSize);
   });
 
-  testWidgets('defaults to the standard font family and size when unset', (
+  testWidgets('renders with the standard font family and size constants', (
     tester,
   ) async {
     const scheme = TerminalColorScheme.defaultScheme;
@@ -74,7 +78,11 @@ void main() {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
-        child: TerminalPreview(scheme: scheme),
+        child: TerminalPreview(
+          scheme: scheme,
+          fontFamily: defaultTerminalFontFamily,
+          fontSize: defaultTerminalFontSize,
+        ),
       ),
     );
 

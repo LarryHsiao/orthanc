@@ -72,7 +72,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
 
   bool get _valid => executableExists(_controller.text, exists: widget.exists);
 
-  double get _displayedFontSize => _fontSize ?? defaultTerminalFontSize;
+  double get _displayedFontSize =>
+      clampFontSize(_fontSize ?? defaultTerminalFontSize).roundToDouble();
 
   bool get _fontIsDefault =>
       _fontFamily == TerminalFontFamily.defaultFamily && _fontSize == null;
@@ -116,7 +117,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text('Terminal font family'),
+              const Text('Terminal font'),
               const SizedBox(height: 4),
               DropdownButton<TerminalFontFamily>(
                 value: _fontFamily,
@@ -132,8 +133,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 ],
               ),
               const SizedBox(height: 8),
-              const Text('Terminal font size'),
-              const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

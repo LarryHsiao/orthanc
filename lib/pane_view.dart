@@ -8,6 +8,7 @@ import 'package:xterm/xterm.dart';
 import 'hyperlink.dart';
 import 'pane_bar.dart';
 import 'session.dart';
+import 'terminal_font_families.dart';
 
 /// One pane: its bar, and the terminal beneath — unless [collapsed], in
 /// which case only the bar renders, at its own fixed height, and the
@@ -82,44 +83,12 @@ class _PaneViewState extends State<PaneView> {
                     onTapUp: _onTapUp,
                     mouseCursor: _cursor,
                     theme: widget.theme,
-                    // xterm's built-in fallback list is Linux/Android-flavored
-                    // and omits Hack Nerd Font Mono, so the Private-Use-Area
-                    // glyphs shell tools (lsd, oh-my-posh, ...) use for icons
-                    // render as tofu unless named explicitly here — a no-op
-                    // fallback entry on a machine that lacks it.
-                    //
-                    // Apple Color Emoji / Segoe UI Emoji are deliberately absent:
-                    // both claim dingbat codepoints that also have a plain-text
-                    // glyph (Claude Code's spinner frames — ✢ ✳ ✻ ✽ — and its
-                    // ⏺ paragraph bullet included), and being first in the list
-                    // would win the match and render them in color instead of
-                    // the monochrome glyph a native terminal shows.
-                    //
-                    // The trailing entries below are copied verbatim from the
-                    // fork's private _kDefaultFontFamilyFallback (unexported,
-                    // so not importable) — lib/src/ui/terminal_text_style.dart
-                    // at the pinned pubspec.yaml ref. Re-sync if that list
-                    // changes upstream.
+                    // See terminalFontFamilyFallback's doc comment for why
+                    // this list is shaped and ordered the way it is.
                     textStyle: TerminalStyle(
                       fontFamily: widget.fontFamily,
                       fontSize: widget.fontSize,
-                      fontFamilyFallback: const [
-                        'Hack Nerd Font Mono',
-                        'Menlo',
-                        'Monaco',
-                        'Consolas',
-                        'Liberation Mono',
-                        'Courier New',
-                        'Noto Sans Mono CJK SC',
-                        'Noto Sans Mono CJK TC',
-                        'Noto Sans Mono CJK KR',
-                        'Noto Sans Mono CJK JP',
-                        'Noto Sans Mono CJK HK',
-                        'Noto Color Emoji',
-                        'Noto Sans Symbols',
-                        'monospace',
-                        'sans-serif',
-                      ],
+                      fontFamilyFallback: terminalFontFamilyFallback,
                     ),
                   ),
                 ),

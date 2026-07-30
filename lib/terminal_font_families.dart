@@ -8,6 +8,41 @@ import 'settings.dart';
 const defaultTerminalFontFamily = 'monospace';
 const defaultTerminalFontSize = 13.0;
 
+/// xterm's built-in fallback list is Linux/Android-flavored and omits Hack
+/// Nerd Font Mono, so the Private-Use-Area glyphs shell tools (lsd,
+/// oh-my-posh, ...) use for icons render as tofu unless named explicitly
+/// here — a no-op fallback entry on a machine that lacks it.
+///
+/// Apple Color Emoji / Segoe UI Emoji are deliberately absent: both claim
+/// dingbat codepoints that also have a plain-text glyph (Claude Code's
+/// spinner frames — ✢ ✳ ✻ ✽ — and its ⏺ paragraph bullet included), and
+/// being first in the list would win the match and render them in color
+/// instead of the monochrome glyph a native terminal shows.
+///
+/// The trailing entries below are copied verbatim from the fork's private
+/// _kDefaultFontFamilyFallback (unexported, so not importable) —
+/// lib/src/ui/terminal_text_style.dart at the pinned pubspec.yaml ref.
+/// Re-sync if that list changes upstream. Shared between every pane
+/// (PaneView) and the Settings dialog's live preview (TerminalPreview), so
+/// the preview can never show glyph rendering a real pane wouldn't.
+const terminalFontFamilyFallback = [
+  'Hack Nerd Font Mono',
+  'Menlo',
+  'Monaco',
+  'Consolas',
+  'Liberation Mono',
+  'Courier New',
+  'Noto Sans Mono CJK SC',
+  'Noto Sans Mono CJK TC',
+  'Noto Sans Mono CJK KR',
+  'Noto Sans Mono CJK JP',
+  'Noto Sans Mono CJK HK',
+  'Noto Color Emoji',
+  'Noto Sans Symbols',
+  'monospace',
+  'sans-serif',
+];
+
 /// The actual font-family string a persisted [TerminalFontFamily] maps to,
 /// for use as [TerminalStyle.fontFamily].
 String terminalFontFamilyName(TerminalFontFamily family) {
