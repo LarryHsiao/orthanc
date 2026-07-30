@@ -181,6 +181,39 @@ void main() {
     expect(reset.onPressed, isNull);
   });
 
+  testWidgets('Reset color scheme is disabled when already the default', (
+    tester,
+  ) async {
+    await pumpDialog(tester);
+
+    final reset = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Reset scheme'),
+    );
+    expect(reset.onPressed, isNull);
+  });
+
+  testWidgets('Reset color scheme reverts the pending selection to default', (
+    tester,
+  ) async {
+    const expected = TerminalColorScheme.defaultScheme;
+    await pumpDialog(
+      tester,
+      initial: const Settings(colorScheme: TerminalColorScheme.dracula),
+    );
+
+    await tester.tap(find.widgetWithText(TextButton, 'Reset scheme'));
+    await tester.pumpAndSettle();
+
+    final dropdown = tester.widget<DropdownButton<TerminalColorScheme>>(
+      find.byType(DropdownButton<TerminalColorScheme>),
+    );
+    expect(dropdown.value, expected);
+    final reset = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Reset scheme'),
+    );
+    expect(reset.onPressed, isNull);
+  });
+
   testWidgets('Cancel closes without persisting', (tester) async {
     const expected = null;
     final settings = await pumpDialog(tester);

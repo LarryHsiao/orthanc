@@ -124,6 +124,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           child: const Text('Reset to default'),
         ),
         TextButton(
+          onPressed: _colorScheme == TerminalColorScheme.defaultScheme
+              ? null
+              : _resetColorScheme,
+          child: const Text('Reset scheme'),
+        ),
+        TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
@@ -133,6 +139,9 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   }
 
   void _reset() => _controller.clear();
+
+  void _resetColorScheme() =>
+      setState(() => _colorScheme = TerminalColorScheme.defaultScheme);
 
   void _save() {
     final updated = Settings(
