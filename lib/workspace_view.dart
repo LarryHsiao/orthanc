@@ -10,6 +10,7 @@ import 'settings.dart';
 import 'split_shortcuts.dart';
 import 'split_view.dart';
 import 'terminal_color_schemes.dart';
+import 'terminal_font_families.dart';
 import 'workspace.dart';
 
 /// The window: the sessions, their arrangement, and the keys that change it.
@@ -190,6 +191,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             collapsedIds: workspace.collapsedIds,
             collapsibleIds: workspace.collapsibleIds,
             theme: terminalThemeFor(settings.colorScheme),
+            fontFamily: terminalFontFamilyName(settings.fontFamily),
+            fontSize: settings.fontSize ?? defaultTerminalFontSize,
             onFocus: _onPaneFocus,
             onKeyEvent: _onKey,
             onToggleCollapse: _toggleCollapse,

@@ -23,6 +23,8 @@ class PaneView extends StatefulWidget {
     required this.canCollapse,
     required this.collapsed,
     required this.theme,
+    required this.fontFamily,
+    required this.fontSize,
     required this.onToggleCollapse,
   });
 
@@ -33,6 +35,8 @@ class PaneView extends StatefulWidget {
   final bool canCollapse;
   final bool collapsed;
   final TerminalTheme theme;
+  final String fontFamily;
+  final double fontSize;
   final VoidCallback onToggleCollapse;
 
   @override
@@ -96,8 +100,10 @@ class _PaneViewState extends State<PaneView> {
                     // so not importable) — lib/src/ui/terminal_text_style.dart
                     // at the pinned pubspec.yaml ref. Re-sync if that list
                     // changes upstream.
-                    textStyle: const TerminalStyle(
-                      fontFamilyFallback: [
+                    textStyle: TerminalStyle(
+                      fontFamily: widget.fontFamily,
+                      fontSize: widget.fontSize,
+                      fontFamilyFallback: const [
                         'Hack Nerd Font Mono',
                         'Menlo',
                         'Monaco',
