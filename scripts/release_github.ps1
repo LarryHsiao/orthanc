@@ -65,7 +65,10 @@ try {
   Remove-Item -Force $dsaKeyPath -ErrorAction SilentlyContinue
 }
 $dsaSignature = ($signOutput | Select-String -Pattern 'sparkle:dsaSignature="([^"]+)"').Matches.Groups[1].Value
-$length = ($signOutput | Select-String -Pattern 'length="([0-9]+)"').Matches.Groups[1].Value
+# auto_updater:sign_update hardcodes length="0" on Windows (it never computes
+# the real size there, unlike its macOS path) - use the installer's actual
+# byte size instead of trusting that always-zero value.
+$length = $installer.Length
 
 Write-Host "==> Updating appcast.xml"
 $pubDate = (Get-Date).ToUniversalTime().ToString("ddd, dd MMM yyyy HH:mm:ss +0000")
