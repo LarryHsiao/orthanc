@@ -9,6 +9,10 @@ class MainFlutterWindow: NSWindow {
     self.setFrame(windowFrame, display: true)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    (NSApp.delegate as? AppDelegate)?.configureSystemMenuChannel(
+      on: flutterViewController.engine,
+      window: self
+    )
 
     super.awakeFromNib()
   }
