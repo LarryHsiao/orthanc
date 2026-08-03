@@ -2,7 +2,14 @@
 
 ## Status
 
-Approved 2026-08-03.
+Approved 2026-08-03. Architecture corrected 2026-08-03, before planning: the
+originally-approved mechanism (`FlutterEngineGroup` + an `initialRoute` of
+`"secondary"`) does not exist on macOS — `FlutterEngineGroup` is iOS/Android
+only, confirmed against the installed Flutter 3.41.0 SDK's macOS headers,
+which carry no such class. The corrected mechanism (direct `FlutterEngine`
+construction per window, `FlutterDartProject.dartEntrypointArguments` for
+primary/secondary signaling) is described below; nothing else about the
+design — scope, settings-sync approach, lifecycle, error handling — changed.
 
 ## Problem
 
@@ -50,22 +57,17 @@ this design does not extend to Windows in this pass.
 
 ### Native window/engine creation — `macos/Runner`
 
-`AppDelegate` creates one `FlutterEngineGroup` at launch, independent of and
-alongside `MainFlutterWindow`'s own primary engine (unchanged — it keeps
-creating its `FlutterViewController()` exactly as it does today). The group
-exists solely to spin up each *additional* window's engine cheaply:
+macOS has no `FlutterEngineGroup` (that class is iOS/Android-only). Instead,
+`AppDelegate` builds each additional window's `FlutterEngine` directly, the
+documented macOS multi-window pattern: construct the engine explicitly, run
+it, *then* wrap it in a `FlutterViewController`:
 
 ```swift
-let engineGroup = FlutterEngineGroup(name: "orthanc", project: nil)
-```
+let project = FlutterDartProject()
+project.dartEntrypointArguments = ["secondary"]
+let engine = FlutterEngine(name: "orthanc-secondary", project: project)
+engine.run(withEntrypoint: nil)
 
-The existing `orthanc/system_menu` `MethodChannel` (already used for
-`openSettings`) gains a second method, `newWindow`, registered on every
-engine's channel handler — so `Cmd+N` works identically from any open
-window, not only the first. Handling `newWindow`:
-
-```swift
-let engine = engineGroup.makeEngine(withEntrypoint: nil, initialRoute: "secondary")
 let controller = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
 RegisterGeneratedPlugins(registry: controller)
 let window = NSWindow(contentViewController: controller)
@@ -73,28 +75,43 @@ window.makeKeyAndOrderFront(nil)
 ```
 
 `RegisterGeneratedPlugins` runs per engine — the same call
-`MainFlutterWindow.awakeFromNib` already makes — so `flutter_pty`,
-`path_provider`, `shared_preferences`, `package_info_plus`, `auto_updater`,
-and `url_launcher` all work identically in every window.
+`MainFlutterWindow.awakeFromNib` already makes for the primary window — so
+`flutter_pty`, `path_provider`, `shared_preferences`, `package_info_plus`,
+`auto_updater`, and `url_launcher` all work identically in every window.
 
-`makeEngine(withEntrypoint: nil, ...)` reruns the app's normal Dart `main()`
-from scratch. No entrypoint-dispatch logic is needed on the Dart side —
-every window's Dart code is the same `main()` → `OrthancApp` tree used
-today.
+The existing `orthanc/system_menu` `MethodChannel` (already used for
+`openSettings`) gains a second method, `newWindow`. Unlike `openSettings`
+(native calling Dart), this direction is Dart calling native: the "New
+Window" menu item's `onSelected` invokes it. The handler is registered on
+every window's engine — the primary window's (from
+`MainFlutterWindow.awakeFromNib`) and every secondary window's (from the
+`createSecondaryWindow()` routine above, immediately after that window's own
+engine is created) — so `Cmd+N` works identically from any open window, not
+only the first.
+
+`engine.run(withEntrypoint: nil)` reruns the app's normal Dart `main()` from
+scratch. No entrypoint-dispatch logic is needed on the Dart side — every
+window's Dart code is the same `main()` → `OrthancApp` tree used today.
 
 ### Primary-window detection — `lib/main.dart`
 
-The primary engine (created in `MainFlutterWindow.awakeFromNib`, unchanged)
-keeps the default route. Every window spawned via `newWindow` is given
-`initialRoute: "secondary"`. `main()` reads
-`PlatformDispatcher.instance.defaultRouteName` once at startup:
+`FlutterDartProject.dartEntrypointArguments`, set above only for secondary
+windows, arrives as `main()`'s own `args: List<String>` parameter — the
+standard Dart command-line-arguments mechanism, synchronous and available
+before a single line of `main()` runs, no async round-trip needed:
 
 ```dart
-final isPrimaryWindow =
-    PlatformDispatcher.instance.defaultRouteName != 'secondary';
+Future<void> main(List<String> args) async {
+  final isPrimaryWindow = !args.contains('secondary');
+  ...
+}
 ```
 
-and threads that bool into `OrthancApp` → `AppRoot`. `AppRoot` only calls
+A normal launch (primary window) passes no such argument — `args` defaults
+to the process's real command-line arguments, which never contain
+`"secondary"` — so `MainFlutterWindow` needs no matching change for this
+part; `isPrimaryWindow` is `true` there with zero native code.
+`isPrimaryWindow` threads into `OrthancApp` → `AppRoot`. `AppRoot` only calls
 `_checkForUpdate()` / `_showUpdateNoteIfAny()` when `isPrimaryWindow` is
 true; a secondary window's `AppRoot` renders `WorkspaceView` directly with no
 update machinery.
@@ -134,6 +151,14 @@ so a live reload from elsewhere never clobbers in-progress unsaved edits.
 
 ### Window lifecycle
 
+A created `NSWindow` needs a strong reference kept somewhere for as long as
+it's open — nothing else retains it, and without one it would deallocate
+(and silently close) the moment `createSecondaryWindow()` returns.
+`AppDelegate` keeps a `private var secondaryWindows: [NSWindow] = []`,
+appends each new window to it, and removes it again on that window's
+`NSWindow.willCloseNotification` — so memory is released promptly when a
+window closes rather than accumulating for the life of the app.
+
 `AppDelegate.applicationShouldTerminateAfterLastWindowClosed` is unchanged
 (`return true`) — it already fires only once zero windows remain, which
 extends correctly from "the one window" to "the last of N windows." Closing
@@ -145,9 +170,10 @@ open window.
 
 ```
 Cmd+N (any window) → orthanc/system_menu.newWindow
-    → engineGroup.makeEngine(initialRoute: "secondary")
-    → new NSWindow + FlutterViewController + RegisterGeneratedPlugins
-    → runs main() fresh → isPrimaryWindow = false
+    → FlutterDartProject(dartEntrypointArguments: ["secondary"])
+    → FlutterEngine(...).run() → new FlutterViewController + NSWindow
+    → RegisterGeneratedPlugins + configureSystemMenuChannel
+    → runs main(args) fresh → isPrimaryWindow = false
     → OrthancApp → AppRoot (no update-check) → WorkspaceView (one default pane)
 ```
 
