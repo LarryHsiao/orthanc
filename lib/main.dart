@@ -9,6 +9,7 @@ import 'app_root.dart';
 import 'settings.dart';
 import 'settings_dialog.dart';
 import 'settings_store.dart';
+import 'settings_watch.dart';
 import 'shell_command.dart';
 
 Future<void> main() async {
@@ -16,6 +17,7 @@ Future<void> main() async {
   final supportDir = await getApplicationSupportDirectory();
   final file = settingsFile(supportDir: supportDir);
   final settings = ValueNotifier(readSettings(file: file));
+  watchSettingsFile(file: file, settings: settings);
   runApp(OrthancApp(settings: settings, settingsFile: file));
 }
 
