@@ -8,6 +8,12 @@ class AppDelegate: FlutterAppDelegate {
   // close) the moment createSecondaryWindow() returns. Entries are removed
   // again on that window's own close, in createSecondaryWindow() below.
   private var secondaryWindows: [NSWindow] = []
+  // Holds each secondary window's willCloseNotification observer token,
+  // keyed by the window's identity, so it can be removed from
+  // NotificationCenter the moment that window closes — otherwise the
+  // observer block (and its captured window) would linger in
+  // NotificationCenter's table for the app's entire lifetime.
+  private var secondaryWindowObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
 
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return true
@@ -66,12 +72,22 @@ class AppDelegate: FlutterAppDelegate {
     window.makeKeyAndOrderFront(nil)
 
     secondaryWindows.append(window)
-    NotificationCenter.default.addObserver(
+    // Both self and window are captured weakly so this block never keeps
+    // the window (and its controller/engine) alive on its own — and the
+    // observer token is removed from NotificationCenter the moment the
+    // block fires, so the block itself doesn't linger in NotificationCenter's
+    // table for the rest of the app's lifetime either.
+    let windowId = ObjectIdentifier(window)
+    secondaryWindowObservers[windowId] = NotificationCenter.default.addObserver(
       forName: NSWindow.willCloseNotification,
       object: window,
       queue: .main
-    ) { [weak self] _ in
+    ) { [weak self, weak window] _ in
+      guard let window = window else { return }
       self?.secondaryWindows.removeAll { $0 === window }
+      if let observer = self?.secondaryWindowObservers.removeValue(forKey: windowId) {
+        NotificationCenter.default.removeObserver(observer)
+      }
     }
   }
 }
