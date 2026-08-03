@@ -14,6 +14,8 @@ import 'terminal_color_schemes.dart';
 import 'terminal_font_families.dart';
 import 'workspace.dart';
 
+const _systemMenuChannel = MethodChannel('orthanc/system_menu');
+
 /// The window: the sessions, their arrangement, and the keys that change it.
 class WorkspaceView extends StatefulWidget {
   const WorkspaceView({super.key, required this.settings});
@@ -53,16 +55,19 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     return session;
   }
 
-  /// A finished session closes its own pane; the last one quits the app,
-  /// carrying the shell's exit code out as it did when the window held one.
-  /// A close by hotkey has no process exit code yet, so it keeps using 0.
+  /// A finished session closes its own pane; the last one closes this
+  /// window. Only when that was the last *open window* does the app
+  /// actually quit — still carrying the shell's exit code out as it did
+  /// when there was only ever one window. A close by hotkey has no
+  /// process exit code yet, so it keeps using 0.
   void _close(String id, {int exitCode = 0}) {
     if (!_closed.add(id)) return;
 
     final next = workspace.close(id);
     if (next == null) {
       sessions.disposeAll();
-      exit(exitCode);
+      _systemMenuChannel.invokeMethod('closeWindow', exitCode);
+      return;
     }
     // Claims focus before the departing session's node is disposed, so
     // primary focus never passes through the root scope — a key pressed in

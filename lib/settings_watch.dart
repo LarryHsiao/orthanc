@@ -36,6 +36,7 @@ void watchSettingsFile({
       .watch(events: FileSystemEvent.modify)
       .where((event) => event.path == file.path)
       .listen((_) {
+        if (!file.existsSync()) return;
         settings.value = reconcileSettings(
           current: settings.value,
           next: readSettings(file: file),

@@ -23,20 +23,41 @@ class AppDelegate: FlutterAppDelegate {
     return true
   }
 
-  // Wires the `orthanc/system_menu` channel's `newWindow` method on
-  // `engine` to createSecondaryWindow() — called once for the primary
-  // engine (from MainFlutterWindow) and once for every secondary engine
-  // this itself creates, so Cmd+N works from any open window.
-  func configureSystemMenuChannel(on engine: FlutterEngine) {
+  // Wires the `orthanc/system_menu` channel's `newWindow`/`closeWindow`
+  // methods on `engine` to this window specifically — called once for the
+  // primary engine (from MainFlutterWindow, passing its own `self`) and
+  // once for every secondary engine this itself creates, so both Cmd+N and
+  // "close this window" work from any open window.
+  //
+  // Closing the primary window while secondaries remain open is a named,
+  // accepted limitation for now: MainFlutterWindow will close (hide) like
+  // any other window here, but nothing tears its engine/session resources
+  // down while other windows keep the app alive — full symmetry with
+  // secondary-window teardown is a larger native change than this fix
+  // covers.
+  func configureSystemMenuChannel(on engine: FlutterEngine, window: NSWindow) {
     let channel = FlutterMethodChannel(
       name: "orthanc/system_menu",
       binaryMessenger: engine.binaryMessenger
     )
-    channel.setMethodCallHandler { [weak self] call, result in
-      if call.method == "newWindow" {
+    channel.setMethodCallHandler { [weak self, weak window] call, result in
+      switch call.method {
+      case "newWindow":
         self?.createSecondaryWindow()
         result(nil)
-      } else {
+      case "closeWindow":
+        let code = (call.arguments as? Int).map { Int32($0) } ?? 0
+        window?.close()
+        // Once this was genuinely the last open window, AppKit's own
+        // applicationShouldTerminateAfterLastWindowClosed would otherwise
+        // terminate with exit code 0 — exit directly instead, so the
+        // closing shell's exit code still becomes the process's, matching
+        // this app's pre-multi-window behavior.
+        if NSApp.windows.allSatisfy({ !$0.isVisible }) {
+          exit(code)
+        }
+        result(nil)
+      default:
         result(FlutterMethodNotImplemented)
       }
     }
@@ -59,7 +80,6 @@ class AppDelegate: FlutterAppDelegate {
 
     let controller = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
     RegisterGeneratedPlugins(registry: controller)
-    configureSystemMenuChannel(on: engine)
 
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
@@ -67,16 +87,23 @@ class AppDelegate: FlutterAppDelegate {
       backing: .buffered,
       defer: false
     )
+    // A programmatically-created NSWindow defaults isReleasedWhenClosed to
+    // true, which sends an extra release on close on top of ARC's normal
+    // tracking of the strong reference this file keeps in
+    // secondaryWindows — disable it so that array is the only thing whose
+    // release matters.
+    window.isReleasedWhenClosed = false
     window.contentViewController = controller
     window.center()
     window.makeKeyAndOrderFront(nil)
+    configureSystemMenuChannel(on: engine, window: window)
 
     secondaryWindows.append(window)
     // Both self and window are captured weakly so this block never keeps
-    // the window (and its controller/engine) alive on its own — and the
-    // observer token is removed from NotificationCenter the moment the
-    // block fires, so the block itself doesn't linger in NotificationCenter's
-    // table for the rest of the app's lifetime either.
+    // the window (and its controller/engine) alive on its own. The array
+    // and observer cleanup are deferred to the next run-loop turn via
+    // DispatchQueue.main.async so -[NSWindow close] has fully finished
+    // before this drops what may be the last strong reference to it.
     let windowId = ObjectIdentifier(window)
     secondaryWindowObservers[windowId] = NotificationCenter.default.addObserver(
       forName: NSWindow.willCloseNotification,
@@ -84,9 +111,11 @@ class AppDelegate: FlutterAppDelegate {
       queue: .main
     ) { [weak self, weak window] _ in
       guard let window = window else { return }
-      self?.secondaryWindows.removeAll { $0 === window }
-      if let observer = self?.secondaryWindowObservers.removeValue(forKey: windowId) {
-        NotificationCenter.default.removeObserver(observer)
+      DispatchQueue.main.async {
+        self?.secondaryWindows.removeAll { $0 === window }
+        if let observer = self?.secondaryWindowObservers.removeValue(forKey: windowId) {
+          NotificationCenter.default.removeObserver(observer)
+        }
       }
     }
   }
