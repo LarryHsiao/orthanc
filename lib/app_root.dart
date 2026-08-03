@@ -17,9 +17,14 @@ const _appcastFeedUrl =
 /// check already landed one. Both are best-effort — neither may ever block
 /// the terminal from opening or stand between the user and their keyboard.
 class AppRoot extends StatefulWidget {
-  const AppRoot({super.key, required this.settings});
+  const AppRoot({
+    super.key,
+    required this.settings,
+    required this.isPrimaryWindow,
+  });
 
   final ValueNotifier<Settings> settings;
+  final bool isPrimaryWindow;
 
   @override
   State<AppRoot> createState() => _AppRootState();
@@ -31,8 +36,10 @@ class _AppRootState extends State<AppRoot> {
   @override
   void initState() {
     super.initState();
-    _showUpdateNoteIfAny();
-    _checkForUpdate();
+    if (widget.isPrimaryWindow) {
+      _showUpdateNoteIfAny();
+      _checkForUpdate();
+    }
   }
 
   Future<void> _showUpdateNoteIfAny() async {

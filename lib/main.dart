@@ -12,13 +12,19 @@ import 'settings_store.dart';
 import 'settings_watch.dart';
 import 'shell_command.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   final supportDir = await getApplicationSupportDirectory();
   final file = settingsFile(supportDir: supportDir);
   final settings = ValueNotifier(readSettings(file: file));
   watchSettingsFile(file: file, settings: settings);
-  runApp(OrthancApp(settings: settings, settingsFile: file));
+  runApp(
+    OrthancApp(
+      settings: settings,
+      settingsFile: file,
+      isPrimaryWindow: !args.contains('secondary'),
+    ),
+  );
 }
 
 class OrthancApp extends StatefulWidget {
@@ -26,10 +32,12 @@ class OrthancApp extends StatefulWidget {
     super.key,
     required this.settings,
     required this.settingsFile,
+    required this.isPrimaryWindow,
   });
 
   final ValueNotifier<Settings> settings;
   final File settingsFile;
+  final bool isPrimaryWindow;
 
   @override
   State<OrthancApp> createState() => _OrthancAppState();
@@ -65,6 +73,8 @@ class _OrthancAppState extends State<OrthancApp> {
     );
   }
 
+  Future<void> _newWindow() => _systemMenuChannel.invokeMethod('newWindow');
+
   @override
   Widget build(BuildContext context) {
     return PlatformMenuBar(
@@ -72,6 +82,14 @@ class _OrthancAppState extends State<OrthancApp> {
         PlatformMenu(
           label: 'Orthanc',
           menus: [
+            PlatformMenuItem(
+              label: 'New Window',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyN,
+                meta: true,
+              ),
+              onSelected: _newWindow,
+            ),
             PlatformMenuItem(
               label: 'Settings…',
               shortcut: const SingleActivator(
@@ -88,7 +106,12 @@ class _OrthancAppState extends State<OrthancApp> {
         title: 'Orthanc',
         debugShowCheckedModeBanner: false,
         home: Scaffold(
-          body: SafeArea(child: AppRoot(settings: widget.settings)),
+          body: SafeArea(
+            child: AppRoot(
+              settings: widget.settings,
+              isPrimaryWindow: widget.isPrimaryWindow,
+            ),
+          ),
         ),
       ),
     );
