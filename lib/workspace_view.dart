@@ -56,17 +56,23 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   }
 
   /// A finished session closes its own pane; the last one closes this
-  /// window. Only when that was the last *open window* does the app
-  /// actually quit — still carrying the shell's exit code out as it did
-  /// when there was only ever one window. A close by hotkey has no
-  /// process exit code yet, so it keeps using 0.
+  /// window. On macOS, only when that was the last *open window* does the
+  /// app actually quit — routed through the system menu channel so closing
+  /// one window never kills the others. On Windows there is only ever one
+  /// window, so closing the last pane always exits the process directly,
+  /// still carrying the shell's exit code out as it did before. A close by
+  /// hotkey has no process exit code yet, so it keeps using 0.
   void _close(String id, {int exitCode = 0}) {
     if (!_closed.add(id)) return;
 
     final next = workspace.close(id);
     if (next == null) {
       sessions.disposeAll();
-      _systemMenuChannel.invokeMethod('closeWindow', exitCode);
+      if (Platform.isMacOS) {
+        _systemMenuChannel.invokeMethod('closeWindow', exitCode);
+      } else {
+        exit(exitCode);
+      }
       return;
     }
     // Claims focus before the departing session's node is disposed, so
