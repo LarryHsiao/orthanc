@@ -28,12 +28,18 @@ Settings reconcileSettings({
 /// to be reopened. A stream error (or a read landing mid atomic-rename) is
 /// swallowed — the next filesystem event, or this window's own next
 /// launch, resyncs state.
+///
+/// [writeSettings]'s atomic rename-over-existing-file surfaces differently
+/// per platform: watching for [FileSystemEvent.modify] alone is enough on
+/// macOS, but on Windows the replace reports on the destination path as a
+/// [FileSystemEvent.delete] (the pre-existing file being replaced), so that
+/// must be watched too for the reload to fire there.
 void watchSettingsFile({
   required File file,
   required ValueNotifier<Settings> settings,
 }) {
   file.parent
-      .watch(events: FileSystemEvent.modify)
+      .watch(events: FileSystemEvent.modify | FileSystemEvent.delete)
       .where((event) => event.path == file.path)
       .listen((_) {
         if (!file.existsSync()) return;
