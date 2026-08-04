@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'app_root.dart';
+import 'new_instance.dart';
 import 'settings.dart';
 import 'settings_dialog.dart';
 import 'settings_store.dart';
@@ -22,7 +23,7 @@ Future<void> main(List<String> args) async {
     OrthancApp(
       settings: settings,
       settingsFile: file,
-      isPrimaryWindow: !args.contains('secondary'),
+      isFirstInstance: !args.contains(secondaryInstanceArgument),
     ),
   );
 }
@@ -32,12 +33,12 @@ class OrthancApp extends StatefulWidget {
     super.key,
     required this.settings,
     required this.settingsFile,
-    required this.isPrimaryWindow,
+    required this.isFirstInstance,
   });
 
   final ValueNotifier<Settings> settings;
   final File settingsFile;
-  final bool isPrimaryWindow;
+  final bool isFirstInstance;
 
   @override
   State<OrthancApp> createState() => _OrthancAppState();
@@ -50,6 +51,10 @@ class _OrthancAppState extends State<OrthancApp> {
   @override
   void initState() {
     super.initState();
+    // Windows has no Flutter menu bar: its runner hangs a "Settings…" item off
+    // the window's own system menu and calls in over this channel
+    // (windows/runner/flutter_window.cpp). macOS reaches the same dialog
+    // through the PlatformMenuItem below instead.
     _systemMenuChannel.setMethodCallHandler((call) async {
       if (call.method == 'openSettings') _openSettings();
     });
@@ -73,8 +78,6 @@ class _OrthancAppState extends State<OrthancApp> {
     );
   }
 
-  Future<void> _newWindow() => _systemMenuChannel.invokeMethod('newWindow');
-
   @override
   Widget build(BuildContext context) {
     return PlatformMenuBar(
@@ -88,7 +91,7 @@ class _OrthancAppState extends State<OrthancApp> {
                 LogicalKeyboardKey.keyN,
                 meta: true,
               ),
-              onSelected: _newWindow,
+              onSelected: startNewInstance,
             ),
             PlatformMenuItem(
               label: 'Settings…',
@@ -109,7 +112,7 @@ class _OrthancAppState extends State<OrthancApp> {
           body: SafeArea(
             child: AppRoot(
               settings: widget.settings,
-              isPrimaryWindow: widget.isPrimaryWindow,
+              isFirstInstance: widget.isFirstInstance,
             ),
           ),
         ),

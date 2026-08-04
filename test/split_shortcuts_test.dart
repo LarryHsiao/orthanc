@@ -100,6 +100,21 @@ void main() {
 
       expect(action, expected);
     });
+
+    test('Ctrl+N is left for the terminal — that chord is the Windows one', () {
+      const expected = null;
+
+      final action = paneAction(
+        isWindows: false,
+        key: LogicalKeyboardKey.keyN,
+        isControlPressed: true,
+        isShiftPressed: false,
+        isAltPressed: false,
+        isMetaPressed: false,
+      );
+
+      expect(action, expected);
+    });
   });
 
   group('Windows', () {
@@ -159,6 +174,32 @@ void main() {
       const expected = null;
 
       final action = windowsAction(LogicalKeyboardKey.keyD, control: true);
+
+      expect(action, expected);
+    });
+
+    test('Ctrl+N asks for a new window', () {
+      final action = windowsAction(LogicalKeyboardKey.keyN, control: true);
+
+      expect(action, isA<NewWindow>());
+    });
+
+    test('Ctrl+Shift+N is left for the terminal — extra modifier', () {
+      const expected = null;
+
+      final action = windowsAction(
+        LogicalKeyboardKey.keyN,
+        control: true,
+        shift: true,
+      );
+
+      expect(action, expected);
+    });
+
+    test('a bare N is left for the terminal', () {
+      const expected = null;
+
+      final action = windowsAction(LogicalKeyboardKey.keyN);
 
       expect(action, expected);
     });
