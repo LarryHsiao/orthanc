@@ -11,7 +11,10 @@ const defaultTerminalFontSize = 13.0;
 /// xterm's built-in fallback list is Linux/Android-flavored and omits Hack
 /// Nerd Font Mono, so the Private-Use-Area glyphs shell tools (lsd,
 /// oh-my-posh, ...) use for icons render as tofu unless named explicitly
-/// here — a no-op fallback entry on a machine that lacks it.
+/// here — a no-op fallback entry on a machine that lacks it. It must sit
+/// after the standard monospace fonts below, not before: see the comment
+/// on its own entry for why leading with it made all terminal text look
+/// bold.
 ///
 /// Apple Color Emoji / Segoe UI Emoji are deliberately absent: both claim
 /// dingbat codepoints that also have a plain-text glyph (Claude Code's
@@ -26,12 +29,20 @@ const defaultTerminalFontSize = 13.0;
 /// (PaneView) and the Settings dialog's live preview (TerminalPreview), so
 /// the preview can never show glyph rendering a real pane wouldn't.
 const terminalFontFamilyFallback = [
-  'Hack Nerd Font Mono',
   'Menlo',
   'Monaco',
   'Consolas',
   'Liberation Mono',
   'Courier New',
+  // Comes after the standard monospace fonts above, not before: its
+  // regular face renders visibly heavier than Menlo/Monaco's on macOS.
+  // defaultTerminalFontFamily ('monospace') never resolves as a real font
+  // there, so every glyph — plain ASCII included — falls through to this
+  // list; with Hack Nerd Font Mono leading it, that heavier face won the
+  // match for ordinary text too, and the whole terminal read as bold.
+  // Kept in the list at all so the Private-Use-Area icon glyphs it alone
+  // carries still resolve instead of rendering as tofu.
+  'Hack Nerd Font Mono',
   'Noto Sans Mono CJK SC',
   'Noto Sans Mono CJK TC',
   'Noto Sans Mono CJK KR',
