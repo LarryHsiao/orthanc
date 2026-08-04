@@ -37,6 +37,13 @@ const terminalFontFamilyFallback = [
   'Noto Sans Mono CJK KR',
   'Noto Sans Mono CJK JP',
   'Noto Sans Mono CJK HK',
+  // Covers Claude Code's ⏺ paragraph bullet (U+23FA, Miscellaneous
+  // Technical) in monochrome. None of the fonts above carry that glyph on
+  // stock macOS, so without this entry the search falls through the whole
+  // list and the OS's own fallback cascade lands on Apple Color Emoji
+  // anyway — the exact substitution this file's fonts are meant to avoid.
+  // STIX Two Math ships as part of macOS's own default font set.
+  'STIX Two Math',
   'Noto Color Emoji',
   'Noto Sans Symbols',
   'monospace',

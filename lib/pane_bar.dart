@@ -112,6 +112,11 @@ class _PaneBarState extends State<PaneBar> {
                 'Monaco',
                 'Consolas',
                 'Liberation Mono',
+                // See terminalFontFamilyFallback's doc comment: none of the
+                // fonts above carry ⏺ (U+23FA) in monochrome on stock
+                // macOS, so without this entry the OS's own fallback
+                // cascade substitutes Apple Color Emoji instead.
+                'STIX Two Math',
                 'Noto Sans Symbols',
               ],
             ),
