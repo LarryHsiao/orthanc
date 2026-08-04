@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'layout_node.dart';
+import 'new_instance.dart';
 import 'session.dart';
 import 'sessions.dart';
 import 'settings.dart';
@@ -13,8 +14,6 @@ import 'split_view.dart';
 import 'terminal_color_schemes.dart';
 import 'terminal_font_families.dart';
 import 'workspace.dart';
-
-const _systemMenuChannel = MethodChannel('orthanc/system_menu');
 
 /// The window: the sessions, their arrangement, and the keys that change it.
 class WorkspaceView extends StatefulWidget {
@@ -56,24 +55,17 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   }
 
   /// A finished session closes its own pane; the last one closes this
-  /// window. On macOS, only when that was the last *open window* does the
-  /// app actually quit — routed through the system menu channel so closing
-  /// one window never kills the others. On Windows there is only ever one
-  /// window, so closing the last pane always exits the process directly,
-  /// still carrying the shell's exit code out as it did before. A close by
-  /// hotkey has no process exit code yet, so it keeps using 0.
+  /// window — which is this whole process, since every window is its own
+  /// instance. Exiting directly carries the shell's exit code out as the
+  /// process's own, and leaves any other window standing, untouched. A close
+  /// by hotkey has no process exit code yet, so it keeps using 0.
   void _close(String id, {int exitCode = 0}) {
     if (!_closed.add(id)) return;
 
     final next = workspace.close(id);
     if (next == null) {
       sessions.disposeAll();
-      if (Platform.isMacOS) {
-        _systemMenuChannel.invokeMethod('closeWindow', exitCode);
-      } else {
-        exit(exitCode);
-      }
-      return;
+      exit(exitCode);
     }
     // Claims focus before the departing session's node is disposed, so
     // primary focus never passes through the root scope — a key pressed in
@@ -177,6 +169,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         _moveFocus(direction);
       case ToggleCollapse():
         _toggleCollapse(workspace.focusedId);
+      case NewWindow():
+        startNewInstance();
     }
   }
 

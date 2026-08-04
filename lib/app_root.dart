@@ -16,15 +16,20 @@ const _appcastFeedUrl =
 /// (Sparkle/WinSparkle, via [autoUpdater]) and a one-time note if the last
 /// check already landed one. Both are best-effort — neither may ever block
 /// the terminal from opening or stand between the user and their keyboard.
+///
+/// Both run in the first instance alone. Every window is its own process, so
+/// without that gate a second window would mean a second Sparkle checking,
+/// noting, and eventually installing over a bundle its siblings are running
+/// from.
 class AppRoot extends StatefulWidget {
   const AppRoot({
     super.key,
     required this.settings,
-    required this.isPrimaryWindow,
+    required this.isFirstInstance,
   });
 
   final ValueNotifier<Settings> settings;
-  final bool isPrimaryWindow;
+  final bool isFirstInstance;
 
   @override
   State<AppRoot> createState() => _AppRootState();
@@ -36,7 +41,7 @@ class _AppRootState extends State<AppRoot> {
   @override
   void initState() {
     super.initState();
-    if (widget.isPrimaryWindow) {
+    if (widget.isFirstInstance) {
       _showUpdateNoteIfAny();
       _checkForUpdate();
     }

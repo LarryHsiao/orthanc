@@ -2,7 +2,8 @@ import 'package:flutter/services.dart';
 
 import 'layout_node.dart';
 
-/// Something a key press asks of the layout, rather than of the terminal.
+/// Something a key press asks of the app, rather than of the terminal — of
+/// the layout, mostly, though [NewWindow] asks for a whole second instance.
 sealed class PaneAction {
   const PaneAction();
 }
@@ -25,6 +26,10 @@ class MoveFocus extends PaneAction {
 
 class ToggleCollapse extends PaneAction {
   const ToggleCollapse();
+}
+
+class NewWindow extends PaneAction {
+  const NewWindow();
 }
 
 /// What a key press means to the layout, or null to let the terminal have it.
@@ -84,6 +89,15 @@ PaneAction? _windowsAction(
       !isAltPressed &&
       key == LogicalKeyboardKey.keyW) {
     return const ClosePane();
+  }
+  // Windows has no menu bar to hang "New Window" from, so the chord is the
+  // only way to ask for a second instance there. It costs the terminal its
+  // own Ctrl+N (readline's next-history) — bound anyway, by request.
+  if (isControlPressed &&
+      !isShiftPressed &&
+      !isAltPressed &&
+      key == LogicalKeyboardKey.keyN) {
+    return const NewWindow();
   }
   if (!isControlPressed && !isShiftPressed && isAltPressed) {
     final direction = _arrow(key);
