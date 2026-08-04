@@ -22,6 +22,7 @@ class SplitView extends StatelessWidget {
     required this.node,
     required this.sessions,
     required this.focusedId,
+    required this.highlightFocus,
     required this.collapsedIds,
     required this.collapsibleIds,
     required this.theme,
@@ -38,6 +39,13 @@ class SplitView extends StatelessWidget {
   final LayoutNode node;
   final Sessions sessions;
   final String focusedId;
+
+  /// Whether a focused pane should be marked at all. False when the window
+  /// holds a single pane: that pane is always the focused one, so a mark
+  /// there distinguishes it from nothing. Threaded verbatim through the
+  /// recursion, exactly as [focusedId] is — the whole tree answers this, not
+  /// the subtree any one [SplitView] happens to hold.
+  final bool highlightFocus;
   final Set<String> collapsedIds;
   final Set<String> collapsibleIds;
   final TerminalTheme theme;
@@ -64,7 +72,7 @@ class SplitView extends StatelessWidget {
     if (session == null) return const SizedBox.shrink();
     return PaneView(
       session: session,
-      focused: sessionId == focusedId,
+      focused: highlightFocus && sessionId == focusedId,
       onFocus: () => onFocus(sessionId),
       onKeyEvent: onKeyEvent,
       canCollapse: collapsibleIds.contains(sessionId),
@@ -185,6 +193,7 @@ class SplitView extends StatelessWidget {
       node: child,
       sessions: sessions,
       focusedId: focusedId,
+      highlightFocus: highlightFocus,
       collapsedIds: collapsedIds,
       collapsibleIds: collapsibleIds,
       theme: theme,

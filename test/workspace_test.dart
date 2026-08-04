@@ -15,6 +15,36 @@ void main() {
     });
   });
 
+  group('Workspace.isSplit', () {
+    test('a lone pane is not split', () {
+      const expected = false;
+
+      final workspace = Workspace.single('a');
+
+      expect(workspace.isSplit, expected);
+    });
+
+    test('two panes are split', () {
+      const expected = true;
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+
+      expect(workspace.isSplit, expected);
+    });
+
+    test('closing back down to one pane is not split again', () {
+      const expected = false;
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').close('b')!;
+
+      expect(workspace.isSplit, expected);
+    });
+  });
+
   group('Workspace.split', () {
     test('wraps a lone pane in a split holding both', () {
       final expected = ['a', 'b'];

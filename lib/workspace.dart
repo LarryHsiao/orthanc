@@ -28,6 +28,10 @@ class Workspace {
   /// Every session in the tree, left to right, top to bottom.
   List<String> get sessionIds => _idsOf(root);
 
+  /// Whether the window holds more than the one pane. A lone pane is always
+  /// the focused one, so marking it says nothing — see [SplitView]'s use.
+  bool get isSplit => root is SplitNode;
+
   static List<String> _idsOf(LayoutNode node) => switch (node) {
     PaneNode(:final sessionId) => [sessionId],
     SplitNode(:final children) => [

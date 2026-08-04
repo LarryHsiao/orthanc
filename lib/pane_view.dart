@@ -14,6 +14,9 @@ import 'terminal_font_families.dart';
 /// which case only the bar renders, at its own fixed height, and the
 /// terminal is skipped entirely. A pane's [Session] outlives this widget
 /// either way.
+///
+/// When [focused], an accent border is painted over the pane's bounds — see
+/// [focusBorderKey] for why it is an overlay rather than a decoration.
 class PaneView extends StatefulWidget {
   const PaneView({
     super.key,
@@ -28,6 +31,20 @@ class PaneView extends StatefulWidget {
     required this.fontSize,
     required this.onToggleCollapse,
   });
+
+  /// The focus border is painted *over* the pane, never around it. xterm
+  /// sizes its cell grid to the box it is handed, so a border that consumed
+  /// layout would reflow the pty — and resize every running program — each
+  /// time focus moved between panes.
+  static const focusBorderKey = Key('pane-focus-border');
+
+  static const focusBorderWidth = 2.0;
+
+  /// How far the focus accent travels from the terminal's background toward
+  /// the palette's blue. The raw blue out-shouts the text it frames; below
+  /// about a half the mark sinks back toward the eye's floor, and a dark
+  /// palette's blue reaches its own background first.
+  static const focusAccentStrength = 0.6;
 
   final Session session;
   final bool focused;
@@ -55,49 +72,94 @@ class _PaneViewState extends State<PaneView> {
     // routinely lose it on a brisk click.
     return Listener(
       onPointerDown: (_) => widget.onFocus(),
-      child: Column(
-        children: [
-          GestureDetector(
-            onTap: widget.canCollapse ? widget.onToggleCollapse : null,
-            child: PaneBar(
-              session: widget.session,
-              focused: widget.focused,
-              canCollapse: widget.canCollapse,
-              collapsed: widget.collapsed,
-            ),
+      // The body took whatever constraints its parent gave before the Stack
+      // stood between them; expand passes those through unchanged, rather
+      // than loosening them and leaving the Column to shrink-wrap.
+      child: Stack(
+        fit: StackFit.expand,
+        children: [_paneBody(), if (widget.focused) _focusBorder()],
+      ),
+    );
+  }
+
+  Widget _paneBody() {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: widget.canCollapse ? widget.onToggleCollapse : null,
+          child: PaneBar(
+            session: widget.session,
+            focused: widget.focused,
+            accent: _accent,
+            canCollapse: widget.canCollapse,
+            collapsed: widget.collapsed,
           ),
-          if (!widget.collapsed)
-            Expanded(
-              // xterm's RenderTerminal never clips its own paint, so a scroll
-              // can draw rows past its box and into PaneBar above it. Clip
-              // explicitly rather than rely on that render object doing it.
-              child: ClipRect(
-                child: MouseRegion(
-                  onHover: _onHover,
-                  onExit: (_) => _setCursor(SystemMouseCursors.text),
-                  child: TerminalView(
-                    key: _terminalKey,
-                    widget.session.terminal,
-                    focusNode: widget.session.focusNode,
-                    onKeyEvent: widget.onKeyEvent,
-                    onTapUp: _onTapUp,
-                    mouseCursor: _cursor,
-                    theme: widget.theme,
-                    // See terminalFontFamilyFallback's doc comment for why
-                    // this list is shaped and ordered the way it is.
-                    textStyle: TerminalStyle(
-                      fontFamily: widget.fontFamily,
-                      fontSize: widget.fontSize,
-                      fontFamilyFallback: terminalFontFamilyFallback,
-                    ),
+        ),
+        if (!widget.collapsed)
+          Expanded(
+            // xterm's RenderTerminal never clips its own paint, so a scroll
+            // can draw rows past its box and into PaneBar above it. Clip
+            // explicitly rather than rely on that render object doing it.
+            child: ClipRect(
+              child: MouseRegion(
+                onHover: _onHover,
+                onExit: (_) => _setCursor(SystemMouseCursors.text),
+                child: TerminalView(
+                  key: _terminalKey,
+                  widget.session.terminal,
+                  focusNode: widget.session.focusNode,
+                  onKeyEvent: widget.onKeyEvent,
+                  onTapUp: _onTapUp,
+                  mouseCursor: _cursor,
+                  theme: widget.theme,
+                  // See terminalFontFamilyFallback's doc comment for why
+                  // this list is shaped and ordered the way it is.
+                  textStyle: TerminalStyle(
+                    fontFamily: widget.fontFamily,
+                    fontSize: widget.fontSize,
+                    fontFamilyFallback: terminalFontFamilyFallback,
                   ),
                 ),
               ),
             ),
-        ],
+          ),
+      ],
+    );
+  }
+
+  Widget _focusBorder() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          key: PaneView.focusBorderKey,
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: _accent,
+              width: PaneView.focusBorderWidth,
+            ),
+          ),
+        ),
       ),
     );
   }
+
+  /// The focus colour. Drawn from the terminal palette rather than the app's
+  /// [ColorScheme], which is Flutter's stock light default and bears no
+  /// relation to the terminal beneath it. The cursor colour would be the
+  /// obvious pick, but every scheme deliberately shares one translucent grey
+  /// there (see terminal_color_schemes.dart) — blue is the brightest field
+  /// that actually varies with the user's choice.
+  ///
+  /// Blended back toward the palette's own background at
+  /// [PaneView.focusAccentStrength], so the mark sits in the scheme rather
+  /// than on top of it. Blended rather than made translucent: the accent
+  /// paints over the terminal at the border and over nothing at the bar, so
+  /// an alpha would composite differently in the two places.
+  Color get _accent => Color.lerp(
+    widget.theme.background,
+    widget.theme.blue,
+    PaneView.focusAccentStrength,
+  )!;
 
   void _onHover(PointerHoverEvent event) {
     final state = _terminalKey.currentState;

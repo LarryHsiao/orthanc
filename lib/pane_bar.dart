@@ -11,11 +11,17 @@ import 'session.dart';
 /// Right-click starts renaming the pane directly; the resulting name lives
 /// on [Session.manualName], set only from here, never by the running
 /// program. See docs/superpowers/specs/2026-07-23-orthanc-pane-rename-design.md.
+///
+/// When [focused], the bar fills with [accent] rather than a surface tone.
+/// A collapsed pane is nothing but its bar, so this fill is the only mark
+/// of focus such a pane can carry — PaneView's border has no body to
+/// enclose there.
 class PaneBar extends StatefulWidget {
   const PaneBar({
     super.key,
     required this.session,
     required this.focused,
+    required this.accent,
     required this.canCollapse,
     required this.collapsed,
   });
@@ -24,6 +30,10 @@ class PaneBar extends StatefulWidget {
 
   final Session session;
   final bool focused;
+
+  /// The focus colour, drawn from the terminal palette the user chose, so
+  /// the mark moves with the scheme instead of standing apart from it.
+  final Color accent;
   final bool canCollapse;
   final bool collapsed;
 
@@ -46,31 +56,39 @@ class _PaneBarState extends State<PaneBar> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final ink = widget.focused ? _accentInk : scheme.onSurface;
     return GestureDetector(
       onSecondaryTapUp: (_) => _startEditing(),
       child: Container(
         height: PaneBar.height,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        color: widget.focused
-            ? scheme.surfaceContainerHighest
-            : scheme.surfaceContainer,
+        color: widget.focused ? widget.accent : scheme.surfaceContainer,
         child: Row(
           children: [
-            Expanded(child: _editing ? _editField(scheme) : _title(scheme)),
-            if (widget.canCollapse) _collapseIcon(scheme),
+            Expanded(child: _editing ? _editField(ink) : _title(ink)),
+            if (widget.canCollapse)
+              _collapseIcon(widget.focused ? ink : scheme.onSurfaceVariant),
           ],
         ),
       ),
     );
   }
 
-  Widget _collapseIcon(ColorScheme scheme) => Text(
+  /// Black or white, whichever reads on [PaneBar.accent]. The palettes on
+  /// offer run from Solarized's deep blue to Dracula's pale violet, so one
+  /// fixed ink would be illegible at one end or the other.
+  Color get _accentInk =>
+      ThemeData.estimateBrightnessForColor(widget.accent) == Brightness.dark
+      ? Colors.white
+      : Colors.black;
+
+  Widget _collapseIcon(Color ink) => Text(
     widget.collapsed ? '⤡' : '⤢',
-    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+    style: TextStyle(fontSize: 12, color: ink),
   );
 
-  Widget _title(ColorScheme scheme) {
+  Widget _title(Color ink) {
     return ValueListenableBuilder(
       valueListenable: widget.session.manualName,
       builder: (context, manualName, child) => ValueListenableBuilder(
@@ -83,7 +101,7 @@ class _PaneBarState extends State<PaneBar> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: widget.focused ? FontWeight.w700 : FontWeight.w400,
-              color: scheme.onSurface,
+              color: ink,
               // Same reasoning as TerminalView's fallback in pane_view.dart:
               // an activity title set via OSC 2 can carry the same dingbat
               // glyphs Claude Code uses in-terminal (✢ ✳ ✻ ✽ ⏺), and without
@@ -103,7 +121,7 @@ class _PaneBarState extends State<PaneBar> {
     );
   }
 
-  Widget _editField(ColorScheme scheme) {
+  Widget _editField(Color ink) {
     return Focus(
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
@@ -116,7 +134,7 @@ class _PaneBarState extends State<PaneBar> {
       child: TextField(
         controller: _controller,
         focusNode: _fieldFocusNode,
-        style: TextStyle(fontSize: 11, color: scheme.onSurface),
+        style: TextStyle(fontSize: 11, color: ink),
         decoration: const InputDecoration(
           isDense: true,
           contentPadding: EdgeInsets.zero,
