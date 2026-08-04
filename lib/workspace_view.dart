@@ -194,6 +194,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             node: workspace.root,
             sessions: sessions,
             focusedId: workspace.focusedId,
+            highlightFocus: workspace.isSplit,
             collapsedIds: workspace.collapsedIds,
             collapsibleIds: workspace.collapsibleIds,
             theme: terminalThemeFor(settings.colorScheme),

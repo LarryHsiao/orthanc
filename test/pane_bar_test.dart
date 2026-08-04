@@ -6,22 +6,40 @@ import 'package:orthanc/pane_bar.dart';
 import 'package:orthanc/session.dart';
 
 void main() {
-  Future<Session> pumpPaneBar(WidgetTester tester) async {
+  // Dracula's blue — light enough that a contrast ink must go dark.
+  const lightAccent = Color(0xFFBD93F9);
+  // Solarized Dark's blue — dark enough that a contrast ink must go light.
+  const darkAccent = Color(0xFF268BD2);
+
+  Future<Session> pumpPaneBar(
+    WidgetTester tester, {
+    bool focused = true,
+    Color accent = lightAccent,
+    bool canCollapse = false,
+    bool collapsed = false,
+  }) async {
     final session = Session(id: 'a', executable: 'cmd.exe');
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: PaneBar(
             session: session,
-            focused: true,
-            canCollapse: false,
-            collapsed: false,
+            focused: focused,
+            accent: accent,
+            canCollapse: canCollapse,
+            collapsed: collapsed,
           ),
         ),
       ),
     );
     return session;
   }
+
+  Color? barFill(WidgetTester tester) =>
+      tester.widget<Container>(find.byType(Container).first).color;
+
+  Color? titleInk(WidgetTester tester) =>
+      tester.widget<Text>(find.byType(Text).first).style?.color;
 
   Future<void> rightClickPaneBar(WidgetTester tester) async {
     await tester.tap(
@@ -31,6 +49,80 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('focused bar fills with the accent', (tester) async {
+    const expected = lightAccent;
+
+    await pumpPaneBar(tester, focused: true, accent: lightAccent);
+
+    expect(barFill(tester), expected);
+  });
+
+  testWidgets('unfocused bar keeps the surface fill, never the accent', (
+    tester,
+  ) async {
+    await pumpPaneBar(tester, focused: false, accent: lightAccent);
+    final expected = ThemeData().colorScheme.surfaceContainer;
+
+    expect(barFill(tester), expected);
+  });
+
+  testWidgets('a collapsed focused pane still carries the accent fill', (
+    tester,
+  ) async {
+    // A collapsed pane is nothing but its bar — PaneView's border has no
+    // body to enclose there, so this fill is its only mark of focus.
+    const expected = lightAccent;
+
+    await pumpPaneBar(
+      tester,
+      focused: true,
+      accent: lightAccent,
+      canCollapse: true,
+      collapsed: true,
+    );
+
+    expect(barFill(tester), expected);
+  });
+
+  testWidgets('title inks dark on a light accent', (tester) async {
+    const expected = Colors.black;
+
+    await pumpPaneBar(tester, focused: true, accent: lightAccent);
+
+    expect(titleInk(tester), expected);
+  });
+
+  testWidgets('title inks light on a dark accent', (tester) async {
+    const expected = Colors.white;
+
+    await pumpPaneBar(tester, focused: true, accent: darkAccent);
+
+    expect(titleInk(tester), expected);
+  });
+
+  testWidgets('unfocused title keeps the surface ink', (tester) async {
+    await pumpPaneBar(tester, focused: false, accent: darkAccent);
+    final expected = ThemeData().colorScheme.onSurface;
+
+    expect(titleInk(tester), expected);
+  });
+
+  testWidgets('collapse glyph takes the same contrast ink when focused', (
+    tester,
+  ) async {
+    const expected = Colors.black;
+
+    await pumpPaneBar(
+      tester,
+      focused: true,
+      accent: lightAccent,
+      canCollapse: true,
+    );
+
+    final glyph = tester.widget<Text>(find.text('⤢'));
+    expect(glyph.style?.color, expected);
+  });
 
   testWidgets('right-click opens an edit field, focused for typing', (
     tester,
@@ -123,6 +215,7 @@ void main() {
                 PaneBar(
                   session: session,
                   focused: true,
+                  accent: lightAccent,
                   canCollapse: false,
                   collapsed: false,
                 ),
