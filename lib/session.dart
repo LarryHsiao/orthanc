@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:xterm/xterm.dart';
@@ -16,7 +17,10 @@ import 'shell_prompt_hook.dart';
 /// restart its process. That is why the pty lives here rather than in a State,
 /// as it did while the app held exactly one terminal for its whole life.
 class Session {
-  Session({required this.id, required this.executable});
+  Session({required this.id, required this.executable}) {
+    activity.addListener(_onActivityChanged);
+    focusNode.addListener(_onFocusChanged);
+  }
 
   final String id;
   final String executable;
@@ -42,6 +46,49 @@ class Session {
   /// independent of anything the running program sets. See
   /// docs/superpowers/specs/2026-07-23-orthanc-pane-rename-design.md.
   late final ValueNotifier<String> manualName = ValueNotifier('');
+
+  /// Whether this pane finished a burst of [activity] changes while
+  /// unfocused and has not been looked at since — [PaneBar] marks it with a
+  /// stripe until [focusNode] gains focus. Driven purely by how often
+  /// [activity] changes, never by what it says: Claude Code's title updates
+  /// roughly once a second while it works and stops the instant a turn
+  /// completes, so a burst followed by [_quietThreshold] of silence is a
+  /// reliable "done" signal without reading program-set text for meaning —
+  /// consistent with docs/superpowers/specs/2026-07-22-orthanc-pane-title-design.md's
+  /// "the title comes from the program, not from us".
+  late final ValueNotifier<bool> needsAttention = ValueNotifier(false);
+
+  // A single change (e.g. the shell prompt hook's own idle-pwd reset) must
+  // never arm the signal on its own, or an idle pane would flag itself the
+  // first time its title happens to be set. Arming needs two changes inside
+  // _burstWindow of each other — real, ongoing activity, not one reset.
+  static const _burstWindow = Duration(milliseconds: 1500);
+  static const _quietThreshold = Duration(seconds: 2);
+  DateTime? _lastActivityChangeAt;
+  bool _armed = false;
+  Timer? _quietTimer;
+
+  void _onActivityChanged() {
+    final now = clock.now();
+    final last = _lastActivityChangeAt;
+    _lastActivityChangeAt = now;
+    if (last != null && now.difference(last) <= _burstWindow) {
+      _armed = true;
+    }
+    _quietTimer?.cancel();
+    if (_armed) {
+      _quietTimer = Timer(_quietThreshold, _onQuiet);
+    }
+  }
+
+  void _onQuiet() {
+    _armed = false;
+    if (!focusNode.hasFocus) needsAttention.value = true;
+  }
+
+  void _onFocusChanged() {
+    if (focusNode.hasFocus) needsAttention.value = false;
+  }
 
   Pty? _pty;
   final _exited = Completer<int>();
@@ -133,9 +180,13 @@ class Session {
     if (_disposed) return;
     _disposed = true;
     if (!_processExited) _pty?.kill();
+    _quietTimer?.cancel();
+    activity.removeListener(_onActivityChanged);
+    focusNode.removeListener(_onFocusChanged);
     focusNode.dispose();
     activity.dispose();
     name.dispose();
     manualName.dispose();
+    needsAttention.dispose();
   }
 }

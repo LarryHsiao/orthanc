@@ -35,8 +35,14 @@ void main() {
     return session;
   }
 
-  Color? barFill(WidgetTester tester) =>
-      tester.widget<Container>(find.byType(Container).first).color;
+  BoxDecoration barDecoration(WidgetTester tester) =>
+      tester.widget<Container>(find.byType(Container).first).decoration
+          as BoxDecoration;
+
+  Color? barFill(WidgetTester tester) => barDecoration(tester).color;
+
+  Color? barTopBorderColor(WidgetTester tester) =>
+      barDecoration(tester).border?.top.color;
 
   Color? titleInk(WidgetTester tester) =>
       tester.widget<Text>(find.byType(Text).first).style?.color;
@@ -234,4 +240,36 @@ void main() {
       expect(tester.testTextInput.hasAnyClients, isTrue);
     },
   );
+
+  testWidgets('carries no top border when the session needs no attention', (
+    tester,
+  ) async {
+    await pumpPaneBar(tester, focused: false);
+
+    expect(barDecoration(tester).border, isNull);
+  });
+
+  testWidgets('carries a tertiary-coloured top border when the session '
+      'needs attention', (tester) async {
+    final session = await pumpPaneBar(tester, focused: false);
+    final expected = ThemeData().colorScheme.tertiary;
+
+    session.needsAttention.value = true;
+    await tester.pump();
+
+    expect(barTopBorderColor(tester), expected);
+  });
+
+  testWidgets('the attention border clears once the flag clears', (
+    tester,
+  ) async {
+    final session = await pumpPaneBar(tester, focused: false);
+    session.needsAttention.value = true;
+    await tester.pump();
+
+    session.needsAttention.value = false;
+    await tester.pump();
+
+    expect(barDecoration(tester).border, isNull);
+  });
 }

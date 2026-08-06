@@ -59,11 +59,24 @@ class _PaneBarState extends State<PaneBar> {
     final ink = widget.focused ? _accentInk : scheme.onSurface;
     return GestureDetector(
       onSecondaryTapUp: (_) => _startEditing(),
-      child: Container(
-        height: PaneBar.height,
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        color: widget.focused ? widget.accent : scheme.surfaceContainer,
+      child: ValueListenableBuilder(
+        valueListenable: widget.session.needsAttention,
+        builder: (context, needsAttention, child) => Container(
+          height: PaneBar.height,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: widget.focused ? widget.accent : scheme.surfaceContainer,
+            // Marks a pane that finished a burst of activity while
+            // unfocused — see Session.needsAttention. A top edge rather
+            // than a title-row addition, so it reads the same whether the
+            // pane is expanded or collapsed to its bar alone.
+            border: needsAttention
+                ? Border(top: BorderSide(color: scheme.tertiary, width: 2))
+                : null,
+          ),
+          child: child,
+        ),
         child: Row(
           children: [
             Expanded(child: _editing ? _editField(ink) : _title(ink)),
