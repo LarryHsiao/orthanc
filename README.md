@@ -15,12 +15,15 @@ Linux is not supported.
 
 Four tagged releases stand, `v1.0.0` through `v1.1.1`, built and published for
 both platforms. Milestones 0 and 1 are complete and walked by hand on macOS and
-Windows alike. `flutter test` runs 168 green.
+Windows alike. `flutter test` runs 262 green.
 
-Everything since Milestone 1 has been ordinary feature work, each piece carrying
+Everything since Milestone 1 has been ordinary feature work. Most of it carries
 its own design spec and implementation plan under `docs/superpowers/`: pane
-titles, pane collapse, pane rename, a configurable startup executable, and OSC 8
-terminal hyperlinks.
+titles, pane collapse, pane rename, a configurable startup executable, OSC 8
+terminal hyperlinks, terminal appearance settings (color scheme and font), and
+a second OS window on both platforms. A few smaller pieces — the focused-pane
+border and the pending-attention marker — shipped without a design doc of
+their own, in the same shape as the ones that came before them.
 
 ## What it does
 
@@ -37,10 +40,20 @@ terminal hyperlinks.
   detected per platform by default and can be overridden in Settings
   (`Cmd+,` on macOS, or the title-bar menu on Windows); the path is validated
   before it is saved and persists to a JSON file under application support.
+- **Terminal appearance settings.** Color scheme and font family/size are
+  picked in the same Settings dialog, with a live preview, and apply to every
+  open pane immediately on Save.
 - **Clickable hyperlinks.** OSC 8 links emitted by a program render underlined
   and open on `Cmd`/`Ctrl`+click — `http` and `https` only, since OSC 8 lets a
   program claim any scheme and launching those from untrusted terminal output is
   a real risk. Other schemes still underline; they simply do nothing.
+- **A focus you can see.** The focused pane carries a dimmed accent border and
+  bar; a pane that finishes a burst of activity while unfocused picks up a
+  tertiary top-edge stripe until it is looked at, content-blind by design — it
+  reacts to how often the title changes, never to what it says.
+- **A second window.** `Cmd+N` (macOS) or `Ctrl+N` (Windows) opens another OS
+  window with its own independent workspace and pty sessions, sharing the same
+  persisted settings as the first.
 
 ### Key bindings
 
@@ -55,6 +68,7 @@ macOS, Windows Terminal on Windows.
 | Close pane          | `Cmd+W`             | `Ctrl+Shift+W` |
 | Collapse / expand   | `Cmd+Shift+Enter`   | `Alt+Shift+Z`  |
 | Open hyperlink      | `Cmd`+click         | `Ctrl`+click   |
+| New window          | `Cmd+N`             | `Ctrl+N`       |
 
 Every binding demands exactly its own modifiers and no others; anything not
 listed reaches the terminal untouched. `Ctrl+D` is bound on neither platform: it
@@ -80,7 +94,7 @@ Around those two:
 - `lib/split_view.dart`, `lib/workspace_view.dart` — render that tree, and
   intercept key presses ahead of the terminal.
 
-Five files hold pure decisions with no I/O, which is why they carry the bulk of
+Seven files hold pure decisions with no I/O, which is why they carry the bulk of
 the tests:
 
 - `lib/shell_command.dart` — resolves the shell's absolute path per platform,
@@ -97,6 +111,8 @@ the tests:
   safe to launch.
 - `lib/shell_prompt_hook.dart` — which shell an executable names, and the
   title-on-prompt hook to feed it.
+- `lib/new_instance.dart` — the command that starts another instance of this
+  app, per platform; the caller spawns it detached.
 
 ## Prerequisites
 
@@ -154,7 +170,7 @@ pane that wants no color can still set `NO_COLOR` for itself.
 flutter test
 ```
 
-168 tests across 16 files. The pure decisions above are unit-tested directly,
+262 tests across 25 files. The pure decisions above are unit-tested directly,
 along with the layout tree, title composition, and settings validation and
 (de)serialization; the pane bar and the settings dialog carry widget tests. The
 pty/terminal wiring itself can only be judged by actually running the app — see
