@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orthanc/pane_view.dart';
 import 'package:orthanc/session.dart';
@@ -10,18 +12,19 @@ import 'package:xterm/xterm.dart';
 void main() {
   final theme = terminalThemeFor(TerminalColorScheme.dracula);
 
-  Future<void> pumpPaneView(
+  Future<Session> pumpPaneView(
     WidgetTester tester, {
     required bool focused,
     bool collapsed = false,
+    Session? session,
   }) async {
-    final session = Session(id: 'a', executable: 'cmd.exe');
-    addTearDown(session.dispose);
+    final theSession = session ?? Session(id: 'a', executable: 'cmd.exe');
+    addTearDown(theSession.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: PaneView(
-            session: session,
+            session: theSession,
             focused: focused,
             onFocus: () {},
             onKeyEvent: (node, event) => KeyEventResult.ignored,
@@ -37,6 +40,7 @@ void main() {
         ),
       ),
     );
+    return theSession;
   }
 
   BoxDecoration focusBorder(WidgetTester tester) =>
@@ -112,5 +116,165 @@ void main() {
     );
 
     expect(overlay.ignoring, expected);
+  });
+
+  Future<void> rightClick(WidgetTester tester) async {
+    await tester.tap(
+      find.byType(TerminalView),
+      buttons: kSecondaryButton,
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  // find.widgetWithText(PopupMenuItem, label) matches by exact runtimeType,
+  // which never equals the generic PopupMenuItem<_ClipboardMenuAction> the
+  // menu actually builds — a predicate's `is` check matches any type
+  // argument, the way a plain `is PopupMenuItem` test would in code.
+  PopupMenuItem menuItem(WidgetTester tester, String label) =>
+      tester.widget(
+            find.ancestor(
+              of: find.text(label),
+              matching: find.byWidgetPredicate(
+                (widget) => widget is PopupMenuItem,
+              ),
+            ),
+          )
+          as PopupMenuItem;
+
+  group('right-click Copy/Paste menu', () {
+    // flutter_test does not mock the clipboard channel on its own — an
+    // unmocked Clipboard.getData() call hangs until the test's own 10-minute
+    // timeout, rather than returning null. A minimal in-memory handler
+    // stands in for the OS clipboard for the tests in this group.
+    String? clipboardText;
+
+    setUp(() {
+      clipboardText = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            switch (call.method) {
+              case 'Clipboard.setData':
+                clipboardText = (call.arguments as Map)['text'] as String?;
+                return null;
+              case 'Clipboard.getData':
+                return clipboardText == null ? null : {'text': clipboardText};
+              case 'Clipboard.hasStrings':
+                return {'value': clipboardText != null};
+            }
+            return null;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    testWidgets('right-click opens a menu with Copy and Paste', (tester) async {
+      await pumpPaneView(tester, focused: true);
+
+      await rightClick(tester);
+
+      expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('Paste'), findsOneWidget);
+    });
+
+    testWidgets('Copy is disabled without a selection', (tester) async {
+      const expected = false;
+      await pumpPaneView(tester, focused: true);
+
+      await rightClick(tester);
+
+      expect(menuItem(tester, 'Copy').enabled, expected);
+    });
+
+    testWidgets('Copy is enabled with a selection', (tester) async {
+      const expected = true;
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      session.terminal.write('hello');
+      session.terminalController.setSelection(
+        session.terminal.buffer.createAnchor(0, 0),
+        session.terminal.buffer.createAnchor(5, 0),
+      );
+
+      await pumpPaneView(tester, focused: true, session: session);
+      await rightClick(tester);
+
+      expect(menuItem(tester, 'Copy').enabled, expected);
+    });
+
+    testWidgets('selecting Copy sends the selected text to the clipboard', (
+      tester,
+    ) async {
+      const expected = 'hello';
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      session.terminal.write('hello');
+      session.terminalController.setSelection(
+        session.terminal.buffer.createAnchor(0, 0),
+        session.terminal.buffer.createAnchor(5, 0),
+      );
+      await pumpPaneView(tester, focused: true, session: session);
+      await rightClick(tester);
+
+      await tester.tap(find.text('Copy'));
+      await tester.pumpAndSettle();
+
+      final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+      expect(clipboard?.text, expected);
+    });
+
+    testWidgets('selecting Copy leaves the selection in place', (tester) async {
+      // Matches xterm's own keyboard Copy, which never clears it either —
+      // the two Copy paths should read the same afterward.
+      const expected = isNotNull;
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      session.terminal.write('hello');
+      session.terminalController.setSelection(
+        session.terminal.buffer.createAnchor(0, 0),
+        session.terminal.buffer.createAnchor(5, 0),
+      );
+      await pumpPaneView(tester, focused: true, session: session);
+      await rightClick(tester);
+
+      await tester.tap(find.text('Copy'));
+      await tester.pumpAndSettle();
+
+      expect(session.terminalController.selection, expected);
+    });
+
+    testWidgets('selecting Paste writes the clipboard text into the terminal', (
+      tester,
+    ) async {
+      const expected = 'pasted!';
+      await Clipboard.setData(const ClipboardData(text: expected));
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      final outputs = <String>[];
+      session.terminal.onOutput = outputs.add;
+      await pumpPaneView(tester, focused: true, session: session);
+      await rightClick(tester);
+
+      await tester.tap(find.text('Paste'));
+      await tester.pumpAndSettle();
+
+      expect(outputs, [expected]);
+    });
+
+    testWidgets('Paste does nothing when the clipboard holds no text', (
+      tester,
+    ) async {
+      const expected = <String>[];
+      await Clipboard.setData(const ClipboardData(text: ''));
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      final outputs = <String>[];
+      session.terminal.onOutput = outputs.add;
+      await pumpPaneView(tester, focused: true, session: session);
+      await rightClick(tester);
+
+      await tester.tap(find.text('Paste'));
+      await tester.pumpAndSettle();
+
+      expect(outputs, expected);
+    });
   });
 }

@@ -27,6 +27,12 @@ class Session {
 
   final terminal = Terminal(maxLines: 10000);
 
+  /// Selection state for [terminal] — held here for the same reason
+  /// [terminal] itself is: a pane's right-click Copy/Paste menu needs to
+  /// read and clear the current selection from outside the widget that
+  /// renders it.
+  final terminalController = TerminalController();
+
   /// This pane's keyboard focus, held here rather than in a widget: a pane
   /// that moves within the tree, or loses and regains the focused id, must
   /// not lose or recreate its focus node — the same reason [terminal] lives
@@ -188,5 +194,6 @@ class Session {
     name.dispose();
     manualName.dispose();
     needsAttention.dispose();
+    terminalController.dispose();
   }
 }

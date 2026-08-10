@@ -54,6 +54,9 @@ their own, in the same shape as the ones that came before them.
 - **A second window.** `Cmd+N` (macOS) or `Ctrl+N` (Windows) opens another OS
   window with its own independent workspace and pty sessions, sharing the same
   persisted settings as the first.
+- **Copy and Paste from a right-click menu.** Copy (enabled only with an
+  active selection) and Paste, reachable by gesture rather than a shell
+  convention — the reliable path on every platform, keyboard shortcuts aside.
 
 ### Key bindings
 

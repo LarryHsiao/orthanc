@@ -107,9 +107,11 @@ class _PaneViewState extends State<PaneView> {
                 child: TerminalView(
                   key: _terminalKey,
                   widget.session.terminal,
+                  controller: widget.session.terminalController,
                   focusNode: widget.session.focusNode,
                   onKeyEvent: widget.onKeyEvent,
                   onTapUp: _onTapUp,
+                  onSecondaryTapUp: _onSecondaryTapUp,
                   mouseCursor: _cursor,
                   theme: widget.theme,
                   // See terminalFontFamilyFallback's doc comment for why
@@ -177,6 +179,62 @@ class _PaneViewState extends State<PaneView> {
     launchUrl(Uri.parse(uri));
   }
 
+  /// Copy/Paste independent of the keyboard: a gesture, not a shortcut, so
+  /// it needs no shell convention and no cooperation from xterm's own
+  /// shortcut manager or IME composing state.
+  Future<void> _onSecondaryTapUp(
+    TapUpDetails details,
+    CellOffset offset,
+  ) async {
+    widget.onFocus();
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final position = RelativeRect.fromRect(
+      details.globalPosition & Size.zero,
+      Offset.zero & overlay.size,
+    );
+    final action = await showMenu<_ClipboardMenuAction>(
+      context: context,
+      position: position,
+      items: [
+        PopupMenuItem(
+          value: _ClipboardMenuAction.copy,
+          enabled: widget.session.terminalController.selection != null,
+          child: const Text('Copy'),
+        ),
+        const PopupMenuItem(
+          value: _ClipboardMenuAction.paste,
+          child: Text('Paste'),
+        ),
+      ],
+    );
+    switch (action) {
+      case _ClipboardMenuAction.copy:
+        _copySelection();
+      case _ClipboardMenuAction.paste:
+        await _pasteFromClipboard();
+      case null:
+        break;
+    }
+  }
+
+  // Selection survives a copy — matching xterm's own CopySelectionTextIntent
+  // handler, which never clears it either.
+  void _copySelection() {
+    final selection = widget.session.terminalController.selection;
+    if (selection == null) return;
+    final text = widget.session.terminal.buffer.getText(selection);
+    Clipboard.setData(ClipboardData(text: text));
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null || text.isEmpty) return;
+    widget.session.terminal.paste(text);
+    widget.session.terminalController.clearSelection();
+  }
+
   void _setCursor(MouseCursor cursor) {
     if (cursor == _cursor) return;
     setState(() => _cursor = cursor);
@@ -196,3 +254,5 @@ class _PaneViewState extends State<PaneView> {
     return isLaunchableHyperlink(uri) ? uri : null;
   }
 }
+
+enum _ClipboardMenuAction { copy, paste }
