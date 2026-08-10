@@ -19,10 +19,11 @@ class Workspace {
   final LayoutNode root;
   final String focusedId;
 
-  /// Session ids currently collapsed to bar height. Each id is collapsed
-  /// independently of every other — any number of ids may coexist, whether
-  /// they belong to the same column or different ones, and collapsing one
-  /// has no effect on the collapsed state of any other.
+  /// Session ids currently collapsed to bar height. Any number of ids may
+  /// coexist, whether they belong to the same column or different ones.
+  /// [toggleCollapse] flips one id with no effect on any other; only
+  /// [toggleExpand] deliberately couples an id's reveal to its column
+  /// siblings' collapse.
   final Set<String> collapsedIds;
 
   /// Every session in the tree, left to right, top to bottom.
@@ -57,6 +58,39 @@ class Workspace {
 
     final updated = {...collapsedIds};
     if (!updated.remove(sessionId)) updated.add(sessionId);
+
+    return Workspace(root: root, focusedId: sessionId, collapsedIds: updated);
+  }
+
+  /// Expands [sessionId] to fill its column, collapsing every other direct
+  /// pane child of that same column — or, if [sessionId] is already the
+  /// sole expanded one, restores even shares by un-collapsing them again.
+  /// A nested split child (never itself collapsible) is left untouched
+  /// either way. Complements [toggleCollapse]'s independent per-pane
+  /// toggle with the double-click affordance that exclusively expands one
+  /// row within a column, mirroring iTerm2's "Maximize Pane". No-ops under
+  /// the same gate as [toggleCollapse].
+  Workspace toggleExpand(String sessionId) {
+    final parent = _directParent(root, sessionId);
+    if (parent == null ||
+        parent.axis != SplitAxis.column ||
+        parent.children.length < 2) {
+      return this;
+    }
+
+    final siblings = _paneChildIds(parent)..remove(sessionId);
+    final alreadyExpanded =
+        !collapsedIds.contains(sessionId) &&
+        siblings.every(collapsedIds.contains);
+
+    final updated = {...collapsedIds};
+    if (alreadyExpanded) {
+      updated.removeAll(siblings);
+    } else {
+      updated
+        ..addAll(siblings)
+        ..remove(sessionId);
+    }
 
     return Workspace(root: root, focusedId: sessionId, collapsedIds: updated);
   }

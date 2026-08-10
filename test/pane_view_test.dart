@@ -36,6 +36,7 @@ void main() {
             ),
             fontSize: defaultTerminalFontSize,
             onToggleCollapse: () {},
+            onExpand: () {},
           ),
         ),
       ),

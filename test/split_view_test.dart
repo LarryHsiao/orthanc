@@ -34,6 +34,7 @@ void main() {
             onFocus: (_) {},
             onResize: (_, _, _) {},
             onToggleCollapse: (_) {},
+            onExpand: (_) {},
             onKeyEvent: (node, event) => KeyEventResult.ignored,
           ),
         ),

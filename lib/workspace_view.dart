@@ -101,6 +101,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     _requestFocus(id);
   }
 
+  void _expand(String id) {
+    setState(() => workspace = workspace.toggleExpand(id));
+    _requestFocus(id);
+  }
+
   /// Moves keyboard focus onto [id]'s session, once end of frame arrives.
   ///
   /// `autofocus` is honoured only once, when a node first registers into a
@@ -205,6 +210,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             onFocus: _onPaneFocus,
             onKeyEvent: _onKey,
             onToggleCollapse: _toggleCollapse,
+            onExpand: _expand,
             onResize: (split, index, delta) => setState(() {
               workspace = workspace.resizeSplit(
                 split: split,

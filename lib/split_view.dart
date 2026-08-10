@@ -31,6 +31,7 @@ class SplitView extends StatelessWidget {
     required this.onFocus,
     required this.onResize,
     required this.onToggleCollapse,
+    required this.onExpand,
     required this.onKeyEvent,
   });
 
@@ -55,6 +56,7 @@ class SplitView extends StatelessWidget {
   final void Function(LayoutNode split, int dividerIndex, double delta)
   onResize;
   final void Function(String id) onToggleCollapse;
+  final void Function(String id) onExpand;
   final FocusOnKeyEventCallback onKeyEvent;
 
   @override
@@ -81,6 +83,7 @@ class SplitView extends StatelessWidget {
       fontFamily: fontFamily,
       fontSize: fontSize,
       onToggleCollapse: () => onToggleCollapse(sessionId),
+      onExpand: () => onExpand(sessionId),
     );
   }
 
@@ -202,6 +205,7 @@ class SplitView extends StatelessWidget {
       onFocus: onFocus,
       onResize: onResize,
       onToggleCollapse: onToggleCollapse,
+      onExpand: onExpand,
       onKeyEvent: onKeyEvent,
     );
   }

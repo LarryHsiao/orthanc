@@ -527,6 +527,86 @@ void main() {
     });
   });
 
+  group('Workspace.toggleExpand', () {
+    test('expands a pane, collapsing its column siblings', () {
+      final expected = {'a', 'c'};
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleExpand('b');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('toggling the same pane again restores even shares', () {
+      final expected = <String>{};
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleExpand('b')
+          .toggleExpand('b');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('expanding a different sibling transfers exclusivity', () {
+      final expected = {'a', 'b'};
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleExpand('b')
+          .toggleExpand('c');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('focuses the pane it expands', () {
+      const expected = 'b';
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.column, newSessionId: 'b').toggleExpand('b');
+
+      expect(workspace.focusedId, expected);
+    });
+
+    test('no-ops on a pane inside a row split (side by side)', () {
+      final expected = <String>{};
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').toggleExpand('b');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('no-ops on a lone pane with no split at all', () {
+      final expected = <String>{};
+
+      final workspace = Workspace.single('a').toggleExpand('a');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('leaves a nested split sibling untouched — it has no pane to '
+        'collapse', () {
+      final expected = <String>{};
+
+      // column[a, row[b, c]] — 'a's only column sibling is a nested row
+      // split, which toggleCollapse can never mark, so there is nothing
+      // for toggleExpand to collapse either.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .toggleExpand('a');
+
+      expect(workspace.collapsedIds, expected);
+    });
+  });
+
   group('Workspace.collapsibleIds', () {
     test('is empty for a lone pane', () {
       final expected = <String>{};

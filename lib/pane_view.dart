@@ -30,6 +30,7 @@ class PaneView extends StatefulWidget {
     required this.fontFamily,
     required this.fontSize,
     required this.onToggleCollapse,
+    required this.onExpand,
   });
 
   /// The focus border is painted *over* the pane, never around it. xterm
@@ -56,6 +57,11 @@ class PaneView extends StatefulWidget {
   final String fontFamily;
   final double fontSize;
   final VoidCallback onToggleCollapse;
+
+  /// Fired by a double-click on the bar — expands this pane to fill its
+  /// column, collapsing its siblings there (or restores even shares, on
+  /// the already-sole-expanded pane).
+  final VoidCallback onExpand;
 
   @override
   State<PaneView> createState() => _PaneViewState();
@@ -87,6 +93,7 @@ class _PaneViewState extends State<PaneView> {
       children: [
         GestureDetector(
           onTap: widget.canCollapse ? widget.onToggleCollapse : null,
+          onDoubleTap: widget.canCollapse ? widget.onExpand : null,
           child: PaneBar(
             session: widget.session,
             focused: widget.focused,
