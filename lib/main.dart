@@ -12,6 +12,7 @@ import 'settings_dialog.dart';
 import 'settings_store.dart';
 import 'settings_watch.dart';
 import 'shell_command.dart';
+import 'shortcuts_dialog.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +58,7 @@ class _OrthancAppState extends State<OrthancApp> {
     // through the PlatformMenuItem below instead.
     _systemMenuChannel.setMethodCallHandler((call) async {
       if (call.method == 'openSettings') _openSettings();
+      if (call.method == 'openShortcuts') _openShortcuts();
     });
   }
 
@@ -76,6 +78,12 @@ class _OrthancAppState extends State<OrthancApp> {
       ),
       version: info.version,
     );
+  }
+
+  void _openShortcuts() {
+    final context = _navigatorKey.currentContext;
+    if (context == null) return;
+    showShortcutsDialog(context);
   }
 
   @override
@@ -100,6 +108,10 @@ class _OrthancAppState extends State<OrthancApp> {
                 meta: true,
               ),
               onSelected: _openSettings,
+            ),
+            PlatformMenuItem(
+              label: 'Keyboard Shortcuts…',
+              onSelected: _openShortcuts,
             ),
           ],
         ),

@@ -9,14 +9,17 @@ namespace {
 // Must be a multiple of 16 — Windows reserves the low 4 bits of a
 // WM_SYSCOMMAND wParam for its own built-in commands.
 constexpr UINT_PTR kSettingsMenuId = 0x1000;
+constexpr UINT_PTR kShortcutsMenuId = 0x1010;
 
 // The title bar's native right-click/system menu has no Flutter-side
-// equivalent, so this appends "Settings…" to it directly via Win32.
+// equivalent, so this appends "Settings…" and "Keyboard Shortcuts…" to it
+// directly via Win32.
 void AppendSettingsMenuItem(HWND hwnd) {
   HMENU menu = GetSystemMenu(hwnd, FALSE);
   if (!menu) return;
   AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenu(menu, MF_STRING, kSettingsMenuId, L"Settings…");
+  AppendMenu(menu, MF_STRING, kShortcutsMenuId, L"Keyboard Shortcuts…");
 }
 
 }  // namespace
@@ -93,6 +96,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_SYSCOMMAND:
       if ((wparam & 0xFFF0) == kSettingsMenuId && system_menu_channel_) {
         system_menu_channel_->InvokeMethod("openSettings", nullptr);
+        return 0;
+      }
+      if ((wparam & 0xFFF0) == kShortcutsMenuId && system_menu_channel_) {
+        system_menu_channel_->InvokeMethod("openShortcuts", nullptr);
         return 0;
       }
       break;
