@@ -636,40 +636,4 @@ void main() {
       expect(ids, expected);
     });
   });
-
-  group('Workspace.reveal', () {
-    test('removes the target from collapsedIds when it is collapsed', () {
-      final expected = <String>{};
-
-      final workspace = Workspace.single('a')
-          .split(axis: SplitAxis.column, newSessionId: 'b')
-          .toggleCollapse('b')
-          .reveal('b');
-
-      expect(workspace.collapsedIds, expected);
-    });
-
-    test('is a no-op when the target is not collapsed', () {
-      final expected = <String>{};
-
-      final workspace = Workspace.single(
-        'a',
-      ).split(axis: SplitAxis.column, newSessionId: 'b').reveal('b');
-
-      expect(workspace.collapsedIds, expected);
-    });
-
-    test('leaves every other collapsed pane untouched', () {
-      final expected = {'c'};
-
-      final workspace = Workspace.single('a')
-          .split(axis: SplitAxis.column, newSessionId: 'b')
-          .split(axis: SplitAxis.column, newSessionId: 'c')
-          .toggleCollapse('b')
-          .toggleCollapse('c')
-          .reveal('b');
-
-      expect(workspace.collapsedIds, expected);
-    });
-  });
 }

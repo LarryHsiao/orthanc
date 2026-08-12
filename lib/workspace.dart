@@ -95,17 +95,6 @@ class Workspace {
     return Workspace(root: root, focusedId: sessionId, collapsedIds: updated);
   }
 
-  /// Un-collapses [sessionId] if it is currently collapsed. A no-op
-  /// otherwise.
-  Workspace reveal(String sessionId) {
-    if (!collapsedIds.contains(sessionId)) return this;
-    return Workspace(
-      root: root,
-      focusedId: focusedId,
-      collapsedIds: {...collapsedIds}..remove(sessionId),
-    );
-  }
-
   /// Every session whose direct parent is a column split with 2+ children —
   /// the panes a bar's collapse affordance should appear on.
   Set<String> get collapsibleIds {

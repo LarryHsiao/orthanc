@@ -87,7 +87,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   void _moveFocus(Direction direction) {
     final target = workspace.neighbour(direction);
     if (target == null) return;
-    setState(() => workspace = workspace.focus(target).reveal(target));
+    setState(() => workspace = workspace.focus(target));
     _requestFocus(target);
   }
 
