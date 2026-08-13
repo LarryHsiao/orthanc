@@ -54,12 +54,21 @@ class QuakeWindow {
   Future<void> hide() => _channel.invokeMethod('hide');
 
   Future<void> _handle(MethodCall call) async {
-    if (call.method != 'toggle') return;
-    final wasVisible = (call.arguments as Map)['visible'] as bool;
-    if (wasVisible) {
-      await hide();
-    } else {
-      await reveal();
+    if (call.method == 'toggle') {
+      final wasVisible = (call.arguments as Map)['visible'] as bool;
+      if (wasVisible) {
+        await hide();
+      } else {
+        await reveal();
+      }
+      return;
+    }
+    if (call.method == 'resized') {
+      final args = call.arguments as Map;
+      writeQuakeGeometry((
+        width: (args['width'] as num).toDouble(),
+        height: (args['height'] as num).toDouble(),
+      ), file: geometryFile);
     }
   }
 }

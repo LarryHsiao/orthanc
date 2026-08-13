@@ -4,7 +4,7 @@ import FlutterMacOS
 
 private let quakeArgument = "quake"
 
-class MainFlutterWindow: NSWindow {
+class MainFlutterWindow: NSWindow, NSWindowDelegate {
   private var quakeMode: QuakeMode?
 
   override func awakeFromNib() {
@@ -22,9 +22,14 @@ class MainFlutterWindow: NSWindow {
       )
       mode.start()
       quakeMode = mode
+      delegate = self
     }
 
     super.awakeFromNib()
+  }
+
+  func windowDidEndLiveResize(_ notification: Notification) {
+    quakeMode?.windowDidEndLiveResize()
   }
 }
 
@@ -164,5 +169,16 @@ private final class QuakeMode {
 
   private func hotKeyPressed() {
     channel.invokeMethod("toggle", arguments: ["visible": window.isVisible])
+  }
+
+  /// Fires once, at the end of a user's resize drag — never for a
+  /// programmatic `setFrame` (that never triggers a live-resize sequence),
+  /// so `reveal()`'s own frame changes can never be mistaken for this.
+  func windowDidEndLiveResize() {
+    let size = window.frame.size
+    channel.invokeMethod("resized", arguments: [
+      "width": Double(size.width),
+      "height": Double(size.height),
+    ])
   }
 }

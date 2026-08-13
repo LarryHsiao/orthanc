@@ -247,6 +247,26 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
         return 0;
       }
       break;
+    case WM_EXITSIZEMOVE:
+      // Fires once, at the end of a user's resize-or-move drag — never for a
+      // programmatic SetWindowPos (that never enters the size-move loop), so
+      // ShowQuakeWindow's own frame changes can never be mistaken for this.
+      // A pure move re-reports the unchanged width/height below, which is
+      // harmless to persist again.
+      if (quake_ && quake_channel_) {
+        RECT rect;
+        GetWindowRect(hwnd, &rect);
+        quake_channel_->InvokeMethod(
+            "resized",
+            std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
+                {flutter::EncodableValue("width"),
+                 flutter::EncodableValue(
+                     static_cast<double>(rect.right - rect.left))},
+                {flutter::EncodableValue("height"),
+                 flutter::EncodableValue(
+                     static_cast<double>(rect.bottom - rect.top))}}));
+      }
+      break;
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);

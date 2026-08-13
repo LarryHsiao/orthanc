@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orthanc/quake_geometry_store.dart';
 import 'package:orthanc/quake_window.dart';
 
 void main() {
@@ -18,6 +19,17 @@ void main() {
   Future<void> sendToggle({required bool visible}) {
     final data = codec.encodeMethodCall(
       MethodCall('toggle', {'visible': visible}),
+    );
+    final completer = Completer<void>();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(channel.name, data, (_) => completer.complete());
+    return completer.future;
+  }
+
+  // Simulates native reporting the end of a user's resize drag.
+  Future<void> sendResized({required double width, required double height}) {
+    final data = codec.encodeMethodCall(
+      MethodCall('resized', {'width': width, 'height': height}),
     );
     final completer = Completer<void>();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -95,5 +107,28 @@ void main() {
 
     final expected = ['currentScreen', 'show'];
     expect(calls.map((call) => call.method).toList(), expected);
+  });
+
+  test('a resize notification persists the new size', () async {
+    final window = buildWindow();
+
+    await sendResized(width: 1000.0, height: 450.0);
+
+    final expected = (width: 1000.0, height: 450.0);
+    expect(readQuakeGeometry(file: window.geometryFile), expected);
+  });
+
+  test('a subsequent reveal honors the persisted resize', () async {
+    final window = buildWindow();
+    await sendResized(width: 1000.0, height: 450.0);
+    calls.clear();
+
+    await window.reveal();
+
+    final args = calls.last.arguments as Map;
+    final expectedWidth = 1000.0;
+    final expectedHeight = 450.0;
+    expect(args['width'], expectedWidth);
+    expect(args['height'], expectedHeight);
   });
 }
