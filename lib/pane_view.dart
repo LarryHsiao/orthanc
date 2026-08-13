@@ -16,7 +16,10 @@ import 'terminal_font_families.dart';
 /// either way.
 ///
 /// When [focused], an accent border is painted over the pane's bounds — see
-/// [focusBorderKey] for why it is an overlay rather than a decoration.
+/// [focusBorderKey] for why it is an overlay rather than a decoration. An
+/// unfocused, uncollapsed pane that needs attention (see
+/// [Session.needsAttention]) carries the same overlay in
+/// [attentionBorderKey], framing its body while [PaneBar] fills its bar.
 class PaneView extends StatefulWidget {
   const PaneView({
     super.key,
@@ -41,11 +44,23 @@ class PaneView extends StatefulWidget {
 
   static const focusBorderWidth = 2.0;
 
+  /// Same reasoning as [focusBorderKey] — painted over the pane, never
+  /// around it, so the pty never reflows when the flag flips.
+  static const attentionBorderKey = Key('pane-attention-border');
+
+  static const attentionBorderWidth = 3.0;
+
   /// How far the focus accent travels from the terminal's background toward
   /// the palette's blue. The raw blue out-shouts the text it frames; below
   /// about a half the mark sinks back toward the eye's floor, and a dark
   /// palette's blue reaches its own background first.
   static const focusAccentStrength = 0.6;
+
+  /// How far the attention accent travels from the terminal's background
+  /// toward the palette's yellow. Run hotter than [focusAccentStrength]:
+  /// focus frames text it must not out-shout, while attention exists to be
+  /// seen from the corner of the eye and is meant to out-shout.
+  static const attentionAccentStrength = 0.85;
 
   final Session session;
   final bool focused;
@@ -83,7 +98,15 @@ class _PaneViewState extends State<PaneView> {
       // than loosening them and leaving the Column to shrink-wrap.
       child: Stack(
         fit: StackFit.expand,
-        children: [_paneBody(), if (widget.focused) _focusBorder()],
+        children: [
+          _paneBody(),
+          if (widget.focused) _focusBorder(),
+          // A collapsed pane has no body for the halo to frame — it carries
+          // the bar's attention fill (PaneBar) alone. Focus already wins by
+          // construction (gaining focus clears the flag), but this gate does
+          // not lean on that ordering either.
+          if (!widget.focused && !widget.collapsed) _attentionBorder(),
+        ],
       ),
     );
   }
@@ -98,6 +121,7 @@ class _PaneViewState extends State<PaneView> {
             session: widget.session,
             focused: widget.focused,
             accent: _accent,
+            attentionAccent: _attentionAccent,
             canCollapse: widget.canCollapse,
             collapsed: widget.collapsed,
           ),
@@ -136,16 +160,39 @@ class _PaneViewState extends State<PaneView> {
     );
   }
 
-  Widget _focusBorder() {
+  Widget _focusBorder() => _overlayBorder(
+    key: PaneView.focusBorderKey,
+    color: _accent,
+    width: PaneView.focusBorderWidth,
+  );
+
+  Widget _attentionBorder() {
+    return ValueListenableBuilder(
+      valueListenable: widget.session.needsAttention,
+      builder: (context, needsAttention, child) => needsAttention
+          ? _overlayBorder(
+              key: PaneView.attentionBorderKey,
+              color: _attentionAccent,
+              width: PaneView.attentionBorderWidth,
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  /// A border painted *over* the pane, never around it — see
+  /// [focusBorderKey]'s doc comment for why an overlay rather than a
+  /// decoration is required here.
+  Widget _overlayBorder({
+    required Key key,
+    required Color color,
+    required double width,
+  }) {
     return Positioned.fill(
       child: IgnorePointer(
         child: DecoratedBox(
-          key: PaneView.focusBorderKey,
+          key: key,
           decoration: BoxDecoration(
-            border: Border.all(
-              color: _accent,
-              width: PaneView.focusBorderWidth,
-            ),
+            border: Border.all(color: color, width: width),
           ),
         ),
       ),
@@ -168,6 +215,19 @@ class _PaneViewState extends State<PaneView> {
     widget.theme.background,
     widget.theme.blue,
     PaneView.focusAccentStrength,
+  )!;
+
+  /// The attention colour. Yellow rather than red: every scheme's yellow
+  /// field reads as a consistent warm gold that says "wants you", while red
+  /// ranges from crimson to Monokai's magenta and already carries "failed" —
+  /// the wrong meaning for a turn that finished cleanly. Blended for the
+  /// same reason as [_accent]: it paints over the terminal at the halo and
+  /// over nothing at the bar, so an alpha would composite differently in
+  /// the two places.
+  Color get _attentionAccent => Color.lerp(
+    widget.theme.background,
+    widget.theme.yellow,
+    PaneView.attentionAccentStrength,
   )!;
 
   void _onHover(PointerHoverEvent event) {

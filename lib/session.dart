@@ -54,14 +54,15 @@ class Session {
   late final ValueNotifier<String> manualName = ValueNotifier('');
 
   /// Whether this pane finished a burst of [activity] changes while
-  /// unfocused and has not been looked at since — [PaneBar] marks it with a
-  /// stripe until [focusNode] gains focus. Driven purely by how often
-  /// [activity] changes, never by what it says: Claude Code's title updates
-  /// roughly once a second while it works and stops the instant a turn
-  /// completes, so a burst followed by [_quietThreshold] of silence is a
-  /// reliable "done" signal without reading program-set text for meaning —
-  /// consistent with docs/superpowers/specs/2026-07-22-orthanc-pane-title-design.md's
-  /// "the title comes from the program, not from us".
+  /// unfocused and has not been looked at since — [PaneBar] fills its bar
+  /// and [PaneView] frames its body until [focusNode] gains focus. Driven
+  /// purely by how often [activity] changes, never by what it says: Claude
+  /// Code's title updates roughly once a second while it works and stops
+  /// the instant a turn completes, so a burst followed by
+  /// [_quietThreshold] of silence is a reliable "done" signal without
+  /// reading program-set text for meaning — consistent with
+  /// docs/superpowers/specs/2026-07-22-orthanc-pane-title-design.md's "the
+  /// title comes from the program, not from us".
   late final ValueNotifier<bool> needsAttention = ValueNotifier(false);
 
   // A single change (e.g. the shell prompt hook's own idle-pwd reset) must

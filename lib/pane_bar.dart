@@ -15,13 +15,17 @@ import 'session.dart';
 /// When [focused], the bar fills with [accent] rather than a surface tone.
 /// A collapsed pane is nothing but its bar, so this fill is the only mark
 /// of focus such a pane can carry — PaneView's border has no body to
-/// enclose there.
+/// enclose there. The same fill, in [attentionAccent], marks a pane that
+/// finished unwatched — see [Session.needsAttention] — for the same reason:
+/// it reads the same whether the pane is expanded or collapsed to its bar
+/// alone. Focus always wins where both could apply.
 class PaneBar extends StatefulWidget {
   const PaneBar({
     super.key,
     required this.session,
     required this.focused,
     required this.accent,
+    required this.attentionAccent,
     required this.canCollapse,
     required this.collapsed,
   });
@@ -34,6 +38,11 @@ class PaneBar extends StatefulWidget {
   /// The focus colour, drawn from the terminal palette the user chose, so
   /// the mark moves with the scheme instead of standing apart from it.
   final Color accent;
+
+  /// The colour for a pane that finished a burst of activity while
+  /// unfocused — see [Session.needsAttention]. Loses to [accent] whenever
+  /// both could apply; see the fill order in [build].
+  final Color attentionAccent;
   final bool canCollapse;
   final bool collapsed;
 
@@ -56,43 +65,51 @@ class _PaneBarState extends State<PaneBar> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final ink = widget.focused ? _accentInk : scheme.onSurface;
     return GestureDetector(
       onSecondaryTapUp: (_) => _startEditing(),
+      // The fill — and so the ink that must contrast against it — depends on
+      // needsAttention, so the whole bar (title row included) has to live
+      // inside this builder rather than being hoisted out as a static
+      // child. The cost is a title-row rebuild on every attention-flag
+      // change; the alternative is a title that goes illegible against its
+      // own bar.
       child: ValueListenableBuilder(
         valueListenable: widget.session.needsAttention,
-        builder: (context, needsAttention, child) => Container(
-          height: PaneBar.height,
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            color: widget.focused ? widget.accent : scheme.surfaceContainer,
-            // Marks a pane that finished a burst of activity while
-            // unfocused — see Session.needsAttention. A top edge rather
-            // than a title-row addition, so it reads the same whether the
-            // pane is expanded or collapsed to its bar alone.
-            border: needsAttention
-                ? Border(top: BorderSide(color: scheme.tertiary, width: 2))
-                : null,
-          ),
-          child: child,
-        ),
-        child: Row(
-          children: [
-            Expanded(child: _editing ? _editField(ink) : _title(ink)),
-            if (widget.canCollapse)
-              _collapseIcon(widget.focused ? ink : scheme.onSurfaceVariant),
-          ],
-        ),
+        builder: (context, needsAttention, child) {
+          // Marks a pane that finished a burst of activity while unfocused
+          // — see Session.needsAttention. Focus always wins: gaining focus
+          // clears the flag (Session._onFocusChanged), but the fill order
+          // does not lean on that alone — a pane cannot show both at once.
+          final fill = widget.focused
+              ? widget.accent
+              : needsAttention
+              ? widget.attentionAccent
+              : scheme.surfaceContainer;
+          final emphasized = widget.focused || needsAttention;
+          final ink = emphasized ? _inkOn(fill) : scheme.onSurface;
+          return Container(
+            height: PaneBar.height,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(color: fill),
+            child: Row(
+              children: [
+                Expanded(child: _editing ? _editField(ink) : _title(ink)),
+                if (widget.canCollapse)
+                  _collapseIcon(emphasized ? ink : scheme.onSurfaceVariant),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  /// Black or white, whichever reads on [PaneBar.accent]. The palettes on
-  /// offer run from Solarized's deep blue to Dracula's pale violet, so one
-  /// fixed ink would be illegible at one end or the other.
-  Color get _accentInk =>
-      ThemeData.estimateBrightnessForColor(widget.accent) == Brightness.dark
+  /// Black or white, whichever reads on [fill]. The palettes on offer run
+  /// from Solarized's deep blue to Dracula's pale violet, so one fixed ink
+  /// would be illegible at one end or the other.
+  Color _inkOn(Color fill) =>
+      ThemeData.estimateBrightnessForColor(fill) == Brightness.dark
       ? Colors.white
       : Colors.black;
 

@@ -99,6 +99,71 @@ void main() {
     expect(tester.getSize(find.byType(TerminalView)), expected);
   });
 
+  BoxDecoration attentionBorder(WidgetTester tester) =>
+      tester
+              .widget<DecoratedBox>(find.byKey(PaneView.attentionBorderKey))
+              .decoration
+          as BoxDecoration;
+
+  testWidgets(
+    'an unfocused, uncollapsed pane draws the attention halo once the '
+    'session needs attention',
+    (tester) async {
+      final expected = Color.lerp(theme.background, theme.yellow, 0.85);
+      final session = await pumpPaneView(tester, focused: false);
+
+      session.needsAttention.value = true;
+      await tester.pump();
+
+      expect(attentionBorder(tester).border!.top.color, expected);
+    },
+  );
+
+  testWidgets('the attention halo clears once the flag clears', (tester) async {
+    final session = await pumpPaneView(tester, focused: false);
+    session.needsAttention.value = true;
+    await tester.pump();
+
+    session.needsAttention.value = false;
+    await tester.pump();
+
+    expect(find.byKey(PaneView.attentionBorderKey), findsNothing);
+  });
+
+  testWidgets('a collapsed pane draws no attention halo', (tester) async {
+    final session = await pumpPaneView(tester, focused: false, collapsed: true);
+
+    session.needsAttention.value = true;
+    await tester.pump();
+
+    expect(find.byKey(PaneView.attentionBorderKey), findsNothing);
+  });
+
+  testWidgets('the attention accent is dimmed, never the palette\'s raw '
+      'yellow', (tester) async {
+    final unwanted = theme.yellow;
+    final session = await pumpPaneView(tester, focused: false);
+
+    session.needsAttention.value = true;
+    await tester.pump();
+
+    expect(attentionBorder(tester).border!.top.color, isNot(unwanted));
+  });
+
+  testWidgets('the attention halo is drawn at the width the design named', (
+    tester,
+  ) async {
+    // The literal, not PaneView.attentionBorderWidth — asserting a
+    // constant against itself would pass however the design drifted.
+    const expected = 3.0;
+    final session = await pumpPaneView(tester, focused: false);
+
+    session.needsAttention.value = true;
+    await tester.pump();
+
+    expect(attentionBorder(tester).border!.top.width, expected);
+  });
+
   testWidgets('the border never swallows a pointer meant for the terminal', (
     tester,
   ) async {

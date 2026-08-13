@@ -47,10 +47,11 @@ their own, in the same shape as the ones that came before them.
   and open on `Cmd`/`Ctrl`+click — `http` and `https` only, since OSC 8 lets a
   program claim any scheme and launching those from untrusted terminal output is
   a real risk. Other schemes still underline; they simply do nothing.
-- **A focus you can see.** The focused pane carries a dimmed accent border and
-  bar; a pane that finishes a burst of activity while unfocused picks up a
-  tertiary top-edge stripe until it is looked at, content-blind by design — it
-  reacts to how often the title changes, never to what it says.
+- **A focus you can see.** The focused pane carries a dimmed accent bar and
+  border; a pane that finishes a burst of activity while unfocused fills its
+  bar and frames its body in a dimmed palette-yellow until it is looked at,
+  content-blind by design — it reacts to how often the title changes, never
+  to what it says.
 - **A second window.** `Cmd+N` (macOS) or `Ctrl+N` (Windows) opens another OS
   window with its own independent workspace and pty sessions, sharing the same
   persisted settings as the first.

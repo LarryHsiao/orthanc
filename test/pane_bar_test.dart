@@ -10,11 +10,18 @@ void main() {
   const lightAccent = Color(0xFFBD93F9);
   // Solarized Dark's blue — dark enough that a contrast ink must go light.
   const darkAccent = Color(0xFF268BD2);
+  // Dracula's yellow — light enough that a contrast ink must go dark,
+  // mirroring lightAccent.
+  const lightAttentionAccent = Color(0xFFF1FA8C);
+  // Solarized Dark's yellow — dark enough that a contrast ink must go
+  // light, mirroring darkAccent.
+  const darkAttentionAccent = Color(0xFFB58900);
 
   Future<Session> pumpPaneBar(
     WidgetTester tester, {
     bool focused = true,
     Color accent = lightAccent,
+    Color attentionAccent = lightAttentionAccent,
     bool canCollapse = false,
     bool collapsed = false,
   }) async {
@@ -26,6 +33,7 @@ void main() {
             session: session,
             focused: focused,
             accent: accent,
+            attentionAccent: attentionAccent,
             canCollapse: canCollapse,
             collapsed: collapsed,
           ),
@@ -40,9 +48,6 @@ void main() {
           as BoxDecoration;
 
   Color? barFill(WidgetTester tester) => barDecoration(tester).color;
-
-  Color? barTopBorderColor(WidgetTester tester) =>
-      barDecoration(tester).border?.top.color;
 
   Color? titleInk(WidgetTester tester) =>
       tester.widget<Text>(find.byType(Text).first).style?.color;
@@ -222,6 +227,7 @@ void main() {
                   session: session,
                   focused: true,
                   accent: lightAccent,
+                  attentionAccent: lightAttentionAccent,
                   canCollapse: false,
                   collapsed: false,
                 ),
@@ -241,35 +247,93 @@ void main() {
     },
   );
 
-  testWidgets('carries no top border when the session needs no attention', (
-    tester,
-  ) async {
-    await pumpPaneBar(tester, focused: false);
+  testWidgets('carries no border in either state', (tester) async {
+    final session = await pumpPaneBar(tester, focused: false);
 
     expect(barDecoration(tester).border, isNull);
-  });
-
-  testWidgets('carries a tertiary-coloured top border when the session '
-      'needs attention', (tester) async {
-    final session = await pumpPaneBar(tester, focused: false);
-    final expected = ThemeData().colorScheme.tertiary;
 
     session.needsAttention.value = true;
     await tester.pump();
 
-    expect(barTopBorderColor(tester), expected);
+    expect(barDecoration(tester).border, isNull);
   });
 
-  testWidgets('the attention border clears once the flag clears', (
+  testWidgets(
+    'an unfocused bar fills with attentionAccent when the session needs '
+    'attention',
+    (tester) async {
+      final session = await pumpPaneBar(
+        tester,
+        focused: false,
+        attentionAccent: lightAttentionAccent,
+      );
+      const expected = lightAttentionAccent;
+
+      session.needsAttention.value = true;
+      await tester.pump();
+
+      expect(barFill(tester), expected);
+    },
+  );
+
+  testWidgets('the fill returns to the surface once the flag clears', (
     tester,
   ) async {
     final session = await pumpPaneBar(tester, focused: false);
+    final expected = ThemeData().colorScheme.surfaceContainer;
     session.needsAttention.value = true;
     await tester.pump();
 
     session.needsAttention.value = false;
     await tester.pump();
 
-    expect(barDecoration(tester).border, isNull);
+    expect(barFill(tester), expected);
+  });
+
+  testWidgets(
+    'a focused pane fills with accent, not attentionAccent, even with the '
+    'flag set',
+    (tester) async {
+      final session = await pumpPaneBar(
+        tester,
+        focused: true,
+        accent: lightAccent,
+        attentionAccent: darkAttentionAccent,
+      );
+      const expected = lightAccent;
+
+      session.needsAttention.value = true;
+      await tester.pump();
+
+      expect(barFill(tester), expected);
+    },
+  );
+
+  testWidgets('title inks dark on a light attention accent', (tester) async {
+    final session = await pumpPaneBar(
+      tester,
+      focused: false,
+      attentionAccent: lightAttentionAccent,
+    );
+    const expected = Colors.black;
+
+    session.needsAttention.value = true;
+    await tester.pump();
+
+    expect(titleInk(tester), expected);
+  });
+
+  testWidgets('title inks light on a dark attention accent', (tester) async {
+    final session = await pumpPaneBar(
+      tester,
+      focused: false,
+      attentionAccent: darkAttentionAccent,
+    );
+    const expected = Colors.white;
+
+    session.needsAttention.value = true;
+    await tester.pump();
+
+    expect(titleInk(tester), expected);
   });
 }
