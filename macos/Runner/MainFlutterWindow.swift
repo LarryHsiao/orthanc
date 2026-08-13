@@ -56,7 +56,14 @@ private final class QuakeMode {
   /// animation to start from off-screen — and stays that way until Dart asks
   /// for `show`. `orderOut` does not close the window, so
   /// `applicationShouldTerminateAfterLastWindowClosed` never fires from this.
+  ///
+  /// Dropping `.titled` removes the title bar and its traffic-light buttons,
+  /// for the borderless look a drop-down terminal wants — `.resizable` is a
+  /// separate style-mask bit, so edge-drag resizing (and the
+  /// `windowDidEndLiveResize` it drives) still works without it. With no
+  /// close button, `Cmd+Q` is the quake instance's quit gesture instead.
   func start() {
+    window.styleMask.remove(.titled)
     window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     window.orderOut(nil)
     channel.setMethodCallHandler { [weak self] call, result in
@@ -110,17 +117,24 @@ private final class QuakeMode {
   /// than not showing it at all.
   private func slideIn(to frame: [String: Any]?) {
     guard let frames = slideFrames(for: frame) else {
-      window.makeKeyAndOrderFront(nil)
-      NSApp.activate(ignoringOtherApps: true)
+      raiseWindow()
       return
     }
     window.setFrame(frames.start, display: false)
-    window.makeKeyAndOrderFront(nil)
-    NSApp.activate(ignoringOtherApps: true)
+    raiseWindow()
     NSAnimationContext.runAnimationGroup { context in
       context.duration = quakeSlideDuration
       window.animator().setFrame(frames.target, display: true)
     }
+  }
+
+  /// Activating the app alone can lose a race against whatever else is
+  /// frontmost — `orderFrontRegardless` is the stronger guarantee, bypassing
+  /// the app-activation state entirely to force the window forward.
+  private func raiseWindow() {
+    NSApp.activate(ignoringOtherApps: true)
+    window.makeKeyAndOrderFront(nil)
+    window.orderFrontRegardless()
   }
 
   /// The animation's start and end rects, flipped from [frame]'s top-left,

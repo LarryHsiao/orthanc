@@ -59,13 +59,14 @@ their own, in the same shape as the ones that came before them.
   the top edge of whichever screen the cursor is on, full width, half height
   by default or the last size it was resized to. Picking the menu item again
   summons the existing instance instead of opening a second one. Typing
-  `exit` in its last pane hides the window rather than ending the process;
-  closing it with the title bar's close control does end it, and releases the
-  hotkey. macOS slides the window down and hides it fully between summons,
-  Dock icon intact; Windows shows/hides instantly and minimizes rather than
-  hides, so the taskbar button survives too — there is no Windows slide, since
-  the window's content is a swap-chain-backed surface `AnimateWindow` cannot
-  capture.
+  `exit` in its last pane hides the window rather than ending the process, so
+  the hotkey survives it. macOS slides the window down, borderless — no
+  title bar or traffic lights, so `Cmd+Q` is what ends the instance and
+  releases the hotkey there — and hides it fully between summons, Dock icon
+  intact. Windows shows/hides instantly, keeps its title bar (its close
+  button ends the instance), and minimizes rather than hides, so the taskbar
+  button survives too — there is no Windows slide, since the window's content
+  is a swap-chain-backed surface `AnimateWindow` cannot capture.
 - **Copy and Paste from a right-click menu.** Copy (enabled only with an
   active selection) and Paste, reachable by gesture rather than a shell
   convention — the reliable path on every platform, keyboard shortcuts aside.
