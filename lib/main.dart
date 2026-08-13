@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'app_root.dart';
 import 'new_instance.dart';
+import 'quake_lock.dart';
+import 'quake_summon.dart';
 import 'quake_window.dart';
 import 'settings.dart';
 import 'settings_dialog.dart';
@@ -22,7 +25,28 @@ Future<void> main(List<String> args) async {
   final settings = ValueNotifier(readSettings(file: file));
   watchSettingsFile(file: file, settings: settings);
   final kind = instanceKind(arguments: args);
-  runApp(OrthancApp(settings: settings, settingsFile: file, kind: kind));
+
+  // A quake instance claims the lock before anything else — before the
+  // channel exists, before any window shows. Losing means another quake
+  // instance already runs: summon it instead, and go no further.
+  RandomAccessFile? quakeLock;
+  if (kind == InstanceKind.quake) {
+    quakeLock = acquireQuakeLock(file: quakeLockFile(supportDir: supportDir));
+    if (quakeLock == null) {
+      requestQuakeSummon(file: quakeSummonFile(supportDir: supportDir));
+      exit(0);
+    }
+  }
+
+  runApp(
+    OrthancApp(
+      settings: settings,
+      settingsFile: file,
+      kind: kind,
+      supportDir: supportDir,
+      quakeLock: quakeLock,
+    ),
+  );
 }
 
 class OrthancApp extends StatefulWidget {
@@ -31,11 +55,18 @@ class OrthancApp extends StatefulWidget {
     required this.settings,
     required this.settingsFile,
     required this.kind,
+    required this.supportDir,
+    this.quakeLock,
   });
 
   final ValueNotifier<Settings> settings;
   final File settingsFile;
   final InstanceKind kind;
+  final Directory supportDir;
+
+  /// Held open for as long as this process runs, when [kind] is
+  /// [InstanceKind.quake] — see `main()`. Closed in [State.dispose].
+  final RandomAccessFile? quakeLock;
 
   @override
   State<OrthancApp> createState() => _OrthancAppState();
@@ -44,6 +75,8 @@ class OrthancApp extends StatefulWidget {
 class _OrthancAppState extends State<OrthancApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   static const _systemMenuChannel = MethodChannel('orthanc/system_menu');
+  QuakeWindow? _quakeWindow;
+  StreamSubscription<FileSystemEvent>? _summonSubscription;
 
   @override
   void initState() {
@@ -55,13 +88,25 @@ class _OrthancAppState extends State<OrthancApp> {
     _systemMenuChannel.setMethodCallHandler((call) async {
       if (call.method == 'openSettings') _openSettings();
       if (call.method == 'openShortcuts') _openShortcuts();
-      if (call.method == 'openQuake') _openQuake();
+      if (call.method == 'openQuake') _summonOrSpawnQuake();
     });
     if (widget.kind == InstanceKind.quake) {
-      final quakeWindow = QuakeWindow();
-      quakeWindow.registerHotKey();
-      quakeWindow.show();
+      _quakeWindow = QuakeWindow();
+      _quakeWindow!.registerHotKey();
+      _quakeWindow!.show();
+      _summonSubscription = watchQuakeSummon(
+        file: quakeSummonFile(supportDir: widget.supportDir),
+        onSummon: () => _quakeWindow?.show(),
+      );
     }
+  }
+
+  @override
+  void dispose() {
+    final quakeLock = widget.quakeLock;
+    if (quakeLock != null) releaseQuakeLock(quakeLock);
+    _summonSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _openSettings() async {
@@ -88,8 +133,20 @@ class _OrthancAppState extends State<OrthancApp> {
     showShortcutsDialog(context);
   }
 
-  void _openQuake() {
-    startNewInstance(kind: InstanceKind.quake);
+  /// Asked for by the "Quake Window" menu item on either platform. Probes
+  /// the lock a running quake instance would hold: if it is free, no quake
+  /// instance runs yet, so this spawns one; if it is held, one already
+  /// runs, so this asks it to show itself instead of spawning a duplicate.
+  Future<void> _summonOrSpawnQuake() async {
+    final lock = acquireQuakeLock(
+      file: quakeLockFile(supportDir: widget.supportDir),
+    );
+    if (lock == null) {
+      requestQuakeSummon(file: quakeSummonFile(supportDir: widget.supportDir));
+      return;
+    }
+    releaseQuakeLock(lock);
+    await startNewInstance(kind: InstanceKind.quake);
   }
 
   @override
@@ -109,7 +166,7 @@ class _OrthancAppState extends State<OrthancApp> {
             ),
             PlatformMenuItem(
               label: 'Quake Window',
-              onSelected: () => startNewInstance(kind: InstanceKind.quake),
+              onSelected: _summonOrSpawnQuake,
             ),
             PlatformMenuItem(
               label: 'Settings…',
