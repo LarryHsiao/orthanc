@@ -136,6 +136,16 @@ class _OrthancAppState extends State<OrthancApp> {
     showShortcutsDialog(context);
   }
 
+  /// What an emptied window means: an ordinary window exits the process; the
+  /// quake window hides instead, so it can be reopened by the next summon.
+  void _onEmpty(int exitCode) {
+    if (widget.kind == InstanceKind.quake) {
+      _quakeWindow?.hide();
+    } else {
+      exit(exitCode);
+    }
+  }
+
   /// Asked for by the "Quake Window" menu item on either platform. Probes
   /// the lock a running quake instance would hold: if it is free, no quake
   /// instance runs yet, so this spawns one; if it is held, one already
@@ -195,6 +205,7 @@ class _OrthancAppState extends State<OrthancApp> {
             child: AppRoot(
               settings: widget.settings,
               isFirstInstance: widget.kind == InstanceKind.first,
+              onEmpty: _onEmpty,
             ),
           ),
         ),

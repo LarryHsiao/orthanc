@@ -26,10 +26,14 @@ class AppRoot extends StatefulWidget {
     super.key,
     required this.settings,
     required this.isFirstInstance,
+    required this.onEmpty,
   });
 
   final ValueNotifier<Settings> settings;
   final bool isFirstInstance;
+
+  /// Forwarded to [WorkspaceView] — see its own doc for what "empty" means.
+  final void Function(int exitCode) onEmpty;
 
   @override
   State<AppRoot> createState() => _AppRootState();
@@ -82,7 +86,12 @@ class _AppRootState extends State<AppRoot> {
             version: note.version,
             onDismiss: () => setState(() => _note = null),
           ),
-        Expanded(child: WorkspaceView(settings: widget.settings)),
+        Expanded(
+          child: WorkspaceView(
+            settings: widget.settings,
+            onEmpty: widget.onEmpty,
+          ),
+        ),
       ],
     );
   }

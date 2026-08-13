@@ -17,9 +17,22 @@ import 'workspace.dart';
 
 /// The window: the sessions, their arrangement, and the keys that change it.
 class WorkspaceView extends StatefulWidget {
-  const WorkspaceView({super.key, required this.settings});
+  const WorkspaceView({
+    super.key,
+    required this.settings,
+    required this.onEmpty,
+  });
 
   final ValueNotifier<Settings> settings;
+
+  /// Called once the last pane closes, with the exit code of whichever
+  /// session closed it (0 for a close by hotkey, which has no process exit
+  /// code yet). What "empty" means is the caller's call: an ordinary window
+  /// exits the process; the quake window hides itself instead, and this
+  /// widget reopens a fresh session either way once [onEmpty] returns — an
+  /// [exit] call never returns, so that reopening is unreachable for an
+  /// ordinary window, exactly as today.
+  final void Function(int exitCode) onEmpty;
 
   @override
   State<WorkspaceView> createState() => _WorkspaceViewState();
@@ -54,18 +67,22 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     return session;
   }
 
-  /// A finished session closes its own pane; the last one closes this
-  /// window — which is this whole process, since every window is its own
-  /// instance. Exiting directly carries the shell's exit code out as the
-  /// process's own, and leaves any other window standing, untouched. A close
-  /// by hotkey has no process exit code yet, so it keeps using 0.
+  /// A finished session closes its own pane; the last one empties this
+  /// window. What that means is [WorkspaceView.onEmpty]'s call — an ordinary
+  /// window exits the process directly, carrying the shell's exit code out
+  /// as its own and leaving any other window standing, untouched; the quake
+  /// window hides itself instead and is reopened fresh right here, since
+  /// [onEmpty] returns rather than terminating the process. A close by
+  /// hotkey has no process exit code yet, so it keeps using 0.
   void _close(String id, {int exitCode = 0}) {
     if (!_closed.add(id)) return;
 
     final next = workspace.close(id);
     if (next == null) {
       sessions.disposeAll();
-      exit(exitCode);
+      widget.onEmpty(exitCode);
+      _reopen();
+      return;
     }
     // Claims focus before the departing session's node is disposed, so
     // primary focus never passes through the root scope — a key pressed in
@@ -74,6 +91,15 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     sessions.remove(id);
     setState(() => workspace = next);
     _requestFocus(next.focusedId);
+  }
+
+  /// Opens a fresh session in a fresh single-pane workspace — what
+  /// [initState] does for the very first pane, and what an empty window
+  /// [onEmpty] declined to end the process over does again.
+  void _reopen() {
+    final first = _open();
+    setState(() => workspace = Workspace.single(first.id));
+    _requestFocus(first.id, before: first.start);
   }
 
   void _split(SplitAxis axis) {
