@@ -77,6 +77,18 @@ void ApplyQuakeFrame(HWND hwnd, const flutter::EncodableValue* arguments) {
                SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+// Drops the title bar and its buttons for the borderless look a drop-down
+// terminal wants — WS_THICKFRAME stays, so edge-drag resizing still works.
+// Mirrors `.titled` removal in MainFlutterWindow.swift.
+void RemoveTitleBar(HWND hwnd) {
+  LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+  style &= ~(WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+  SetWindowLongPtr(hwnd, GWL_STYLE, style);
+  SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+               SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                   SWP_NOACTIVATE);
+}
+
 }  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project, bool quake)
@@ -87,6 +99,10 @@ FlutterWindow::~FlutterWindow() {}
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
     return false;
+  }
+
+  if (quake_) {
+    RemoveTitleBar(GetHandle());
   }
 
   AppendSettingsMenuItem(GetHandle());
