@@ -12,6 +12,10 @@ constexpr UINT_PTR kSettingsMenuId = 0x1000;
 constexpr UINT_PTR kShortcutsMenuId = 0x1010;
 constexpr UINT_PTR kQuakeMenuId = 0x1020;
 
+// WM_HOTKEY ids are a separate namespace from menu ids — no multiple-of-16
+// constraint applies.
+constexpr int kQuakeHotKeyId = 1;
+
 // The title bar's native right-click/system menu has no Flutter-side
 // equivalent, so this appends "Settings…", "Keyboard Shortcuts…" and "Quake
 // Window" to it directly via Win32.
@@ -26,8 +30,8 @@ void AppendSettingsMenuItem(HWND hwnd) {
 
 }  // namespace
 
-FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+FlutterWindow::FlutterWindow(const flutter::DartProject& project, bool quake)
+    : project_(project), quake_(quake) {}
 
 FlutterWindow::~FlutterWindow() {}
 
@@ -55,11 +59,29 @@ bool FlutterWindow::OnCreate() {
           flutter_controller_->engine()->messenger(), "orthanc/system_menu",
           &flutter::StandardMethodCodec::GetInstance());
 
+  if (quake_) {
+    quake_channel_ =
+        std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+            flutter_controller_->engine()->messenger(), "orthanc/quake",
+            &flutter::StandardMethodCodec::GetInstance());
+    quake_channel_->SetMethodCallHandler(
+        [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+               std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+                   result) {
+          HandleQuakeMethodCall(call, std::move(result));
+        });
+  }
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
-  });
+  // The quake instance starts hidden — it must, for the eventual slide-down
+  // animation to start from off-screen — and is shown only once Dart calls
+  // back over |quake_channel_| after registering the hotkey.
+  if (!quake_) {
+    flutter_controller_->engine()->SetNextFrameCallback([&]() {
+      this->Show();
+    });
+  }
 
   // Flutter can complete the first frame before the "show window" callback is
   // registered. The following call ensures a frame is pending to ensure the
@@ -70,11 +92,60 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  if (quake_) {
+    UnregisterHotKey(GetHandle(), kQuakeHotKeyId);
+  }
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
 
   Win32Window::OnDestroy();
+}
+
+void FlutterWindow::HandleQuakeMethodCall(
+    const flutter::MethodCall<flutter::EncodableValue>& call,
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  if (call.method_name() == "registerHotKey") {
+    // A failed registration (another app already owns the chord) is
+    // swallowed by design — the window stays reachable from the menu item
+    // either way.
+    RegisterHotKey(GetHandle(), kQuakeHotKeyId, MOD_CONTROL | MOD_NOREPEAT,
+                    VK_OEM_3);
+    result->Success();
+    return;
+  }
+  if (call.method_name() == "show") {
+    ShowQuakeWindow();
+    result->Success();
+    return;
+  }
+  if (call.method_name() == "hide") {
+    ShowWindow(GetHandle(), SW_MINIMIZE);
+    result->Success();
+    return;
+  }
+  result->NotImplemented();
+}
+
+void FlutterWindow::ShowQuakeWindow() {
+  HWND hwnd = GetHandle();
+  ShowWindow(hwnd, SW_RESTORE);
+  // A background process asking for the foreground is subject to Windows'
+  // foreground-lock. If the direct call is refused, briefly attaching this
+  // thread's input queue to the current foreground window's is the standard
+  // workaround.
+  if (!SetForegroundWindow(hwnd)) {
+    DWORD foreground_thread =
+        GetWindowThreadProcessId(GetForegroundWindow(), nullptr);
+    DWORD this_thread = GetCurrentThreadId();
+    AttachThreadInput(foreground_thread, this_thread, TRUE);
+    SetForegroundWindow(hwnd);
+    AttachThreadInput(foreground_thread, this_thread, FALSE);
+  }
+  if (flutter_controller_) {
+    SetFocus(flutter_controller_->view()->GetNativeWindow());
+  }
 }
 
 LRESULT
@@ -106,6 +177,17 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       }
       if ((wparam & 0xFFF0) == kQuakeMenuId && system_menu_channel_) {
         system_menu_channel_->InvokeMethod("openQuake", nullptr);
+        return 0;
+      }
+      break;
+    case WM_HOTKEY:
+      if (wparam == kQuakeHotKeyId && quake_channel_) {
+        bool visible = !IsIconic(hwnd);
+        quake_channel_->InvokeMethod(
+            "toggle",
+            std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
+                {flutter::EncodableValue("visible"),
+                 flutter::EncodableValue(visible)}}));
         return 0;
       }
       break;

@@ -15,7 +15,9 @@
 class FlutterWindow : public Win32Window {
  public:
   // Creates a new FlutterWindow hosting a Flutter view running |project|.
-  explicit FlutterWindow(const flutter::DartProject& project);
+  // |quake| marks this as the dedicated drop-down-terminal instance, which
+  // registers a global hotkey and starts hidden instead of shown.
+  explicit FlutterWindow(const flutter::DartProject& project, bool quake);
   virtual ~FlutterWindow();
 
  protected:
@@ -26,8 +28,20 @@ class FlutterWindow : public Win32Window {
                          LPARAM const lparam) noexcept override;
 
  private:
+  // Dispatches a call arriving on |quake_channel_|. Dart decides whether to
+  // show or hide; this only carries out what it asks for.
+  void HandleQuakeMethodCall(
+      const flutter::MethodCall<flutter::EncodableValue>& call,
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+
+  // Restores the window and forces it to the foreground.
+  void ShowQuakeWindow();
+
   // The project to run.
   flutter::DartProject project_;
+
+  // Whether this is the dedicated quake instance.
+  bool quake_;
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
@@ -37,6 +51,12 @@ class FlutterWindow : public Win32Window {
   // PlatformMenuBar, in Dart.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       system_menu_channel_;
+
+  // Drives the quake instance's global hotkey and window visibility. Only
+  // constructed when |quake_| is true — see `quake_window.dart` for the Dart
+  // side of the same contract.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      quake_channel_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

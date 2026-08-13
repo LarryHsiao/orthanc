@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'app_root.dart';
 import 'new_instance.dart';
+import 'quake_window.dart';
 import 'settings.dart';
 import 'settings_dialog.dart';
 import 'settings_store.dart';
@@ -21,13 +22,7 @@ Future<void> main(List<String> args) async {
   final settings = ValueNotifier(readSettings(file: file));
   watchSettingsFile(file: file, settings: settings);
   final kind = instanceKind(arguments: args);
-  runApp(
-    OrthancApp(
-      settings: settings,
-      settingsFile: file,
-      isFirstInstance: kind == InstanceKind.first,
-    ),
-  );
+  runApp(OrthancApp(settings: settings, settingsFile: file, kind: kind));
 }
 
 class OrthancApp extends StatefulWidget {
@@ -35,12 +30,12 @@ class OrthancApp extends StatefulWidget {
     super.key,
     required this.settings,
     required this.settingsFile,
-    required this.isFirstInstance,
+    required this.kind,
   });
 
   final ValueNotifier<Settings> settings;
   final File settingsFile;
-  final bool isFirstInstance;
+  final InstanceKind kind;
 
   @override
   State<OrthancApp> createState() => _OrthancAppState();
@@ -62,6 +57,11 @@ class _OrthancAppState extends State<OrthancApp> {
       if (call.method == 'openShortcuts') _openShortcuts();
       if (call.method == 'openQuake') _openQuake();
     });
+    if (widget.kind == InstanceKind.quake) {
+      final quakeWindow = QuakeWindow();
+      quakeWindow.registerHotKey();
+      quakeWindow.show();
+    }
   }
 
   Future<void> _openSettings() async {
@@ -134,7 +134,7 @@ class _OrthancAppState extends State<OrthancApp> {
           body: SafeArea(
             child: AppRoot(
               settings: widget.settings,
-              isFirstInstance: widget.isFirstInstance,
+              isFirstInstance: widget.kind == InstanceKind.first,
             ),
           ),
         ),
