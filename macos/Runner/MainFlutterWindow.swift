@@ -7,6 +7,13 @@ private let quakeArgument = "quake"
 class MainFlutterWindow: NSWindow, NSWindowDelegate {
   private var quakeMode: QuakeMode?
 
+  // A borderless window (no .titled in its style mask) cannot become key by
+  // default — AppKit's own NSWindow.canBecomeKey returns false for one
+  // unless overridden, which silently blocks all keyboard input from ever
+  // reaching it. Harmless for an ordinary titled window, which already
+  // returns true here regardless.
+  override var canBecomeKey: Bool { true }
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
