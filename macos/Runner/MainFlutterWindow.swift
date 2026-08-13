@@ -35,6 +35,7 @@ class MainFlutterWindow: NSWindow, NSWindowDelegate {
 
 private let quakeHotKeySignature: OSType = 0x6f72_7468  // 'orth'
 private let quakeHotKeyId: UInt32 = 1
+private let quakeSlideDuration: TimeInterval = 0.15
 
 /// Owns the quake instance's global hotkey and reports its presses to Dart
 /// over the `orthanc/quake` channel. Dart decides whether to show or hide;
@@ -71,9 +72,7 @@ private final class QuakeMode {
     case "currentScreen":
       result(currentScreenPayload())
     case "show":
-      applyFrame(call.arguments as? [String: Any])
-      window.makeKeyAndOrderFront(nil)
-      NSApp.activate(ignoringOtherApps: true)
+      slideIn(to: call.arguments as? [String: Any])
       result(nil)
     case "hide":
       window.orderOut(nil)
@@ -104,20 +103,45 @@ private final class QuakeMode {
     ]
   }
 
-  private func applyFrame(_ frame: [String: Any]?) {
+  /// Orders the window front at [frame], sliding down from directly above
+  /// the visible area rather than simply appearing there. Missing or
+  /// malformed frame data (only possible if Dart's contract is broken)
+  /// falls back to ordering front wherever the window already sits, rather
+  /// than not showing it at all.
+  private func slideIn(to frame: [String: Any]?) {
+    guard let frames = slideFrames(for: frame) else {
+      window.makeKeyAndOrderFront(nil)
+      NSApp.activate(ignoringOtherApps: true)
+      return
+    }
+    window.setFrame(frames.start, display: false)
+    window.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = quakeSlideDuration
+      window.animator().setFrame(frames.target, display: true)
+    }
+  }
+
+  /// The animation's start and end rects, flipped from [frame]'s top-left,
+  /// y-down convention to AppKit's bottom-left origin — around the same
+  /// primary-display reference line `flip` used. [start]'s bottom edge sits
+  /// exactly at [target]'s top edge: one window-height further up, fully off
+  /// the visible area.
+  private func slideFrames(
+    for frame: [String: Any]?
+  ) -> (start: NSRect, target: NSRect)? {
     guard let frame,
       let x = frame["x"] as? Double,
       let y = frame["y"] as? Double,
       let width = frame["width"] as? Double,
       let height = frame["height"] as? Double
-    else { return }
-    // Flip back from top-left, y-down to AppKit's bottom-left origin, around
-    // the same primary-display reference line `flip` used.
+    else { return nil }
     let primaryHeight = NSScreen.screens.first?.frame.height ?? (y + height)
-    window.setFrame(
-      NSRect(x: x, y: primaryHeight - y - height, width: width, height: height),
-      display: true
-    )
+    let target = NSRect(
+      x: x, y: primaryHeight - y - height, width: width, height: height)
+    let start = NSRect(x: x, y: primaryHeight - y, width: width, height: height)
+    return (start: start, target: target)
   }
 
   /// Converts an AppKit rect (bottom-left origin, y growing upward, global
