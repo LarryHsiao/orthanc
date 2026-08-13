@@ -11,9 +11,13 @@ class ShortcutEntry {
 /// app menu's New Window item, labelled for display. Branches by platform the
 /// same way `paneAction` itself does — mac symbols vs Windows chord text.
 List<ShortcutEntry> paneShortcuts({required bool isWindows}) {
+  // The quake hotkey is fixed as Ctrl+` on both platforms — unlike every
+  // other row here, the same chord and the same display string on either.
+  const quakeToggle = ShortcutEntry('Toggle quake window', 'Ctrl+`');
   if (isWindows) {
     return const [
       ShortcutEntry('New window', 'Ctrl+N'),
+      quakeToggle,
       ShortcutEntry('Split right', 'Shift+Alt+='),
       ShortcutEntry('Split down', 'Shift+Alt+-'),
       ShortcutEntry('Close pane', 'Ctrl+Shift+W'),
@@ -26,6 +30,7 @@ List<ShortcutEntry> paneShortcuts({required bool isWindows}) {
   }
   return const [
     ShortcutEntry('New window', '⌘N'),
+    quakeToggle,
     ShortcutEntry('Split right', '⌘D'),
     ShortcutEntry('Split down', '⌘⇧D'),
     ShortcutEntry('Close pane', '⌘W'),

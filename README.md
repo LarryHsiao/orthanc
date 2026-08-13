@@ -54,6 +54,18 @@ their own, in the same shape as the ones that came before them.
 - **A second window.** `Cmd+N` (macOS) or `Ctrl+N` (Windows) opens another OS
   window with its own independent workspace and pty sessions, sharing the same
   persisted settings as the first.
+- **A quake-style drop-down terminal.** The **Quake Window** menu item starts
+  a dedicated instance that answers `` Ctrl+` `` from anywhere — snapped to
+  the top edge of whichever screen the cursor is on, full width, half height
+  by default or the last size it was resized to. Picking the menu item again
+  summons the existing instance instead of opening a second one. Typing
+  `exit` in its last pane hides the window rather than ending the process;
+  closing it with the title bar's close control does end it, and releases the
+  hotkey. macOS slides the window down and hides it fully between summons,
+  Dock icon intact; Windows shows/hides instantly and minimizes rather than
+  hides, so the taskbar button survives too — there is no Windows slide, since
+  the window's content is a swap-chain-backed surface `AnimateWindow` cannot
+  capture.
 - **Copy and Paste from a right-click menu.** Copy (enabled only with an
   active selection) and Paste, reachable by gesture rather than a shell
   convention — the reliable path on every platform, keyboard shortcuts aside.
@@ -72,10 +84,14 @@ macOS, Windows Terminal on Windows.
 | Collapse / expand   | `Cmd+Shift+Enter`   | `Alt+Shift+Z`  |
 | Open hyperlink      | `Cmd`+click         | `Ctrl`+click   |
 | New window          | `Cmd+N`             | `Ctrl+N`       |
+| Toggle quake window | `` Ctrl+` ``        | `` Ctrl+` ``   |
 
 Every binding demands exactly its own modifiers and no others; anything not
 listed reaches the terminal untouched. `Ctrl+D` is bound on neither platform: it
-is EOF, and would kill a session rather than split one.
+is EOF, and would kill a session rather than split one. The quake toggle is the
+one row here that is not scoped to Orthanc: it is a system-wide hotkey,
+claimed only while a quake instance runs, and consumed globally — including
+inside the quake window's own terminal.
 
 ## How it works
 
@@ -97,7 +113,7 @@ Around those two:
 - `lib/split_view.dart`, `lib/workspace_view.dart` — render that tree, and
   intercept key presses ahead of the terminal.
 
-Seven files hold pure decisions with no I/O, which is why they carry the bulk of
+Eight files hold pure decisions with no I/O, which is why they carry the bulk of
 the tests:
 
 - `lib/shell_command.dart` — resolves the shell's absolute path per platform,
@@ -116,6 +132,9 @@ the tests:
   title-on-prompt hook to feed it.
 - `lib/new_instance.dart` — the command that starts another instance of this
   app, per platform; the caller spawns it detached.
+- `lib/quake_geometry.dart` — the quake window's frame for a given screen and
+  a possibly-saved size: full width and half height by default, clamped to
+  the screen, snapped to its top edge.
 
 ## Prerequisites
 
