@@ -2,10 +2,39 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+/// Which instance a process is, decided from its command-line arguments.
+///
+/// `first` alone runs the launch-time update check (see `AppRoot`). `quake`
+/// additionally marks the process as the single dedicated drop-down-terminal
+/// instance — see `quake_window.dart`.
+enum InstanceKind { first, secondary, quake }
+
 /// Marks a spawned instance as not the first one, so it skips the launch-time
 /// update check (see `AppRoot`). Passed on the new process's command line and
 /// read back by `main()`'s own argument list.
 const secondaryInstanceArgument = 'secondary';
+
+/// Marks a spawned instance as the dedicated quake (drop-down terminal)
+/// instance. See `quake_window.dart`.
+const quakeInstanceArgument = 'quake';
+
+/// Decides which [InstanceKind] a process is from its command-line arguments.
+///
+/// `quake` wins over `secondary` when both are somehow present — it is the
+/// more specific claim.
+InstanceKind instanceKind({required List<String> arguments}) {
+  if (arguments.contains(quakeInstanceArgument)) return InstanceKind.quake;
+  if (arguments.contains(secondaryInstanceArgument)) {
+    return InstanceKind.secondary;
+  }
+  return InstanceKind.first;
+}
+
+List<String> _argumentsFor(InstanceKind kind) => switch (kind) {
+  InstanceKind.first => const [],
+  InstanceKind.secondary => const [secondaryInstanceArgument],
+  InstanceKind.quake => const [quakeInstanceArgument],
+};
 
 /// The command that starts another instance of this app: its executable and
 /// the arguments to hand it.
@@ -27,17 +56,16 @@ const secondaryInstanceArgument = 'secondary';
 ({String executable, List<String> arguments}) newInstanceCommand({
   required bool isMacOS,
   required String resolvedExecutable,
+  InstanceKind kind = InstanceKind.secondary,
 }) {
+  final args = _argumentsFor(kind);
   if (!isMacOS) {
-    return (
-      executable: resolvedExecutable,
-      arguments: const [secondaryInstanceArgument],
-    );
+    return (executable: resolvedExecutable, arguments: args);
   }
   final bundle = p.dirname(p.dirname(p.dirname(resolvedExecutable)));
   return (
     executable: '/usr/bin/open',
-    arguments: ['-n', '-a', bundle, '--args', secondaryInstanceArgument],
+    arguments: ['-n', '-a', bundle, if (args.isNotEmpty) '--args', ...args],
   );
 }
 
@@ -46,10 +74,13 @@ const secondaryInstanceArgument = 'secondary';
 ///
 /// A failed spawn is swallowed by design, as the launch-time update check is:
 /// there is nothing to raise it to, and the user can simply ask again.
-Future<void> startNewInstance() async {
+Future<void> startNewInstance({
+  InstanceKind kind = InstanceKind.secondary,
+}) async {
   final command = newInstanceCommand(
     isMacOS: Platform.isMacOS,
     resolvedExecutable: Platform.resolvedExecutable,
+    kind: kind,
   );
   try {
     await Process.start(

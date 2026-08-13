@@ -20,11 +20,12 @@ Future<void> main(List<String> args) async {
   final file = settingsFile(supportDir: supportDir);
   final settings = ValueNotifier(readSettings(file: file));
   watchSettingsFile(file: file, settings: settings);
+  final kind = instanceKind(arguments: args);
   runApp(
     OrthancApp(
       settings: settings,
       settingsFile: file,
-      isFirstInstance: !args.contains(secondaryInstanceArgument),
+      isFirstInstance: kind == InstanceKind.first,
     ),
   );
 }
@@ -59,6 +60,7 @@ class _OrthancAppState extends State<OrthancApp> {
     _systemMenuChannel.setMethodCallHandler((call) async {
       if (call.method == 'openSettings') _openSettings();
       if (call.method == 'openShortcuts') _openShortcuts();
+      if (call.method == 'openQuake') _openQuake();
     });
   }
 
@@ -86,6 +88,10 @@ class _OrthancAppState extends State<OrthancApp> {
     showShortcutsDialog(context);
   }
 
+  void _openQuake() {
+    startNewInstance(kind: InstanceKind.quake);
+  }
+
   @override
   Widget build(BuildContext context) {
     return PlatformMenuBar(
@@ -100,6 +106,10 @@ class _OrthancAppState extends State<OrthancApp> {
                 meta: true,
               ),
               onSelected: startNewInstance,
+            ),
+            PlatformMenuItem(
+              label: 'Quake Window',
+              onSelected: () => startNewInstance(kind: InstanceKind.quake),
             ),
             PlatformMenuItem(
               label: 'Settings…',

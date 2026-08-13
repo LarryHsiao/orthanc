@@ -10,16 +10,18 @@ namespace {
 // WM_SYSCOMMAND wParam for its own built-in commands.
 constexpr UINT_PTR kSettingsMenuId = 0x1000;
 constexpr UINT_PTR kShortcutsMenuId = 0x1010;
+constexpr UINT_PTR kQuakeMenuId = 0x1020;
 
 // The title bar's native right-click/system menu has no Flutter-side
-// equivalent, so this appends "Settings…" and "Keyboard Shortcuts…" to it
-// directly via Win32.
+// equivalent, so this appends "Settings…", "Keyboard Shortcuts…" and "Quake
+// Window" to it directly via Win32.
 void AppendSettingsMenuItem(HWND hwnd) {
   HMENU menu = GetSystemMenu(hwnd, FALSE);
   if (!menu) return;
   AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenu(menu, MF_STRING, kSettingsMenuId, L"Settings…");
   AppendMenu(menu, MF_STRING, kShortcutsMenuId, L"Keyboard Shortcuts…");
+  AppendMenu(menu, MF_STRING, kQuakeMenuId, L"Quake Window");
 }
 
 }  // namespace
@@ -100,6 +102,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       }
       if ((wparam & 0xFFF0) == kShortcutsMenuId && system_menu_channel_) {
         system_menu_channel_->InvokeMethod("openShortcuts", nullptr);
+        return 0;
+      }
+      if ((wparam & 0xFFF0) == kQuakeMenuId && system_menu_channel_) {
+        system_menu_channel_->InvokeMethod("openQuake", nullptr);
         return 0;
       }
       break;
