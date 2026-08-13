@@ -34,8 +34,10 @@ class FlutterWindow : public Win32Window {
       const flutter::MethodCall<flutter::EncodableValue>& call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
-  // Restores the window and forces it to the foreground.
-  void ShowQuakeWindow();
+  // Restores the window, positions it per |arguments| (a {x, y, width,
+  // height} map, or null to leave the frame as it is), and forces it to the
+  // foreground.
+  void ShowQuakeWindow(const flutter::EncodableValue* arguments);
 
   // The project to run.
   flutter::DartProject project_;

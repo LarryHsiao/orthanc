@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'app_root.dart';
 import 'new_instance.dart';
+import 'quake_geometry_store.dart';
 import 'quake_lock.dart';
 import 'quake_summon.dart';
 import 'quake_window.dart';
@@ -91,12 +92,14 @@ class _OrthancAppState extends State<OrthancApp> {
       if (call.method == 'openQuake') _summonOrSpawnQuake();
     });
     if (widget.kind == InstanceKind.quake) {
-      _quakeWindow = QuakeWindow();
+      _quakeWindow = QuakeWindow(
+        geometryFile: quakeGeometryFile(supportDir: widget.supportDir),
+      );
       _quakeWindow!.registerHotKey();
-      _quakeWindow!.show();
+      _quakeWindow!.reveal();
       _summonSubscription = watchQuakeSummon(
         file: quakeSummonFile(supportDir: widget.supportDir),
-        onSummon: () => _quakeWindow?.show(),
+        onSummon: () => _quakeWindow?.reveal(),
       );
     }
   }

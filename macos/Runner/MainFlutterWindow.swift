@@ -63,7 +63,10 @@ private final class QuakeMode {
     case "registerHotKey":
       registerHotKey()
       result(nil)
+    case "currentScreen":
+      result(currentScreenPayload())
     case "show":
+      applyFrame(call.arguments as? [String: Any])
       window.makeKeyAndOrderFront(nil)
       NSApp.activate(ignoringOtherApps: true)
       result(nil)
@@ -73,6 +76,59 @@ private final class QuakeMode {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  /// The work area (excludes the menu bar and Dock) of the display under the
+  /// cursor, flipped to the top-left-origin, y-down convention
+  /// `quake_geometry.dart`'s `quakeFrame` works in.
+  private func currentScreenPayload() -> [String: Double] {
+    let mouseLocation = NSEvent.mouseLocation
+    let screen =
+      NSScreen.screens.first { NSMouseInRect(mouseLocation, $0.frame, false) }
+      ?? window.screen
+      ?? NSScreen.main
+    guard let screen else {
+      return ["x": 0, "y": 0, "width": 800, "height": 600]
+    }
+    let flipped = flip(screen.visibleFrame)
+    return [
+      "x": flipped.x,
+      "y": flipped.y,
+      "width": flipped.width,
+      "height": flipped.height,
+    ]
+  }
+
+  private func applyFrame(_ frame: [String: Any]?) {
+    guard let frame,
+      let x = frame["x"] as? Double,
+      let y = frame["y"] as? Double,
+      let width = frame["width"] as? Double,
+      let height = frame["height"] as? Double
+    else { return }
+    // Flip back from top-left, y-down to AppKit's bottom-left origin, around
+    // the same primary-display reference line `flip` used.
+    let primaryHeight = NSScreen.screens.first?.frame.height ?? (y + height)
+    window.setFrame(
+      NSRect(x: x, y: primaryHeight - y - height, width: width, height: height),
+      display: true
+    )
+  }
+
+  /// Converts an AppKit rect (bottom-left origin, y growing upward, global
+  /// coordinates) to the top-left-origin, y-down convention. The primary
+  /// display's height is the one fixed line every screen's y flips around,
+  /// since only the primary screen is guaranteed an origin of (0, 0).
+  private func flip(
+    _ rect: NSRect
+  ) -> (x: Double, y: Double, width: Double, height: Double) {
+    let primaryHeight = NSScreen.screens.first?.frame.height ?? rect.maxY
+    return (
+      x: rect.minX,
+      y: primaryHeight - rect.maxY,
+      width: rect.width,
+      height: rect.height
+    )
   }
 
   private func registerHotKey() {

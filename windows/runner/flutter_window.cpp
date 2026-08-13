@@ -1,6 +1,7 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <variant>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -26,6 +27,54 @@ void AppendSettingsMenuItem(HWND hwnd) {
   AppendMenu(menu, MF_STRING, kSettingsMenuId, L"Settings…");
   AppendMenu(menu, MF_STRING, kShortcutsMenuId, L"Keyboard Shortcuts…");
   AppendMenu(menu, MF_STRING, kQuakeMenuId, L"Quake Window");
+}
+
+// The work area of the display under the cursor, as an EncodableMap Dart's
+// quakeFrame() can read directly — MONITORINFO is already top-left-origin,
+// y growing downward, the same convention quake_geometry.dart works in, so
+// unlike macOS this needs no flip.
+flutter::EncodableValue CurrentScreenValue() {
+  POINT cursor;
+  GetCursorPos(&cursor);
+  HMONITOR monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO info = {};
+  info.cbSize = sizeof(MONITORINFO);
+  GetMonitorInfo(monitor, &info);
+  return flutter::EncodableValue(flutter::EncodableMap{
+      {flutter::EncodableValue("x"),
+       flutter::EncodableValue(static_cast<double>(info.rcWork.left))},
+      {flutter::EncodableValue("y"),
+       flutter::EncodableValue(static_cast<double>(info.rcWork.top))},
+      {flutter::EncodableValue("width"),
+       flutter::EncodableValue(
+           static_cast<double>(info.rcWork.right - info.rcWork.left))},
+      {flutter::EncodableValue("height"),
+       flutter::EncodableValue(
+           static_cast<double>(info.rcWork.bottom - info.rcWork.top))},
+  });
+}
+
+// Positions |hwnd| per the {x, y, width, height} map Dart's show() call
+// carries, if present. A missing or malformed argument is a no-op — the
+// window simply keeps whatever frame it already has.
+void ApplyQuakeFrame(HWND hwnd, const flutter::EncodableValue* arguments) {
+  if (!arguments) return;
+  const auto* map = std::get_if<flutter::EncodableMap>(arguments);
+  if (!map) return;
+  auto field = [map](const char* key) -> std::optional<double> {
+    auto it = map->find(flutter::EncodableValue(key));
+    if (it == map->end()) return std::nullopt;
+    if (const auto* value = std::get_if<double>(&it->second)) return *value;
+    return std::nullopt;
+  };
+  auto x = field("x");
+  auto y = field("y");
+  auto width = field("width");
+  auto height = field("height");
+  if (!x || !y || !width || !height) return;
+  SetWindowPos(hwnd, nullptr, static_cast<int>(*x), static_cast<int>(*y),
+               static_cast<int>(*width), static_cast<int>(*height),
+               SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 }  // namespace
@@ -115,8 +164,12 @@ void FlutterWindow::HandleQuakeMethodCall(
     result->Success();
     return;
   }
+  if (call.method_name() == "currentScreen") {
+    result->Success(CurrentScreenValue());
+    return;
+  }
   if (call.method_name() == "show") {
-    ShowQuakeWindow();
+    ShowQuakeWindow(call.arguments());
     result->Success();
     return;
   }
@@ -128,9 +181,12 @@ void FlutterWindow::HandleQuakeMethodCall(
   result->NotImplemented();
 }
 
-void FlutterWindow::ShowQuakeWindow() {
+void FlutterWindow::ShowQuakeWindow(const flutter::EncodableValue* arguments) {
   HWND hwnd = GetHandle();
+  // Restored before repositioned: a minimized window's restore placement is
+  // set unreliably if SetWindowPos runs first.
   ShowWindow(hwnd, SW_RESTORE);
+  ApplyQuakeFrame(hwnd, arguments);
   // A background process asking for the foreground is subject to Windows'
   // foreground-lock. If the direct call is refused, briefly attaching this
   // thread's input queue to the current foreground window's is the standard
