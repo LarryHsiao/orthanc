@@ -29,9 +29,9 @@ class _ShortcutsDialog extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(entry.label),
+                      Expanded(child: Text(entry.label)),
+                      const SizedBox(width: 16),
                       Text(
                         entry.keys,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
