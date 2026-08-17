@@ -47,7 +47,8 @@ class Workspace {
   /// in its column — or un-collapses it, if it was already collapsed.
   /// No-ops when [sessionId]'s direct parent isn't a column split with 2+
   /// children — the one gate every caller (a bar click, a hotkey) gets for
-  /// free by going through here.
+  /// free by going through here — or when the collapse would leave that
+  /// column with nothing expanded to fill it, per [_wouldEmpty].
   Workspace toggleCollapse(String sessionId) {
     final parent = _directParent(root, sessionId);
     if (parent == null ||
@@ -57,9 +58,29 @@ class Workspace {
     }
 
     final updated = {...collapsedIds};
-    if (!updated.remove(sessionId)) updated.add(sessionId);
+    if (!updated.remove(sessionId)) {
+      if (_wouldEmpty(parent, sessionId)) return this;
+      updated.add(sessionId);
+    }
 
     return Workspace(root: root, focusedId: sessionId, collapsedIds: updated);
+  }
+
+  /// Whether collapsing [sessionId] would leave [parent] holding nothing but
+  /// bars — every direct child either already collapsed or the one about to
+  /// be. A bar is pinned at a fixed height, so such a column could only
+  /// render as a stack of strips over dead space; refusing the last collapse
+  /// is what keeps a column always showing one session in full.
+  ///
+  /// A nested split child never collapses, so its presence alone is enough
+  /// to fill the column and the answer is false.
+  bool _wouldEmpty(SplitNode parent, String sessionId) {
+    return parent.children.every(
+      (child) =>
+          child is PaneNode &&
+          (child.sessionId == sessionId ||
+              collapsedIds.contains(child.sessionId)),
+    );
   }
 
   /// Expands [sessionId] to fill its column, collapsing every other direct
@@ -165,17 +186,48 @@ class Workspace {
     if (remaining == null) return null;
 
     final ids = _idsOf(remaining);
-    final collapsibleAfter = <String>{};
-    _collectCollapsible(remaining, collapsibleAfter);
 
     return Workspace(
       root: remaining,
       focusedId: ids.contains(focusedId) ? focusedId : ids.first,
-      collapsedIds: collapsedIds
-          .where((id) => id != sessionId)
-          .toSet()
-          .intersection(collapsibleAfter),
+      collapsedIds: _survivingCollapsed(remaining, sessionId),
     );
+  }
+
+  /// The collapse entries that carry onto the tree left after a close: the
+  /// closed pane's own entry is dropped, so are entries for panes the new
+  /// shape no longer makes collapsible, and any column left holding nothing
+  /// but bars is released back to even shares.
+  ///
+  /// That last step is the same invariant [toggleCollapse] guards on the way
+  /// in — closing a sibling must not strand a column with no session in view.
+  Set<String> _survivingCollapsed(LayoutNode remaining, String closedId) {
+    final collapsibleAfter = <String>{};
+    _collectCollapsible(remaining, collapsibleAfter);
+
+    final kept = collapsedIds
+        .where((id) => id != closedId)
+        .toSet()
+        .intersection(collapsibleAfter);
+    _releaseEmptiedColumns(remaining, kept);
+    return kept;
+  }
+
+  /// Drops from [collapsed] every pane of any column in [node] whose direct
+  /// children are all collapsed panes — the columns that would otherwise
+  /// render as a stack of bars over dead space.
+  static void _releaseEmptiedColumns(LayoutNode node, Set<String> collapsed) {
+    if (node is PaneNode) return;
+    final split = node as SplitNode;
+    final allBars = split.children.every(
+      (child) => child is PaneNode && collapsed.contains(child.sessionId),
+    );
+    if (split.axis == SplitAxis.column && allBars) {
+      collapsed.removeAll(_paneChildIds(split));
+    }
+    for (final child in split.children) {
+      _releaseEmptiedColumns(child, collapsed);
+    }
   }
 
   /// Every pane's share of the window, in fractions of the whole.

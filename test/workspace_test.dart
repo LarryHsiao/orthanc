@@ -223,6 +223,40 @@ void main() {
       expect(workspace!.collapsedIds, expected);
     });
 
+    test('releases a column the close would have left as nothing but bars', () {
+      final expected = <String>{};
+
+      // column[a, b, c] — collapse 'b' and 'c' (allowed, 'a' still fills the
+      // column), then close 'a'. The survivors would both be bars over dead
+      // space, so their collapse is released back to even shares.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleCollapse('b')
+          .toggleCollapse('c')
+          .close('a');
+
+      expect(workspace!.collapsedIds, expected);
+    });
+
+    test('leaves a still-filled column\'s collapse alone when a pane '
+        'elsewhere closes', () {
+      final expected = {'b'};
+
+      // column[row[a, column[c, d]], b] — collapse 'b', whose sibling is a
+      // nested row that always fills the column, then close 'c' away in that
+      // nested branch. 'b's column is still filled, so its entry survives.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .focus('a')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .split(axis: SplitAxis.column, newSessionId: 'd')
+          .toggleCollapse('b')
+          .close('c');
+
+      expect(workspace!.collapsedIds, expected);
+    });
+
     test('drops an orphaned collapse entry when closing a sibling dissolves '
         'its column', () {
       final expected = <String>{};
@@ -472,8 +506,8 @@ void main() {
       expect(workspace.collapsedIds, expected);
     });
 
-    test('collapsing every pane in a column is allowed', () {
-      final expected = {'a', 'b'};
+    test('refuses the collapse that would leave a column all bars', () {
+      final expected = {'a'};
 
       final workspace = Workspace.single('a')
           .split(axis: SplitAxis.column, newSessionId: 'b')
@@ -481,6 +515,52 @@ void main() {
           .toggleCollapse('b');
 
       expect(workspace.collapsedIds, expected);
+    });
+
+    test('un-collapsing is never refused, whatever the column holds', () {
+      final expected = {'b'};
+
+      // Collapse both that may be collapsed, then release one again: the
+      // gate guards the collapsing direction only.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleCollapse('a')
+          .toggleCollapse('b')
+          .toggleCollapse('a');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('allows the last pane to collapse when a nested split fills the '
+        'column', () {
+      final expected = {'a'};
+
+      // column[a, row[b, c]] — the nested row is never collapsible and so
+      // always fills the column; collapsing 'a' leaves nothing empty.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .toggleCollapse('a');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('leaves focus alone when it refuses the collapse', () {
+      const expected = 'a';
+
+      // 'c' is the column's last expanded pane, so collapsing it is refused
+      // — and a refusal must not move focus onto it the way a granted
+      // collapse would.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .toggleCollapse('a')
+          .toggleCollapse('b')
+          .focus('a')
+          .toggleCollapse('c');
+
+      expect(workspace.focusedId, expected);
     });
 
     test('focuses the pane it collapses', () {

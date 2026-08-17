@@ -104,11 +104,19 @@ class SplitView extends StatelessWidget {
             ? constraints.maxWidth
             : constraints.maxHeight;
         final dividers = split.children.length - 1;
-        final free = extent - dividers * dividerThickness;
 
+        // Only the ratio branch draws dividers, so only it sets aside their
+        // space. The collapsed branch shares out the whole extent — reserving
+        // room there for dividers it never lays out leaves that strip empty at
+        // the far end of the column.
         final children = _hasCollapsedChild(split)
-            ? _buildCollapsedSplitChildren(split, free)
-            : _buildRatioSplitChildren(split, context, horizontal, free);
+            ? _buildCollapsedSplitChildren(split, extent)
+            : _buildRatioSplitChildren(
+                split,
+                context,
+                horizontal,
+                extent - dividers * dividerThickness,
+              );
 
         return horizontal
             ? Row(
@@ -159,8 +167,10 @@ class SplitView extends StatelessWidget {
   /// entirely in this state. Only ever called for a column split, so
   /// height is the only dimension that matters here — no [horizontal]
   /// branch needed. No dividers: a fixed-height collapsed row isn't
-  /// draggable, and an evenly-split expanded row isn't either.
-  List<Widget> _buildCollapsedSplitChildren(SplitNode split, double free) {
+  /// draggable, and an evenly-split expanded row isn't either — which is why
+  /// [extent] is the column's whole height here, undiminished by the divider
+  /// reservation the ratio branch makes.
+  List<Widget> _buildCollapsedSplitChildren(SplitNode split, double extent) {
     final collapsedCount = split.children
         .whereType<PaneNode>()
         .where((pane) => collapsedIds.contains(pane.sessionId))
@@ -169,7 +179,7 @@ class SplitView extends StatelessWidget {
     final fixedTotal = collapsedCount * PaneBar.height;
     final evenSize = expandedCount == 0
         ? 0.0
-        : ((free - fixedTotal) / expandedCount).clamp(0.0, free);
+        : ((extent - fixedTotal) / expandedCount).clamp(0.0, extent);
 
     final children = <Widget>[];
     for (final child in split.children) {
