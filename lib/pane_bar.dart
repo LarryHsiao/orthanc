@@ -28,9 +28,15 @@ class PaneBar extends StatefulWidget {
     required this.attentionAccent,
     required this.canCollapse,
     required this.collapsed,
+    required this.canDrag,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
   });
 
   static const height = 22.0;
+
+  static const gripKey = Key('pane-drag-grip');
 
   final Session session;
   final bool focused;
@@ -45,6 +51,19 @@ class PaneBar extends StatefulWidget {
   final Color attentionAccent;
   final bool canCollapse;
   final bool collapsed;
+
+  final bool canDrag;
+
+  /// Fired once, when a drag on the grip begins.
+  final void Function(String id) onDragStart;
+
+  /// Fired on every pointer move during a drag, with the pointer's
+  /// current *global* position — the caller (ultimately WorkspaceView)
+  /// is what knows how to turn that into a pane underneath it.
+  final void Function(String id, Offset globalPosition) onDragUpdate;
+
+  /// Fired once, when the drag ends — by release or cancellation alike.
+  final void Function(String id) onDragEnd;
 
   @override
   State<PaneBar> createState() => _PaneBarState();
@@ -94,6 +113,7 @@ class _PaneBarState extends State<PaneBar> {
             decoration: BoxDecoration(color: fill),
             child: Row(
               children: [
+                if (widget.canDrag) _grip(scheme),
                 Expanded(child: _editing ? _editField(ink) : _title(ink)),
                 if (widget.canCollapse)
                   _collapseIcon(emphasized ? ink : scheme.onSurfaceVariant),
@@ -112,6 +132,31 @@ class _PaneBarState extends State<PaneBar> {
       ThemeData.estimateBrightnessForColor(fill) == Brightness.dark
       ? Colors.white
       : Colors.black;
+
+  Widget _grip(ColorScheme scheme) {
+    return GestureDetector(
+      key: PaneBar.gripKey,
+      onPanStart: (_) => widget.onDragStart(widget.session.id),
+      onPanUpdate: (details) =>
+          widget.onDragUpdate(widget.session.id, details.globalPosition),
+      onPanEnd: (_) => widget.onDragEnd(widget.session.id),
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: Text(
+            '⠿',
+            style: TextStyle(
+              fontSize: 12,
+              color: widget.focused
+                  ? _inkOn(widget.accent)
+                  : scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _collapseIcon(Color ink) => Text(
     widget.collapsed ? '⤡' : '⤢',

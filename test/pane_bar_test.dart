@@ -24,6 +24,10 @@ void main() {
     Color attentionAccent = lightAttentionAccent,
     bool canCollapse = false,
     bool collapsed = false,
+    bool canDrag = false,
+    void Function(String id)? onDragStart,
+    void Function(String id, Offset globalPosition)? onDragUpdate,
+    void Function(String id)? onDragEnd,
   }) async {
     final session = Session(id: 'a', executable: 'cmd.exe');
     await tester.pumpWidget(
@@ -36,6 +40,10 @@ void main() {
             attentionAccent: attentionAccent,
             canCollapse: canCollapse,
             collapsed: collapsed,
+            canDrag: canDrag,
+            onDragStart: onDragStart ?? (_) {},
+            onDragUpdate: onDragUpdate ?? (_, _) {},
+            onDragEnd: onDragEnd ?? (_) {},
           ),
         ),
       ),
@@ -230,6 +238,10 @@ void main() {
                   attentionAccent: lightAttentionAccent,
                   canCollapse: false,
                   collapsed: false,
+                  canDrag: false,
+                  onDragStart: (_) {},
+                  onDragUpdate: (_, _) {},
+                  onDragEnd: (_) {},
                 ),
               ],
             ),
@@ -335,5 +347,56 @@ void main() {
     await tester.pump();
 
     expect(titleInk(tester), expected);
+  });
+
+  testWidgets('the grip is absent when the pane cannot be dragged', (
+    tester,
+  ) async {
+    await pumpPaneBar(tester, canDrag: false);
+
+    expect(find.byKey(PaneBar.gripKey), findsNothing);
+  });
+
+  testWidgets('dragging the grip reports this pane\'s own session id', (
+    tester,
+  ) async {
+    const expected = 'a';
+    String? started;
+    String? ended;
+
+    await pumpPaneBar(
+      tester,
+      canDrag: true,
+      onDragStart: (id) => started = id,
+      onDragEnd: (id) => ended = id,
+    );
+    await tester.drag(find.byKey(PaneBar.gripKey), const Offset(40, 0));
+
+    expect(started, expected);
+    expect(ended, expected);
+  });
+
+  testWidgets('dragging the grip reports the pointer\'s position along the '
+      'way', (tester) async {
+    final updates = <Offset>[];
+
+    await pumpPaneBar(
+      tester,
+      canDrag: true,
+      onDragUpdate: (id, position) => updates.add(position),
+    );
+    await tester.drag(find.byKey(PaneBar.gripKey), const Offset(40, 0));
+
+    expect(updates, isNotEmpty);
+  });
+
+  testWidgets('right-click rename still works alongside a draggable grip', (
+    tester,
+  ) async {
+    await pumpPaneBar(tester, canDrag: true);
+
+    await rightClickPaneBar(tester);
+
+    expect(find.byType(TextField), findsOneWidget);
   });
 }
