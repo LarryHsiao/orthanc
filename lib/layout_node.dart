@@ -13,6 +13,10 @@ enum SplitAxis { row, column }
 /// A direction to look in for a neighbouring pane.
 enum Direction { left, right, up, down }
 
+/// How close to a pane's own edge a drop must land to mean "insert here"
+/// rather than "swap" — a fraction of that pane's own width or height.
+const dropEdgeBand = 0.25;
+
 /// A pane's share of the window, in fractions of the whole.
 class PaneRect {
   const PaneRect({
@@ -31,6 +35,32 @@ class PaneRect {
   double get bottom => top + height;
   double get centerX => left + width / 2;
   double get centerY => top + height / 2;
+
+  /// Which edge of this rect [x]/[y] (both fractions of the whole
+  /// window, the same space [Workspace.paneRects] returns) sits closest
+  /// to — or null when every edge is farther than [dropEdgeBand], the
+  /// centre dead-zone where a drop means swap rather than insert.
+  ///
+  /// [x]/[y] are expected to already fall within this rect; a point
+  /// exactly on the boundary is clamped rather than trusted, since the
+  /// caller's own hit-test is what guarantees the point belongs here at
+  /// all. A corner equidistant from two edges picks a fixed order —
+  /// left, then right, then up, then down — arbitrary by design.
+  Direction? zoneAt(double x, double y) {
+    final localX = ((x - left) / width).clamp(0.0, 1.0);
+    final localY = ((y - top) / height).clamp(0.0, 1.0);
+
+    final distances = {
+      Direction.left: localX,
+      Direction.right: 1 - localX,
+      Direction.up: localY,
+      Direction.down: 1 - localY,
+    };
+    final nearest = distances.entries.reduce(
+      (a, b) => a.value <= b.value ? a : b,
+    );
+    return nearest.value < dropEdgeBand ? nearest.key : null;
+  }
 
   @override
   bool operator ==(Object other) =>
