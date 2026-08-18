@@ -36,7 +36,7 @@ class PaneBar extends StatefulWidget {
 
   static const height = 22.0;
 
-  static const gripKey = Key('pane-drag-grip');
+  static const dragKey = Key('pane-drag-label');
 
   final Session session;
   final bool focused;
@@ -54,7 +54,7 @@ class PaneBar extends StatefulWidget {
 
   final bool canDrag;
 
-  /// Fired once, when a drag on the grip begins.
+  /// Fired once, when a drag on the title label begins.
   final void Function(String id) onDragStart;
 
   /// Fired on every pointer move during a drag, with the pointer's
@@ -71,6 +71,7 @@ class PaneBar extends StatefulWidget {
 
 class _PaneBarState extends State<PaneBar> {
   bool _editing = false;
+  bool _dragging = false;
   final _controller = TextEditingController();
   final _fieldFocusNode = FocusNode();
 
@@ -113,8 +114,9 @@ class _PaneBarState extends State<PaneBar> {
             decoration: BoxDecoration(color: fill),
             child: Row(
               children: [
-                if (widget.canDrag) _grip(scheme),
-                Expanded(child: _editing ? _editField(ink) : _title(ink)),
+                Expanded(
+                  child: _editing ? _editField(ink) : _draggableTitle(ink),
+                ),
                 if (widget.canCollapse)
                   _collapseIcon(emphasized ? ink : scheme.onSurfaceVariant),
               ],
@@ -133,27 +135,30 @@ class _PaneBarState extends State<PaneBar> {
       ? Colors.white
       : Colors.black;
 
-  Widget _grip(ColorScheme scheme) {
+  /// Wraps [_title] in the drag gesture when [canDrag] — the label is the
+  /// handle itself, no separate glyph. Left plain while editing: a drag
+  /// mid-rename would fight text selection in the field. The grab cursor
+  /// only appears once a drag is actually under way — hovering a
+  /// draggable label otherwise looks exactly like hovering any other
+  /// title.
+  Widget _draggableTitle(Color ink) {
+    final title = _title(ink);
+    if (!widget.canDrag) return title;
     return GestureDetector(
-      key: PaneBar.gripKey,
-      onPanStart: (_) => widget.onDragStart(widget.session.id),
+      key: PaneBar.dragKey,
+      onPanStart: (_) {
+        setState(() => _dragging = true);
+        widget.onDragStart(widget.session.id);
+      },
       onPanUpdate: (details) =>
           widget.onDragUpdate(widget.session.id, details.globalPosition),
-      onPanEnd: (_) => widget.onDragEnd(widget.session.id),
-      child: Padding(
-        padding: const EdgeInsets.only(right: 4),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.grab,
-          child: Text(
-            '⠿',
-            style: TextStyle(
-              fontSize: 12,
-              color: widget.focused
-                  ? _inkOn(widget.accent)
-                  : scheme.onSurfaceVariant,
-            ),
-          ),
-        ),
+      onPanEnd: (_) {
+        setState(() => _dragging = false);
+        widget.onDragEnd(widget.session.id);
+      },
+      child: MouseRegion(
+        cursor: _dragging ? SystemMouseCursors.grabbing : MouseCursor.defer,
+        child: title,
       ),
     );
   }

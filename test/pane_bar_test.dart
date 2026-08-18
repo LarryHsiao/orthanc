@@ -349,15 +349,14 @@ void main() {
     expect(titleInk(tester), expected);
   });
 
-  testWidgets('the grip is absent when the pane cannot be dragged', (
-    tester,
-  ) async {
+  testWidgets('the label is not a drag handle when the pane cannot be '
+      'dragged', (tester) async {
     await pumpPaneBar(tester, canDrag: false);
 
-    expect(find.byKey(PaneBar.gripKey), findsNothing);
+    expect(find.byKey(PaneBar.dragKey), findsNothing);
   });
 
-  testWidgets('dragging the grip reports this pane\'s own session id', (
+  testWidgets('dragging the label reports this pane\'s own session id', (
     tester,
   ) async {
     const expected = 'a';
@@ -370,13 +369,13 @@ void main() {
       onDragStart: (id) => started = id,
       onDragEnd: (id) => ended = id,
     );
-    await tester.drag(find.byKey(PaneBar.gripKey), const Offset(40, 0));
+    await tester.drag(find.byKey(PaneBar.dragKey), const Offset(40, 0));
 
     expect(started, expected);
     expect(ended, expected);
   });
 
-  testWidgets('dragging the grip reports the pointer\'s position along the '
+  testWidgets('dragging the label reports the pointer\'s position along the '
       'way', (tester) async {
     final updates = <Offset>[];
 
@@ -385,12 +384,85 @@ void main() {
       canDrag: true,
       onDragUpdate: (id, position) => updates.add(position),
     );
-    await tester.drag(find.byKey(PaneBar.gripKey), const Offset(40, 0));
+    await tester.drag(find.byKey(PaneBar.dragKey), const Offset(40, 0));
 
     expect(updates, isNotEmpty);
   });
 
-  testWidgets('right-click rename still works alongside a draggable grip', (
+  testWidgets('the cursor stays put until a drag actually starts', (
+    tester,
+  ) async {
+    const expected = MouseCursor.defer;
+
+    await pumpPaneBar(tester, canDrag: true);
+
+    expect(
+      tester
+          .widget<MouseRegion>(
+            find.descendant(
+              of: find.byKey(PaneBar.dragKey),
+              matching: find.byType(MouseRegion),
+            ),
+          )
+          .cursor,
+      expected,
+    );
+  });
+
+  testWidgets('the cursor turns to a grabbing hand once a drag starts', (
+    tester,
+  ) async {
+    const expected = SystemMouseCursors.grabbing;
+
+    await pumpPaneBar(tester, canDrag: true);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(PaneBar.dragKey)),
+    );
+    await gesture.moveBy(const Offset(40, 0));
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<MouseRegion>(
+            find.descendant(
+              of: find.byKey(PaneBar.dragKey),
+              matching: find.byType(MouseRegion),
+            ),
+          )
+          .cursor,
+      expected,
+    );
+
+    await gesture.up();
+    await tester.pump();
+  });
+
+  testWidgets('the cursor returns once the drag ends', (tester) async {
+    const expected = MouseCursor.defer;
+
+    await pumpPaneBar(tester, canDrag: true);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(PaneBar.dragKey)),
+    );
+    await gesture.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<MouseRegion>(
+            find.descendant(
+              of: find.byKey(PaneBar.dragKey),
+              matching: find.byType(MouseRegion),
+            ),
+          )
+          .cursor,
+      expected,
+    );
+  });
+
+  testWidgets('right-click rename still works alongside a draggable label', (
     tester,
   ) async {
     await pumpPaneBar(tester, canDrag: true);

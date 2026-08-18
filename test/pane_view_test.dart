@@ -113,7 +113,7 @@ void main() {
     expect(tester.getSize(find.byType(TerminalView)), expected);
   });
 
-  testWidgets('dragging the grip does not also toggle collapse', (
+  testWidgets('dragging the label does not also toggle collapse', (
     tester,
   ) async {
     var toggled = false;
@@ -125,7 +125,7 @@ void main() {
       canCollapse: true,
       onToggleCollapse: () => toggled = true,
     );
-    await tester.drag(find.byKey(PaneBar.gripKey), const Offset(40, 0));
+    await tester.drag(find.byKey(PaneBar.dragKey), const Offset(40, 0));
     // PaneView's outer GestureDetector sets both onTap and onDoubleTap
     // (canCollapse is true), so a DoubleTapGestureRecognizer arms on every
     // pointer-down to disambiguate — let it fully resolve before the test
