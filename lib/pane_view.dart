@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:xterm/xterm.dart';
 
 import 'hyperlink.dart';
+import 'layout_node.dart';
 import 'pane_bar.dart';
 import 'session.dart';
 import 'terminal_font_families.dart';
@@ -40,6 +41,7 @@ class PaneView extends StatefulWidget {
     required this.onDragEnd,
     required this.isDropTarget,
     required this.isBeingDragged,
+    required this.dropSide,
   });
 
   /// The focus border is painted *over* the pane, never around it. xterm
@@ -103,6 +105,13 @@ class PaneView extends StatefulWidget {
   /// around it, so the pty never reflows when a drag starts hovering.
   static const dropHighlightKey = Key('pane-drop-highlight');
 
+  /// Which edge of this pane the drag is currently hovering, when
+  /// [isDropTarget] is true — null means the centre dead-zone (the
+  /// full-pane swap highlight applies instead).
+  final Direction? dropSide;
+
+  static const dropEdgeKey = Key('pane-drop-edge');
+
   @override
   State<PaneView> createState() => _PaneViewState();
 }
@@ -133,7 +142,8 @@ class _PaneViewState extends State<PaneView> {
             // already wins by construction (gaining focus clears the
             // flag), but this gate does not lean on that ordering either.
             if (!widget.focused && !widget.collapsed) _attentionBorder(),
-            if (widget.isDropTarget) _dropHighlight(),
+            if (widget.isDropTarget)
+              widget.dropSide == null ? _dropHighlight() : _dropEdge(),
           ],
         ),
       ),
@@ -223,6 +233,34 @@ class _PaneViewState extends State<PaneView> {
       ),
     ),
   );
+
+  Widget _dropEdge() {
+    final side = widget.dropSide!;
+    final horizontal = side == Direction.left || side == Direction.right;
+    return Positioned.fill(
+      child: Align(
+        alignment: switch (side) {
+          Direction.left => Alignment.centerLeft,
+          Direction.right => Alignment.centerRight,
+          Direction.up => Alignment.topCenter,
+          Direction.down => Alignment.bottomCenter,
+        },
+        child: FractionallySizedBox(
+          widthFactor: horizontal ? dropEdgeBand : 1,
+          heightFactor: horizontal ? 1 : dropEdgeBand,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              key: PaneView.dropEdgeKey,
+              decoration: BoxDecoration(
+                color: Colors.lightBlueAccent.withValues(alpha: 0.2),
+                border: Border.all(color: Colors.lightBlueAccent, width: 2),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   /// A border painted *over* the pane, never around it — see
   /// [focusBorderKey]'s doc comment for why an overlay rather than a

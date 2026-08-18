@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orthanc/layout_node.dart';
 import 'package:orthanc/pane_bar.dart';
 import 'package:orthanc/pane_view.dart';
 import 'package:orthanc/session.dart';
@@ -25,6 +26,8 @@ void main() {
     void Function(String id)? onDragStart,
     void Function(String id, Offset globalPosition)? onDragUpdate,
     void Function(String id)? onDragEnd,
+    bool isDropTarget = false,
+    Direction? dropSide,
   }) async {
     final theSession = session ?? Session(id: 'a', executable: 'cmd.exe');
     addTearDown(theSession.dispose);
@@ -49,8 +52,9 @@ void main() {
             onDragStart: onDragStart ?? (_) {},
             onDragUpdate: onDragUpdate ?? (_, _) {},
             onDragEnd: onDragEnd ?? (_) {},
-            isDropTarget: false,
+            isDropTarget: isDropTarget,
             isBeingDragged: false,
+            dropSide: dropSide,
           ),
         ),
       ),
@@ -94,6 +98,38 @@ void main() {
     await pumpPaneView(tester, focused: true);
 
     expect(focusBorder(tester).border!.top.width, expected);
+  });
+
+  testWidgets('a full-pane highlight appears when hovered with no side', (
+    tester,
+  ) async {
+    await pumpPaneView(tester, focused: false, isDropTarget: true);
+
+    expect(find.byKey(PaneView.dropHighlightKey), findsOneWidget);
+    expect(find.byKey(PaneView.dropEdgeKey), findsNothing);
+  });
+
+  testWidgets('an edge band appears instead when hovered with a side', (
+    tester,
+  ) async {
+    await pumpPaneView(
+      tester,
+      focused: false,
+      isDropTarget: true,
+      dropSide: Direction.left,
+    );
+
+    expect(find.byKey(PaneView.dropEdgeKey), findsOneWidget);
+    expect(find.byKey(PaneView.dropHighlightKey), findsNothing);
+  });
+
+  testWidgets('neither highlight appears when not a drop target', (
+    tester,
+  ) async {
+    await pumpPaneView(tester, focused: false);
+
+    expect(find.byKey(PaneView.dropHighlightKey), findsNothing);
+    expect(find.byKey(PaneView.dropEdgeKey), findsNothing);
   });
 
   testWidgets('an unfocused pane draws no border at all', (tester) async {

@@ -39,6 +39,7 @@ class SplitView extends StatelessWidget {
     required this.onDragEnd,
     required this.dragSourceId,
     required this.dragHoverId,
+    required this.dragHoverSide,
   });
 
   static const dividerThickness = 4.0;
@@ -77,6 +78,11 @@ class SplitView extends StatelessWidget {
   /// The pane currently under the dragged pointer, or null.
   final String? dragHoverId;
 
+  /// Which edge of [dragHoverId]'s pane the pointer is hovering, or null
+  /// for the centre dead-zone (swap) — meaningless when [dragHoverId]
+  /// itself is null.
+  final Direction? dragHoverSide;
+
   @override
   Widget build(BuildContext context) {
     return switch (node) {
@@ -108,6 +114,7 @@ class SplitView extends StatelessWidget {
       onDragEnd: onDragEnd,
       isBeingDragged: sessionId == dragSourceId,
       isDropTarget: sessionId == dragHoverId,
+      dropSide: sessionId == dragHoverId ? dragHoverSide : null,
     );
   }
 
@@ -247,6 +254,7 @@ class SplitView extends StatelessWidget {
       onDragEnd: onDragEnd,
       dragSourceId: dragSourceId,
       dragHoverId: dragHoverId,
+      dragHoverSide: dragHoverSide,
     );
   }
 

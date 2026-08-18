@@ -44,6 +44,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   final _boundsKey = GlobalKey();
   String? _dragSourceId;
   String? _dragHoverId;
+  Direction? _dragHoverSide;
 
   // kill() (called by Sessions.remove(), via Session.dispose()) only
   // requests termination — exitCode's future, and thus the listener
@@ -142,16 +143,37 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   void _onDragUpdate(String id, Offset globalPosition) {
     final target = _paneAt(globalPosition);
     final next = (target != null && target != id) ? target : null;
-    if (next == _dragHoverId) return;
-    setState(() => _dragHoverId = next);
+    final side = next == null ? null : _sideAt(next, globalPosition);
+    if (next == _dragHoverId && side == _dragHoverSide) return;
+    setState(() {
+      _dragHoverId = next;
+      _dragHoverSide = side;
+    });
+  }
+
+  /// The drop zone within [paneId]'s own rect that [globalPosition]
+  /// falls in, converted through the same [_boundsKey] box [_paneAt]
+  /// already uses.
+  Direction? _sideAt(String paneId, Offset globalPosition) {
+    final box = _boundsKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || box.size.isEmpty) return null;
+    final local = box.globalToLocal(globalPosition);
+    final rect = workspace.paneRects()[paneId];
+    if (rect == null) return null;
+    return rect.zoneAt(local.dx / box.size.width, local.dy / box.size.height);
   }
 
   void _onDragEnd(String id) {
     final target = _dragHoverId;
+    final side = _dragHoverSide;
     setState(() {
       _dragSourceId = null;
       _dragHoverId = null;
-      if (target != null) workspace = workspace.swap(id, target);
+      _dragHoverSide = null;
+      if (target == null) return;
+      workspace = side == null
+          ? workspace.swap(id, target)
+          : workspace.move(sourceId: id, targetId: target, side: side);
     });
   }
 
@@ -300,6 +322,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               onDragEnd: _onDragEnd,
               dragSourceId: _dragSourceId,
               dragHoverId: _dragHoverId,
+              dragHoverSide: _dragHoverSide,
             ),
           ),
         );

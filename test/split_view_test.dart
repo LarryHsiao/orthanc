@@ -53,6 +53,7 @@ void main() {
                 onDragEnd: (_) {},
                 dragSourceId: null,
                 dragHoverId: null,
+                dragHoverSide: null,
               ),
             ),
           ),
