@@ -61,8 +61,10 @@ private final class QuakeMode {
 
   /// The window starts ordered out — it must, for the eventual slide-down
   /// animation to start from off-screen — and stays that way until Dart asks
-  /// for `show`. `orderOut` does not close the window, so
-  /// `applicationShouldTerminateAfterLastWindowClosed` never fires from this.
+  /// for `show`. AppKit treats `orderOut` on the app's only window the same
+  /// as a real close for `applicationShouldTerminateAfterLastWindowClosed`
+  /// — see `AppDelegate.swift`, which answers `false` for the quake
+  /// instance so hiding never quits it.
   ///
   /// Dropping `.titled` removes the title bar and its traffic-light buttons,
   /// for the borderless look a drop-down terminal wants — `.resizable` is a
@@ -204,7 +206,7 @@ private final class QuakeMode {
     // menu item either way.
     RegisterEventHotKey(
       UInt32(kVK_ANSI_Grave),
-      UInt32(controlKey),
+      UInt32(cmdKey),
       hotKeyId,
       GetApplicationEventTarget(),
       0,

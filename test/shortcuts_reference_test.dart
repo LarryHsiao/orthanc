@@ -33,11 +33,15 @@ void main() {
     expectContains(entries, const ShortcutEntry('Move focus left', 'Alt+Left'));
   });
 
-  test('the quake toggle uses the same chord on both platforms', () {
-    const expected = ShortcutEntry('Toggle quake window', 'Ctrl+`');
-
-    expectContains(paneShortcuts(isWindows: true), expected);
-    expectContains(paneShortcuts(isWindows: false), expected);
+  test('the quake toggle chord differs by platform', () {
+    expectContains(
+      paneShortcuts(isWindows: true),
+      const ShortcutEntry('Toggle quake window', 'Ctrl+`'),
+    );
+    expectContains(
+      paneShortcuts(isWindows: false),
+      const ShortcutEntry('Toggle quake window', '⌘`'),
+    );
   });
 
   test('every entry has a non-empty label and key combination', () {
