@@ -811,4 +811,184 @@ void main() {
       expect(workspace.collapsedIds, expected);
     });
   });
+
+  group('Workspace.move', () {
+    test('inserts as a sibling after the target when the parent already '
+        'runs that axis', () {
+      final expected = ['b', 'a', 'c'];
+
+      // row[a, b, c] — move 'a' onto 'b's right edge.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .move(sourceId: 'a', targetId: 'b', side: Direction.right);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('inserts as a sibling before the target when the parent already '
+        'runs that axis', () {
+      final expected = ['a', 'c', 'b'];
+
+      // row[a, b, c] — move 'c' onto 'b's left edge: 'c' relocates to
+      // sit directly before 'b', not simply back where it already was.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .move(sourceId: 'c', targetId: 'b', side: Direction.left);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('wraps the target in a new split when the parent runs the other '
+        'axis', () {
+      // column[a, b] — move 'a' onto 'b's right edge: 'b's own parent is
+      // a column, the wrong axis for a left/right drop, so 'b' is
+      // wrapped in a fresh row.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .move(sourceId: 'a', targetId: 'b', side: Direction.right);
+
+      final root = workspace.root as SplitNode;
+      expect(root.axis, SplitAxis.row);
+      expect(root.children.length, 2);
+      expect((root.children[0] as PaneNode).sessionId, 'b');
+      expect((root.children[1] as PaneNode).sessionId, 'a');
+    });
+
+    test('wraps a target while an untouched sibling stays where it was', () {
+      // row[a, b, c] — move 'a' onto 'c's top edge. 'c's own parent (the
+      // row) runs the wrong axis for an up/down drop, so 'c' alone is
+      // wrapped in a fresh column; 'b' stays exactly where it was, as
+      // the row's other child.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .move(sourceId: 'a', targetId: 'c', side: Direction.up);
+
+      final root = workspace.root as SplitNode;
+      expect(root.axis, SplitAxis.row);
+      expect(root.children.length, 2);
+      expect((root.children[0] as PaneNode).sessionId, 'b');
+      final nested = root.children[1] as SplitNode;
+      expect(nested.axis, SplitAxis.column);
+      expect((nested.children[0] as PaneNode).sessionId, 'a');
+      expect((nested.children[1] as PaneNode).sessionId, 'c');
+    });
+
+    test('the dissolve case: dropped back on its own only sibling, same '
+        'side, reconstructs the original order', () {
+      final expected = ['a', 'b'];
+
+      // row[a, b] — move 'a' onto 'b's own left edge (where 'a' already
+      // was). Removing 'a' dissolves the split down to bare 'b'; the
+      // insert re-finds 'b' fresh and wraps it, landing back where it
+      // started.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .move(sourceId: 'a', targetId: 'b', side: Direction.left);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('the dissolve case: dropped on the opposite side reorders the '
+        'pair', () {
+      final expected = ['b', 'a'];
+
+      // row[a, b] — move 'a' onto 'b's right edge this time.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .move(sourceId: 'a', targetId: 'b', side: Direction.right);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('re-evens ratios at the landing split rather than keeping a '
+        'prior drag', () {
+      final expected = [1 / 3, 1 / 3, 1 / 3];
+
+      // row[a, b, c], then the a|b divider dragged uneven. Moving 'c'
+      // onto 'a's right edge lands back in the same row, which
+      // re-evens via evenRatios regardless of what the drag left
+      // behind.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c');
+      final resized = workspace.resizeSplit(
+        split: workspace.root,
+        dividerIndex: 0,
+        delta: 0.1,
+      );
+      final moved = resized.move(
+        sourceId: 'c',
+        targetId: 'a',
+        side: Direction.right,
+      );
+
+      expect((moved.root as SplitNode).ratios, expected);
+    });
+
+    test('is a no-op when source and target are the same id', () {
+      final expected = ['a', 'b'];
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .move(sourceId: 'a', targetId: 'a', side: Direction.right);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('is a no-op when either id is missing from the tree', () {
+      final expected = ['a', 'b'];
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .move(sourceId: 'z', targetId: 'b', side: Direction.right);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('focuses the moved pane', () {
+      const expected = 'a';
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .focus('c')
+          .move(sourceId: 'a', targetId: 'b', side: Direction.right);
+
+      expect(workspace.focusedId, expected);
+    });
+
+    test('drops a collapse entry the move leaves illegal', () {
+      final expected = <String>{};
+
+      // column[a, b], with 'b' collapsed. Moving 'b' onto 'a's right
+      // edge wraps 'a' in a fresh row holding 'a' and 'b' — 'b's new
+      // parent is a row, where collapse is never legal.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .toggleCollapse('b')
+          .move(sourceId: 'b', targetId: 'a', side: Direction.right);
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('leaves an unrelated pane\'s collapse entry alone', () {
+      final expected = {'d'};
+
+      // (a over b) | (c over d), with 'd' collapsed. Moving 'a' onto
+      // 'b's own right edge (elsewhere entirely) must not touch 'd's
+      // entry — move never changes a branch it doesn't reach into.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .focus('a')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .split(axis: SplitAxis.column, newSessionId: 'd')
+          .toggleCollapse('d')
+          .move(sourceId: 'a', targetId: 'b', side: Direction.right);
+
+      expect(workspace.collapsedIds, expected);
+    });
+  });
 }

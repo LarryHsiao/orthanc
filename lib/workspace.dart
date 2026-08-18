@@ -265,6 +265,125 @@ class Workspace {
     );
   }
 
+  /// Lifts [sourceId] out of the tree and re-splices it in beside
+  /// [targetId], on the side [side] names — `left`/`up` land before the
+  /// target, `right`/`down` land after. A no-op when [sourceId] and
+  /// [targetId] are the same id, or when either is absent from the
+  /// tree. Focuses [sourceId] wherever it lands, same convention as
+  /// [swap]/[split]/[toggleCollapse].
+  ///
+  /// Removal runs first, via the existing [_without] — including
+  /// whatever split dissolution that triggers — and only then does the
+  /// insert step search the tree that remains for [targetId]. A split
+  /// that disappeared during removal was never a valid landing spot, so
+  /// searching fresh is what keeps that case from needing any special
+  /// handling at all.
+  ///
+  /// Collapse cleanup runs through the same [_reconciledCollapse] both
+  /// [close] and [swap] already use.
+  Workspace move({
+    required String sourceId,
+    required String targetId,
+    required Direction side,
+  }) {
+    if (sourceId == targetId) return this;
+    final ids = sessionIds;
+    if (!ids.contains(sourceId) || !ids.contains(targetId)) return this;
+
+    final axis = switch (side) {
+      Direction.left || Direction.right => SplitAxis.row,
+      Direction.up || Direction.down => SplitAxis.column,
+    };
+    final before = side == Direction.left || side == Direction.up;
+
+    final removed = _without(root, sourceId)!;
+    final inserted = _insertAdjacent(
+      removed,
+      targetId,
+      axis,
+      sourceId,
+      before: before,
+    );
+
+    return Workspace(
+      root: inserted,
+      focusedId: sourceId,
+      collapsedIds: _reconciledCollapse(inserted, collapsedIds),
+    );
+  }
+
+  /// Same two rules as [_insertBeside], generalized to an explicit
+  /// [anchorId] and an explicit [before]/after, rather than always
+  /// [focusedId] and always after — kept as its own implementation
+  /// rather than folded into [_insertBeside]'s; unifying them is a
+  /// deliberately deferred follow-up.
+  static LayoutNode _insertAdjacent(
+    LayoutNode node,
+    String anchorId,
+    SplitAxis axis,
+    String newSessionId, {
+    required bool before,
+  }) {
+    if (node is PaneNode) {
+      if (node.sessionId != anchorId) return node;
+      return _wrapAdjacent(node, axis, newSessionId, before: before);
+    }
+
+    final split = node as SplitNode;
+    final at = split.children.indexWhere(
+      (child) => child is PaneNode && child.sessionId == anchorId,
+    );
+
+    if (at != -1 && split.axis == axis) {
+      final children = [...split.children]
+        ..insert(before ? at : at + 1, PaneNode(newSessionId));
+      return SplitNode(
+        axis: axis,
+        children: children,
+        ratios: evenRatios(children.length),
+      );
+    }
+
+    if (at != -1) {
+      final children = [...split.children];
+      children[at] = _wrapAdjacent(
+        children[at],
+        axis,
+        newSessionId,
+        before: before,
+      );
+      return SplitNode(
+        axis: split.axis,
+        children: children,
+        ratios: split.ratios,
+      );
+    }
+
+    return SplitNode(
+      axis: split.axis,
+      children: [
+        for (final child in split.children)
+          _insertAdjacent(child, anchorId, axis, newSessionId, before: before),
+      ],
+      ratios: split.ratios,
+    );
+  }
+
+  static LayoutNode _wrapAdjacent(
+    LayoutNode node,
+    SplitAxis axis,
+    String newSessionId, {
+    required bool before,
+  }) {
+    return SplitNode(
+      axis: axis,
+      children: before
+          ? [PaneNode(newSessionId), node]
+          : [node, PaneNode(newSessionId)],
+      ratios: evenRatios(2),
+    );
+  }
+
   /// Every pane's share of the window, in fractions of the whole.
   ///
   /// The same numbers the widgets lay out by, which is what lets a directional
