@@ -165,10 +165,12 @@ class Workspace {
   /// is the root), the focused pane is replaced by a new split holding both and
   /// the tree deepens by one level. Either way the new pane ends up adjacent to
   /// the focused one; only the shape differs.
+  ///
+  /// Built on the same [_insertAdjacent] [move] uses, anchored to
+  /// [focusedId] and always landing after it.
   Workspace split({required SplitAxis axis, required String newSessionId}) {
-    final wrapped = _wrapIfFocused(root, axis, newSessionId);
     return Workspace(
-      root: wrapped ?? _insertBeside(root, axis, newSessionId),
+      root: _insertAdjacent(root, focusedId, axis, newSessionId, before: false),
       focusedId: newSessionId,
       collapsedIds: collapsedIds,
     );
@@ -312,11 +314,10 @@ class Workspace {
     );
   }
 
-  /// Same two rules as [_insertBeside], generalized to an explicit
-  /// [anchorId] and an explicit [before]/after, rather than always
-  /// [focusedId] and always after — kept as its own implementation
-  /// rather than folded into [_insertBeside]'s; unifying them is a
-  /// deliberately deferred follow-up.
+  /// The same two rules [split] describes — same-axis sibling insert, or
+  /// a cross-axis wrap — generalized to an explicit [anchorId] and an
+  /// explicit [before]/after, rather than always [focusedId] and always
+  /// after. [split] and [move] both build on this one implementation.
   static LayoutNode _insertAdjacent(
     LayoutNode node,
     String anchorId,
@@ -566,98 +567,6 @@ class Workspace {
   static List<double> _renormalized(List<double> ratios) {
     final sum = ratios.fold(0.0, (total, ratio) => total + ratio);
     return [for (final ratio in ratios) ratio / sum];
-  }
-
-  /// Handles the case where the focused pane is the whole tree.
-  LayoutNode? _wrapIfFocused(
-    LayoutNode node,
-    SplitAxis axis,
-    String newSessionId,
-  ) {
-    if (node is PaneNode && node.sessionId == focusedId) {
-      return _wrapInSplit(node, axis, newSessionId);
-    }
-    return null;
-  }
-
-  LayoutNode _insertBeside(
-    LayoutNode node,
-    SplitAxis axis,
-    String newSessionId,
-  ) {
-    if (node is PaneNode) return node;
-
-    final split = node as SplitNode;
-    final at = split.children.indexWhere(
-      (child) => child is PaneNode && child.sessionId == focusedId,
-    );
-
-    if (at != -1 && split.axis == axis) {
-      return _insertSibling(split, at, axis, newSessionId);
-    }
-
-    if (at != -1) {
-      return _wrapFocusedChild(split, at, axis, newSessionId);
-    }
-
-    return _recurseBesideInChildren(split, axis, newSessionId);
-  }
-
-  LayoutNode _insertSibling(
-    SplitNode split,
-    int at,
-    SplitAxis axis,
-    String newSessionId,
-  ) {
-    final children = [...split.children]
-      ..insert(at + 1, PaneNode(newSessionId));
-    return SplitNode(
-      axis: axis,
-      children: children,
-      ratios: evenRatios(children.length),
-    );
-  }
-
-  LayoutNode _wrapFocusedChild(
-    SplitNode split,
-    int at,
-    SplitAxis axis,
-    String newSessionId,
-  ) {
-    final children = [...split.children];
-    children[at] = _wrapInSplit(children[at], axis, newSessionId);
-    return SplitNode(
-      axis: split.axis,
-      children: children,
-      ratios: split.ratios,
-    );
-  }
-
-  LayoutNode _recurseBesideInChildren(
-    SplitNode split,
-    SplitAxis axis,
-    String newSessionId,
-  ) {
-    return SplitNode(
-      axis: split.axis,
-      children: [
-        for (final child in split.children)
-          _insertBeside(child, axis, newSessionId),
-      ],
-      ratios: split.ratios,
-    );
-  }
-
-  LayoutNode _wrapInSplit(
-    LayoutNode node,
-    SplitAxis axis,
-    String newSessionId,
-  ) {
-    return SplitNode(
-      axis: axis,
-      children: [node, PaneNode(newSessionId)],
-      ratios: evenRatios(2),
-    );
   }
 }
 
