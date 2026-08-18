@@ -716,4 +716,99 @@ void main() {
       expect(ids, expected);
     });
   });
+
+  group('Workspace.swap', () {
+    test('a slot keeps its own ratio after a swap changes which session '
+        'fills it', () {
+      final expected = [0.6, 0.4];
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+      final resized = workspace.resizeSplit(
+        split: workspace.root,
+        dividerIndex: 0,
+        delta: 0.1,
+      );
+      final swapped = resized.swap('a', 'b');
+
+      expect((swapped.root as SplitNode).ratios, expected);
+    });
+
+    test('trades which session each slot shows', () {
+      final expected = ['b', 'a'];
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').swap('a', 'b');
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('is a no-op when both ids are the same', () {
+      final expected = ['a', 'b'];
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').swap('a', 'a');
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('reaches across the tree, swapping panes in different branches', () {
+      final expected = ['c', 'b', 'a'];
+
+      // a | (b over c) — swap the row's own first child with the deeper 'c'.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.column, newSessionId: 'c')
+          .swap('a', 'c');
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('focuses the session it swapped, wherever it lands', () {
+      const expected = 'a';
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b').focus('b').swap('a', 'b');
+
+      expect(workspace.focusedId, expected);
+    });
+
+    test('drops a collapse entry the swap leaves illegal', () {
+      final expected = <String>{};
+
+      // column[row[a, c], b], with 'b' collapsed. Swapping 'b' for 'c'
+      // moves 'b' into the row, where collapse is never legal — the
+      // stale entry must not survive.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .toggleCollapse('b')
+          .focus('a')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .swap('b', 'c');
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('leaves an unrelated pane\'s collapse entry alone', () {
+      final expected = {'d'};
+
+      // (a over b) | (c over d), with 'd' collapsed. Swapping 'a' and 'b'
+      // in the left column must not touch the right column's own entry —
+      // a swap never changes tree shape, so 'd's own collapsibility can't
+      // move regardless of what 'a' and 'b' do.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .focus('a')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .split(axis: SplitAxis.column, newSessionId: 'd')
+          .toggleCollapse('d')
+          .swap('a', 'b');
+
+      expect(workspace.collapsedIds, expected);
+    });
+  });
 }

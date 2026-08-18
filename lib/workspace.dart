@@ -230,6 +230,48 @@ class Workspace {
     }
   }
 
+  /// Exchanges the sessions at [sourceId] and [targetId]'s positions in
+  /// the tree. The two [PaneNode] leaves trade which session id they
+  /// hold; nothing about the tree's shape, axes, or ratios changes — a
+  /// slot's size belongs to the slot, not to whichever session currently
+  /// fills it. A no-op when [sourceId] and [targetId] are the same id.
+  /// Focuses [sourceId] wherever it lands, mirroring [toggleCollapse] and
+  /// [split]'s own convention of focusing the pane the operation acted
+  /// on.
+  ///
+  /// Runs the same collapse cleanup [close] already performs: any
+  /// [collapsedIds] entry the swap leaves illegal (its pane's new parent
+  /// no longer a qualifying column) is dropped, and a column the swap
+  /// would leave holding nothing but bars is released back to even
+  /// shares. Neither id is ever added to [collapsedIds] by a swap —
+  /// only entries already present can be dropped.
+  Workspace swap(String sourceId, String targetId) {
+    if (sourceId == targetId) return this;
+
+    final swapped = _swapped(root, sourceId, targetId);
+
+    final collapsibleAfter = <String>{};
+    _collectCollapsible(swapped, collapsibleAfter);
+    final kept = collapsedIds.intersection(collapsibleAfter);
+    _releaseEmptiedColumns(swapped, kept);
+
+    return Workspace(root: swapped, focusedId: sourceId, collapsedIds: kept);
+  }
+
+  static LayoutNode _swapped(LayoutNode node, String a, String b) {
+    if (node is PaneNode) {
+      if (node.sessionId == a) return PaneNode(b);
+      if (node.sessionId == b) return PaneNode(a);
+      return node;
+    }
+    final split = node as SplitNode;
+    return SplitNode(
+      axis: split.axis,
+      children: [for (final child in split.children) _swapped(child, a, b)],
+      ratios: split.ratios,
+    );
+  }
+
   /// Every pane's share of the window, in fractions of the whole.
   ///
   /// The same numbers the widgets lay out by, which is what lets a directional
