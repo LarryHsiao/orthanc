@@ -12,6 +12,7 @@ import 'quake_geometry_store.dart';
 import 'quake_lock.dart';
 import 'quake_summon.dart';
 import 'quake_window.dart';
+import 'quit_dialog.dart';
 import 'settings.dart';
 import 'settings_dialog.dart';
 import 'settings_store.dart';
@@ -136,6 +137,16 @@ class _OrthancAppState extends State<OrthancApp> {
     showShortcutsDialog(context);
   }
 
+  /// Asked for by the "Quit" menu item and its ⌘Q shortcut alike. `exit`
+  /// closes every file descriptor, including the quake lock's — see
+  /// `quake_lock.dart` — so no extra cleanup is owed here.
+  Future<void> _confirmQuit() async {
+    final context = _navigatorKey.currentContext;
+    if (context == null) return;
+    final confirmed = await showQuitDialog(context);
+    if (confirmed) exit(0);
+  }
+
   /// What an emptied window means: an ordinary window exits the process; the
   /// quake window hides instead, so it can be reopened by the next summon.
   void _onEmpty(int exitCode) {
@@ -193,19 +204,42 @@ class _OrthancAppState extends State<OrthancApp> {
               label: 'Keyboard Shortcuts…',
               onSelected: _openShortcuts,
             ),
+            PlatformMenuItem(
+              label: 'Quit',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyQ,
+                meta: true,
+              ),
+              onSelected: _confirmQuit,
+            ),
           ],
         ),
       ],
-      child: MaterialApp(
-        navigatorKey: _navigatorKey,
-        title: 'Orthanc',
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: SafeArea(
-            child: AppRoot(
-              settings: widget.settings,
-              isFirstInstance: widget.kind == InstanceKind.first,
-              onEmpty: _onEmpty,
+      // macOS treats ⌘Q as reserved: a plain PlatformMenuItem's key
+      // equivalent for it is silently dropped, even though the same item's
+      // native menu click fires `onSelected` correctly. This mirrors
+      // WorkspaceView's own ancestor `Focus(onKeyEvent: ...)` — the proven
+      // way a shortcut here still fires while a terminal pane holds focus.
+      // The menu item above keeps its own (currently inert) ⌘Q shortcut
+      // only to render the hint text; if a future Flutter/macOS release
+      // makes that binding fire too, this would double-dispatch on one
+      // press — worth remembering if a double dialog is ever reported.
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyQ, meta: true):
+              _confirmQuit,
+        },
+        child: MaterialApp(
+          navigatorKey: _navigatorKey,
+          title: 'Orthanc',
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            body: SafeArea(
+              child: AppRoot(
+                settings: widget.settings,
+                isFirstInstance: widget.kind == InstanceKind.first,
+                onEmpty: _onEmpty,
+              ),
             ),
           ),
         ),
