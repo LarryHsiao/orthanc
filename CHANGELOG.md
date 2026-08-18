@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.2.0] - 2026-08-18
+
+### Added
+
+- Panes can now be rearranged by dragging a pane's title label. Dropping
+  onto another pane's centre swaps the two sessions in place, sizes staying
+  with their slots. Dropping onto one of its edges instead lifts the
+  dragged pane out and re-splices it in on that side — reordering within
+  the same row or column, or splitting a new one, as the layout calls for.
+
 ## [1.1.18] - 2026-08-17
 
 ### Fixed
@@ -20,4 +30,5 @@ commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/r
   The last expanded pane in a column refuses to collapse, and closing a pane
   releases the collapse of any column it would have emptied.
 
+[1.2.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.2.0
 [1.1.18]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.1.18
