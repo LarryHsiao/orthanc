@@ -190,26 +190,20 @@ class Workspace {
     return Workspace(
       root: remaining,
       focusedId: ids.contains(focusedId) ? focusedId : ids.first,
-      collapsedIds: _survivingCollapsed(remaining, sessionId),
+      collapsedIds: _reconciledCollapse(remaining, collapsedIds),
     );
   }
 
-  /// The collapse entries that carry onto the tree left after a close: the
-  /// closed pane's own entry is dropped, so are entries for panes the new
-  /// shape no longer makes collapsible, and any column left holding nothing
-  /// but bars is released back to even shares.
-  ///
-  /// That last step is the same invariant [toggleCollapse] guards on the way
-  /// in — closing a sibling must not strand a column with no session in view.
-  Set<String> _survivingCollapsed(LayoutNode remaining, String closedId) {
+  /// The collapse entries that survive a structural change to [newRoot]:
+  /// any entry no longer collapsible in the new tree is dropped, and any
+  /// column [newRoot] would otherwise leave holding nothing but bars is
+  /// released back to even shares. Shared by [close], [swap], and [move]
+  /// — the one place this invariant is enforced.
+  Set<String> _reconciledCollapse(LayoutNode newRoot, Set<String> prior) {
     final collapsibleAfter = <String>{};
-    _collectCollapsible(remaining, collapsibleAfter);
-
-    final kept = collapsedIds
-        .where((id) => id != closedId)
-        .toSet()
-        .intersection(collapsibleAfter);
-    _releaseEmptiedColumns(remaining, kept);
+    _collectCollapsible(newRoot, collapsibleAfter);
+    final kept = prior.intersection(collapsibleAfter);
+    _releaseEmptiedColumns(newRoot, kept);
     return kept;
   }
 
@@ -250,12 +244,11 @@ class Workspace {
 
     final swapped = _swapped(root, sourceId, targetId);
 
-    final collapsibleAfter = <String>{};
-    _collectCollapsible(swapped, collapsibleAfter);
-    final kept = collapsedIds.intersection(collapsibleAfter);
-    _releaseEmptiedColumns(swapped, kept);
-
-    return Workspace(root: swapped, focusedId: sourceId, collapsedIds: kept);
+    return Workspace(
+      root: swapped,
+      focusedId: sourceId,
+      collapsedIds: _reconciledCollapse(swapped, collapsedIds),
+    );
   }
 
   static LayoutNode _swapped(LayoutNode node, String a, String b) {
