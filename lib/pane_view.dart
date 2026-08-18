@@ -34,6 +34,12 @@ class PaneView extends StatefulWidget {
     required this.fontSize,
     required this.onToggleCollapse,
     required this.onExpand,
+    required this.canDrag,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.isDropTarget,
+    required this.isBeingDragged,
   });
 
   /// The focus border is painted *over* the pane, never around it. xterm
@@ -78,6 +84,25 @@ class PaneView extends StatefulWidget {
   /// the already-sole-expanded pane).
   final VoidCallback onExpand;
 
+  final bool canDrag;
+  final void Function(String id) onDragStart;
+  final void Function(String id, Offset globalPosition) onDragUpdate;
+  final void Function(String id) onDragEnd;
+
+  /// Whether a dragged pane is currently hovering over this one — paints
+  /// the same style of overlay [focusBorderKey] does, in the drag
+  /// accent.
+  final bool isDropTarget;
+
+  /// Whether this pane is the one currently being dragged — dims via a
+  /// bare [Opacity] wrap rather than any layout change, so xterm never
+  /// reflows mid-drag.
+  final bool isBeingDragged;
+
+  /// Same reasoning as [focusBorderKey] — painted over the pane, never
+  /// around it, so the pty never reflows when a drag starts hovering.
+  static const dropHighlightKey = Key('pane-drop-highlight');
+
   @override
   State<PaneView> createState() => _PaneViewState();
 }
@@ -96,17 +121,21 @@ class _PaneViewState extends State<PaneView> {
       // The body took whatever constraints its parent gave before the Stack
       // stood between them; expand passes those through unchanged, rather
       // than loosening them and leaving the Column to shrink-wrap.
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _paneBody(),
-          if (widget.focused) _focusBorder(),
-          // A collapsed pane has no body for the halo to frame — it carries
-          // the bar's attention fill (PaneBar) alone. Focus already wins by
-          // construction (gaining focus clears the flag), but this gate does
-          // not lean on that ordering either.
-          if (!widget.focused && !widget.collapsed) _attentionBorder(),
-        ],
+      child: Opacity(
+        opacity: widget.isBeingDragged ? 0.5 : 1.0,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _paneBody(),
+            if (widget.focused) _focusBorder(),
+            // A collapsed pane has no body for the halo to frame — it
+            // carries the bar's attention fill (PaneBar) alone. Focus
+            // already wins by construction (gaining focus clears the
+            // flag), but this gate does not lean on that ordering either.
+            if (!widget.focused && !widget.collapsed) _attentionBorder(),
+            if (widget.isDropTarget) _dropHighlight(),
+          ],
+        ),
       ),
     );
   }
@@ -124,6 +153,10 @@ class _PaneViewState extends State<PaneView> {
             attentionAccent: _attentionAccent,
             canCollapse: widget.canCollapse,
             collapsed: widget.collapsed,
+            canDrag: widget.canDrag,
+            onDragStart: widget.onDragStart,
+            onDragUpdate: widget.onDragUpdate,
+            onDragEnd: widget.onDragEnd,
           ),
         ),
         if (!widget.collapsed)
@@ -178,6 +211,18 @@ class _PaneViewState extends State<PaneView> {
           : const SizedBox.shrink(),
     );
   }
+
+  Widget _dropHighlight() => Positioned.fill(
+    child: IgnorePointer(
+      child: DecoratedBox(
+        key: PaneView.dropHighlightKey,
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.15),
+          border: Border.all(color: Colors.amber, width: 2),
+        ),
+      ),
+    ),
+  );
 
   /// A border painted *over* the pane, never around it — see
   /// [focusBorderKey]'s doc comment for why an overlay rather than a

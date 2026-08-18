@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orthanc/pane_bar.dart';
 import 'package:orthanc/pane_view.dart';
 import 'package:orthanc/session.dart';
 import 'package:orthanc/settings.dart';
@@ -17,6 +18,13 @@ void main() {
     required bool focused,
     bool collapsed = false,
     Session? session,
+    bool canCollapse = false,
+    VoidCallback? onToggleCollapse,
+    VoidCallback? onExpand,
+    bool canDrag = false,
+    void Function(String id)? onDragStart,
+    void Function(String id, Offset globalPosition)? onDragUpdate,
+    void Function(String id)? onDragEnd,
   }) async {
     final theSession = session ?? Session(id: 'a', executable: 'cmd.exe');
     addTearDown(theSession.dispose);
@@ -28,15 +36,21 @@ void main() {
             focused: focused,
             onFocus: () {},
             onKeyEvent: (node, event) => KeyEventResult.ignored,
-            canCollapse: false,
+            canCollapse: canCollapse,
             collapsed: collapsed,
             theme: theme,
             fontFamily: terminalFontFamilyName(
               TerminalFontFamily.defaultFamily,
             ),
             fontSize: defaultTerminalFontSize,
-            onToggleCollapse: () {},
-            onExpand: () {},
+            onToggleCollapse: onToggleCollapse ?? () {},
+            onExpand: onExpand ?? () {},
+            canDrag: canDrag,
+            onDragStart: onDragStart ?? (_) {},
+            onDragUpdate: onDragUpdate ?? (_, _) {},
+            onDragEnd: onDragEnd ?? (_) {},
+            isDropTarget: false,
+            isBeingDragged: false,
           ),
         ),
       ),
@@ -97,6 +111,72 @@ void main() {
     await pumpPaneView(tester, focused: true);
 
     expect(tester.getSize(find.byType(TerminalView)), expected);
+  });
+
+  testWidgets('dragging the grip does not also toggle collapse', (
+    tester,
+  ) async {
+    var toggled = false;
+
+    await pumpPaneView(
+      tester,
+      focused: false,
+      canDrag: true,
+      canCollapse: true,
+      onToggleCollapse: () => toggled = true,
+    );
+    await tester.drag(find.byKey(PaneBar.gripKey), const Offset(40, 0));
+    // PaneView's outer GestureDetector sets both onTap and onDoubleTap
+    // (canCollapse is true), so a DoubleTapGestureRecognizer arms on every
+    // pointer-down to disambiguate — let it fully resolve before the test
+    // tears down, or a live Timer survives the widget tree and fails the
+    // framework's own invariant check.
+    await tester.pump(kDoubleTapTimeout);
+
+    expect(toggled, isFalse);
+  });
+
+  testWidgets('an ordinary tap on the bar still toggles collapse', (
+    tester,
+  ) async {
+    var toggled = false;
+
+    await pumpPaneView(
+      tester,
+      focused: false,
+      canDrag: true,
+      canCollapse: true,
+      onToggleCollapse: () => toggled = true,
+    );
+    await tester.tap(find.byType(PaneBar));
+    // onDoubleTap is also wired here, so Flutter defers onTap until it's
+    // sure a second tap isn't coming — wait out that disambiguation window.
+    await tester.pump(kDoubleTapTimeout);
+
+    expect(toggled, isTrue);
+  });
+
+  testWidgets('an ordinary double-tap on the bar still expands', (
+    tester,
+  ) async {
+    var expanded = false;
+
+    await pumpPaneView(
+      tester,
+      focused: false,
+      canDrag: true,
+      canCollapse: true,
+      onExpand: () => expanded = true,
+    );
+    await tester.tap(find.byType(PaneBar));
+    // The second tap must land at least kDoubleTapMinTime after the first
+    // — closer than that and Flutter's recognizer treats it as noise, not
+    // a real double-tap — and within kDoubleTapTimeout of it.
+    await tester.pump(kDoubleTapMinTime);
+    await tester.tap(find.byType(PaneBar));
+    await tester.pump(kDoubleTapTimeout);
+
+    expect(expanded, isTrue);
   });
 
   BoxDecoration attentionBorder(WidgetTester tester) =>

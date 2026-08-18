@@ -33,6 +33,12 @@ class SplitView extends StatelessWidget {
     required this.onToggleCollapse,
     required this.onExpand,
     required this.onKeyEvent,
+    required this.canDrag,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.dragSourceId,
+    required this.dragHoverId,
   });
 
   static const dividerThickness = 4.0;
@@ -59,6 +65,18 @@ class SplitView extends StatelessWidget {
   final void Function(String id) onExpand;
   final FocusOnKeyEventCallback onKeyEvent;
 
+  final bool canDrag;
+  final void Function(String id) onDragStart;
+  final void Function(String id, Offset globalPosition) onDragUpdate;
+  final void Function(String id) onDragEnd;
+
+  /// The pane currently being dragged, or null when no drag is in
+  /// progress.
+  final String? dragSourceId;
+
+  /// The pane currently under the dragged pointer, or null.
+  final String? dragHoverId;
+
   @override
   Widget build(BuildContext context) {
     return switch (node) {
@@ -84,6 +102,12 @@ class SplitView extends StatelessWidget {
       fontSize: fontSize,
       onToggleCollapse: () => onToggleCollapse(sessionId),
       onExpand: () => onExpand(sessionId),
+      canDrag: canDrag,
+      onDragStart: onDragStart,
+      onDragUpdate: onDragUpdate,
+      onDragEnd: onDragEnd,
+      isBeingDragged: sessionId == dragSourceId,
+      isDropTarget: sessionId == dragHoverId,
     );
   }
 
@@ -217,6 +241,12 @@ class SplitView extends StatelessWidget {
       onToggleCollapse: onToggleCollapse,
       onExpand: onExpand,
       onKeyEvent: onKeyEvent,
+      canDrag: canDrag,
+      onDragStart: onDragStart,
+      onDragUpdate: onDragUpdate,
+      onDragEnd: onDragEnd,
+      dragSourceId: dragSourceId,
+      dragHoverId: dragHoverId,
     );
   }
 

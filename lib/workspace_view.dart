@@ -41,6 +41,9 @@ class WorkspaceView extends StatefulWidget {
 class _WorkspaceViewState extends State<WorkspaceView> {
   late final sessions = Sessions(settings: widget.settings);
   late Workspace workspace;
+  final _boundsKey = GlobalKey();
+  String? _dragSourceId;
+  String? _dragHoverId;
 
   // kill() (called by Sessions.remove(), via Session.dispose()) only
   // requests termination — exitCode's future, and thus the listener
@@ -132,6 +135,51 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     _requestFocus(id);
   }
 
+  void _onDragStart(String id) {
+    setState(() => _dragSourceId = id);
+  }
+
+  void _onDragUpdate(String id, Offset globalPosition) {
+    final target = _paneAt(globalPosition);
+    final next = (target != null && target != id) ? target : null;
+    if (next == _dragHoverId) return;
+    setState(() => _dragHoverId = next);
+  }
+
+  void _onDragEnd(String id) {
+    final target = _dragHoverId;
+    setState(() {
+      _dragSourceId = null;
+      _dragHoverId = null;
+      if (target != null) workspace = workspace.swap(id, target);
+    });
+  }
+
+  /// The pane whose [Workspace.paneRects] rectangle contains
+  /// [globalPosition], or null when the point falls outside every pane
+  /// (the divider gutter, or off the tree entirely) — converted through
+  /// [_boundsKey]'s own box into the same 0..1 fractional space
+  /// [Workspace.paneRects] already speaks.
+  String? _paneAt(Offset globalPosition) {
+    final box = _boundsKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || box.size.isEmpty) return null;
+
+    final local = box.globalToLocal(globalPosition);
+    final fx = local.dx / box.size.width;
+    final fy = local.dy / box.size.height;
+
+    for (final entry in workspace.paneRects().entries) {
+      final rect = entry.value;
+      if (fx >= rect.left &&
+          fx <= rect.right &&
+          fy >= rect.top &&
+          fy <= rect.bottom) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
   /// Moves keyboard focus onto [id]'s session, once end of frame arrives.
   ///
   /// `autofocus` is honoured only once, when a node first registers into a
@@ -221,29 +269,38 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           // _onKey's doc for why this is not a backstop for the no-focus
           // case.
           onKeyEvent: _onKey,
-          child: SplitView(
-            node: workspace.root,
-            sessions: sessions,
-            focusedId: workspace.focusedId,
-            highlightFocus: workspace.isSplit,
-            collapsedIds: workspace.collapsedIds,
-            collapsibleIds: workspace.collapsibleIds,
-            theme: terminalThemeFor(settings.colorScheme),
-            fontFamily: terminalFontFamilyName(settings.fontFamily),
-            fontSize: clampFontSize(
-              settings.fontSize ?? defaultTerminalFontSize,
+          child: Container(
+            key: _boundsKey,
+            child: SplitView(
+              node: workspace.root,
+              sessions: sessions,
+              focusedId: workspace.focusedId,
+              highlightFocus: workspace.isSplit,
+              collapsedIds: workspace.collapsedIds,
+              collapsibleIds: workspace.collapsibleIds,
+              theme: terminalThemeFor(settings.colorScheme),
+              fontFamily: terminalFontFamilyName(settings.fontFamily),
+              fontSize: clampFontSize(
+                settings.fontSize ?? defaultTerminalFontSize,
+              ),
+              onFocus: _onPaneFocus,
+              onKeyEvent: _onKey,
+              onToggleCollapse: _toggleCollapse,
+              onExpand: _expand,
+              onResize: (split, index, delta) => setState(() {
+                workspace = workspace.resizeSplit(
+                  split: split,
+                  dividerIndex: index,
+                  delta: delta,
+                );
+              }),
+              canDrag: workspace.isSplit,
+              onDragStart: _onDragStart,
+              onDragUpdate: _onDragUpdate,
+              onDragEnd: _onDragEnd,
+              dragSourceId: _dragSourceId,
+              dragHoverId: _dragHoverId,
             ),
-            onFocus: _onPaneFocus,
-            onKeyEvent: _onKey,
-            onToggleCollapse: _toggleCollapse,
-            onExpand: _expand,
-            onResize: (split, index, delta) => setState(() {
-              workspace = workspace.resizeSplit(
-                split: split,
-                dividerIndex: index,
-                delta: delta,
-              );
-            }),
           ),
         );
       },
