@@ -145,6 +145,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     Pty.offerReply(offer, true);
 
     final session = sessions.adopt(executable: metadata.executable);
+    _watchExit(session);
     session.manualName.value = metadata.manualName;
     session.name.value = metadata.name;
     session.activity.value = metadata.activity;
@@ -160,10 +161,22 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 
   Session _open() {
     final session = sessions.spawn();
+    _watchExit(session);
+    return session;
+  }
+
+  /// Closes [session]'s own pane once its process exits on its own —
+  /// registered for every session this window comes to hold, however it
+  /// arrived: freshly spawned ([_open]) or adopted from a handoff
+  /// ([_handleOffer]). Easy to forget for the latter, since adoption has
+  /// no other reason to reach into [WorkspaceView] at all — the pty's own
+  /// exit signal is already correctly wired regardless (see
+  /// [Session.adoptPty]/`_wire`), only *this* window's reaction to it is
+  /// each session's own responsibility to ask for.
+  void _watchExit(Session session) {
     session.exitCode.then((code) {
       if (mounted) _close(session.id, exitCode: code);
     });
-    return session;
   }
 
   /// A finished session closes its own pane; the last one empties this
