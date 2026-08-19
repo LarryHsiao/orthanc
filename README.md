@@ -15,7 +15,7 @@ Linux is not supported.
 
 Twenty tagged releases stand, `v1.0.0` through `v1.1.18`, built and published
 for both platforms. Milestones 0 and 1 are complete and walked by hand on macOS
-and Windows alike. `flutter test` runs 329 green.
+and Windows alike. `flutter test` runs 428 green.
 
 Everything since Milestone 1 has been ordinary feature work.
 
@@ -188,7 +188,7 @@ pane that wants no color can still set `NO_COLOR` for itself.
 flutter test
 ```
 
-329 tests across 32 files. The pure decisions above are unit-tested directly,
+428 tests across 37 files. The pure decisions above are unit-tested directly,
 along with the layout tree, title composition, and settings validation and
 (de)serialization; the pane bar and the settings dialog carry widget tests. The
 pty/terminal wiring itself can only be judged by actually running the app — see
