@@ -143,7 +143,14 @@ flutter:
 # Fork branch: orthanc-windows-command-quoting
 # Upstream PR: not filed
 #
-# Override until a real release includes this fix.
+# main also now carries pty pause/resume (pty_detach/pty_resume) and a
+# cross-process pty transfer protocol (pty_discard/pty_listen/pty_accept/
+# pty_offer_reply/pty_send, AF_UNIX + SCM_RIGHTS on POSIX) built for
+# orthanc's own cross-instance pane-handoff feature, still in progress.
+# The fork's own commit history is the source of truth for this API;
+# Windows mirror of the transfer protocol is not yet built.
+#
+# Override until a real release includes any of this.
 dependency_overrides:
   xterm:
     git:
@@ -152,4 +159,4 @@ dependency_overrides:
   flutter_pty:
     git:
       url: https://github.com/LarryHsiao/flutter_pty.git
-      ref: c7c9deb
+      ref: ddee434

@@ -170,8 +170,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: c7c9deb
-      resolved-ref: c7c9deb79660038937ca5deb301cc736ed21d34d
+      ref: ddee434
+      resolved-ref: ddee434cefb354fb0393fe809a594fd82f786b1c
       url: "https://github.com/LarryHsiao/flutter_pty.git"
     source: git
     version: "0.4.2"
