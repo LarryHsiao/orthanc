@@ -124,4 +124,77 @@ void main() {
       expect(p.basename(result.single.path), expected);
     });
   });
+
+  group('liveHandoffEndpoints', () {
+    test('excludes ownPid even when it is alive', () {
+      const expected = <int>[];
+      handoffEndpointFile(supportDir: tempDir, pid: 111).createSync();
+
+      final result = liveHandoffEndpoints(
+        supportDir: tempDir,
+        ownPid: 111,
+        isAlive: (pid) => true,
+      );
+
+      expect(result.map((e) => e.pid).toList(), expected);
+    });
+
+    test('excludes a dead pid even when it is not ownPid', () {
+      const expected = <int>[];
+      handoffEndpointFile(supportDir: tempDir, pid: 222).createSync();
+
+      final result = liveHandoffEndpoints(
+        supportDir: tempDir,
+        ownPid: 111,
+        isAlive: (pid) => false,
+      );
+
+      expect(result.map((e) => e.pid).toList(), expected);
+    });
+
+    test('finds another live instance, paired with its pid', () {
+      const expected = 222;
+      handoffEndpointFile(supportDir: tempDir, pid: 222).createSync();
+
+      final result = liveHandoffEndpoints(
+        supportDir: tempDir,
+        ownPid: 111,
+        isAlive: (pid) => true,
+      );
+
+      expect(result.length, 1);
+      expect(result.single.pid, expected);
+      expect(p.basename(result.single.file.path), 'handoff-222.sock');
+    });
+
+    test('a mix of self, dead, and live keeps only the live other', () {
+      const expected = 333;
+      handoffEndpointFile(supportDir: tempDir, pid: 111).createSync(); // self
+      handoffEndpointFile(supportDir: tempDir, pid: 222).createSync(); // dead
+      handoffEndpointFile(supportDir: tempDir, pid: 333).createSync(); // live
+      final alive = {111, 333};
+
+      final result = liveHandoffEndpoints(
+        supportDir: tempDir,
+        ownPid: 111,
+        isAlive: alive.contains,
+      );
+
+      expect(result.length, 1);
+      expect(result.single.pid, expected);
+    });
+
+    test('returns empty for a support directory that does not exist yet', () {
+      const expected = <int>[];
+      final missing = Directory(p.join(tempDir.path, 'does-not-exist'));
+
+      final result = liveHandoffEndpoints(
+        supportDir: missing,
+        ownPid: 111,
+        isAlive: (pid) => true,
+      );
+
+      expect(result.map((e) => e.pid).toList(), expected);
+    });
+  });
 }

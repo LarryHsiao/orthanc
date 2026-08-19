@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 
+import 'handoff_endpoint.dart';
 import 'handoff_offer.dart';
 import 'layout_node.dart';
 import 'new_instance.dart';
@@ -45,6 +46,12 @@ import 'workspace.dart';
   }
   return null;
 }
+
+/// A liveness probe for [liveHandoffEndpoints] — `SIGCONT` is the closest
+/// substitute `dart:io` exposes for a bare POSIX `kill(pid, 0)`: delivered,
+/// it is a no-op for a normally-running process, and [Process.killPid]
+/// reports whether the target existed to receive it at all.
+bool _isProcessAlive(int pid) => Process.killPid(pid, ProcessSignal.sigcont);
 
 /// The window: the sessions, their arrangement, and the keys that change it.
 class WorkspaceView extends StatefulWidget {
@@ -168,7 +175,18 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   /// hotkey has no process exit code yet, so it keeps using 0.
   void _close(String id, {int exitCode = 0}) {
     if (!_closed.add(id)) return;
+    _finishRemoval(id, exitCode: exitCode);
+  }
 
+  /// The shared tail of a pane leaving this window's tree and registry,
+  /// for good — whether it died ([_close]) or departed alive to another
+  /// window ([_attemptCrossInstanceHandoff]). Callers are responsible for
+  /// their own claim on [_closed] *before* calling this: [_close] claims
+  /// it itself; [_attemptCrossInstanceHandoff] must already hold it by the
+  /// time a handoff is confirmed accepted, since [sessions.remove] here is
+  /// safe to call on a departed session only because its pty is already
+  /// gone by then — see [Session.handOffTo].
+  void _finishRemoval(String id, {int exitCode = 0}) {
     final next = workspace.close(id);
     if (next == null) {
       sessions.disposeAll();
@@ -259,11 +277,87 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       _dragSourceId = null;
       _dragHoverId = null;
       _dragHoverSide = null;
-      if (target == null) return;
-      workspace = side == null
-          ? workspace.swap(id, target)
-          : workspace.move(sourceId: id, targetId: target, side: side);
+      if (target != null) {
+        workspace = side == null
+            ? workspace.swap(id, target)
+            : workspace.move(sourceId: id, targetId: target, side: side);
+      }
     });
+    // A drop with no in-tree target means the pointer left this window
+    // entirely — the one existing case (the divider gutter, or off the
+    // tree) and the new one (another instance's window) share this same
+    // signal; only a real handoff attempt tells them apart.
+    if (target == null) unawaited(_attemptCrossInstanceHandoff(id));
+  }
+
+  /// Tries to hand [id]'s pane to another running instance, when a drag
+  /// ends outside this window's own tree. The "dumb" discovery this step
+  /// ships with: the first other live instance found, landing beside its
+  /// own `focusedId` — real drop-point geometry is separate, later work.
+  ///
+  /// Claims [_closed] for [id] *before* any `await`, for the whole
+  /// in-flight window: [Session.handOffTo]'s own doc warns that
+  /// discarding or killing a pty racing its own in-flight send is unsafe,
+  /// and an ordinary hotkey close reaching this same id mid-attempt would
+  /// do exactly that. Every early return releases the claim again; only a
+  /// confirmed acceptance keeps it, feeding into [_finishRemoval] (which
+  /// never re-claims it — the claim already made is what it relies on).
+  Future<void> _attemptCrossInstanceHandoff(String id) async {
+    if (!_closed.add(id)) return;
+
+    final session = sessions[id];
+    final childPid = session?.pid;
+    if (session == null || childPid == null) {
+      _closed.remove(id);
+      return;
+    }
+
+    final endpoints = liveHandoffEndpoints(
+      supportDir: widget.supportDir,
+      ownPid: pid,
+      isAlive: _isProcessAlive,
+    );
+    if (endpoints.isEmpty) {
+      _closed.remove(id); // nobody else running — pane stays exactly put
+      return;
+    }
+    final target = endpoints.first;
+
+    final metadata = utf8.encode(
+      encodePaneOffer(
+        PaneOffer(
+          manualName: session.manualName.value,
+          name: session.name.value,
+          activity: session.activity.value,
+          executable: session.executable,
+          pid: childPid,
+          rows: session.terminal.viewHeight,
+          columns: session.terminal.viewWidth,
+        ),
+      ),
+    );
+
+    bool accepted;
+    try {
+      accepted = await session.handOffTo(
+        target.file.path,
+        metadata: metadata,
+        targetPid: target.pid,
+      );
+    } catch (_) {
+      // handOffTo can throw uncaught if detach() itself fails (e.g. a
+      // reentrant call) — treated the same as an ordinary rejection
+      // rather than left to escape unhandled from a fire-and-forget call.
+      accepted = false;
+    }
+
+    if (!mounted) return;
+    if (!accepted) {
+      _closed.remove(id); // rejected, or the send itself failed — the
+      // pane already resumed inside handOffTo; nothing here changed.
+      return;
+    }
+    _finishRemoval(id);
   }
 
   /// Moves keyboard focus onto [id]'s session, once end of frame arrives.

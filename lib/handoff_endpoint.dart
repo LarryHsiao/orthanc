@@ -14,6 +14,21 @@ File handoffEndpointFile({required Directory supportDir, required int pid}) {
 
 final _handoffEndpointName = RegExp(r'^handoff-(\d+)\.sock$');
 
+/// Every `handoff-<pid>.sock` file under [supportDir], paired with the pid
+/// parsed from its own name — the one place that naming pattern is read.
+/// Shared by [staleHandoffEndpoints] and [liveHandoffEndpoints], which
+/// differ only in which half of the split they keep.
+Iterable<({File file, int pid})> _handoffEndpoints(Directory supportDir) sync* {
+  if (!supportDir.existsSync()) return;
+
+  for (final entity in supportDir.listSync()) {
+    if (entity is! File) continue;
+    final match = _handoffEndpointName.firstMatch(p.basename(entity.path));
+    if (match == null) continue;
+    yield (file: entity, pid: int.parse(match.group(1)!));
+  }
+}
+
 /// Every handoff endpoint under [supportDir] left behind by a process that
 /// no longer exists — a crashed instance never gets the chance to close
 /// its own listening socket, so its file lingers until something sweeps
@@ -29,11 +44,25 @@ List<File> staleHandoffEndpoints({
   required Directory supportDir,
   required bool Function(int pid) isAlive,
 }) {
-  if (!supportDir.existsSync()) return [];
+  return [
+    for (final endpoint in _handoffEndpoints(supportDir))
+      if (!isAlive(endpoint.pid)) endpoint.file,
+  ];
+}
 
-  return supportDir.listSync().whereType<File>().where((file) {
-    final match = _handoffEndpointName.firstMatch(p.basename(file.path));
-    if (match == null) return false;
-    return !isAlive(int.parse(match.group(1)!));
-  }).toList();
+/// Every *other* live handoff endpoint under [supportDir] — a running
+/// instance's own socket, excluding [ownPid] — the candidates an outgoing
+/// pane handoff may be addressed to. Paired with each endpoint's pid,
+/// since a sender needs both: the path itself, and the pid to pass through
+/// as `Pty.send`'s `targetPid` (meaningful on Windows, where a receiving
+/// process must be named explicitly for `DuplicateHandle`).
+List<({File file, int pid})> liveHandoffEndpoints({
+  required Directory supportDir,
+  required int ownPid,
+  required bool Function(int pid) isAlive,
+}) {
+  return [
+    for (final endpoint in _handoffEndpoints(supportDir))
+      if (endpoint.pid != ownPid && isAlive(endpoint.pid)) endpoint,
+  ];
 }

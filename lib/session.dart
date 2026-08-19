@@ -114,6 +114,12 @@ class Session {
 
   Future<int> get exitCode => _exited.future;
 
+  /// The pty's own child process id, or null before [start]/[adoptPty] has
+  /// run — needed by a caller handing this session off to another window,
+  /// which must read it *before* [handOffTo] releases the pty, for the
+  /// [PaneOffer] the receiving side's `Pty.accept` requires it in.
+  int? get pid => _pty?.pid;
+
   void start() {
     if (_pty != null) return;
     final pty = _spawn();
