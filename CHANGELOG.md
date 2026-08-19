@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.3.0] - 2026-08-19
+
+### Added
+
+- A pane can now be dragged out of its window entirely and handed off to
+  another running Orthanc instance — the live session, process and all,
+  survives the move with no restart. The pane currently lands on the
+  target window's focused pane rather than the exact drop point, and
+  scrollback isn't carried across yet; both are planned. macOS only for
+  now — Windows support is still in progress.
+
 ## [1.2.0] - 2026-08-18
 
 ### Added
@@ -30,5 +41,6 @@ commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/r
   The last expanded pane in a column refuses to collapse, and closing a pane
   releases the collapse of any column it would have emptied.
 
+[1.3.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.3.0
 [1.2.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.2.0
 [1.1.18]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.1.18
