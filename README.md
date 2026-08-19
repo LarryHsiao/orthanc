@@ -17,13 +17,7 @@ Twenty tagged releases stand, `v1.0.0` through `v1.1.18`, built and published
 for both platforms. Milestones 0 and 1 are complete and walked by hand on macOS
 and Windows alike. `flutter test` runs 329 green.
 
-Everything since Milestone 1 has been ordinary feature work. Most of it carries
-its own design spec and implementation plan under `docs/superpowers/`: pane
-titles, pane collapse, pane rename, a configurable startup executable, OSC 8
-terminal hyperlinks, terminal appearance settings (color scheme and font), and
-a second OS window on both platforms. A few smaller pieces — the focused-pane
-border and the pending-attention marker — shipped without a design doc of
-their own, in the same shape as the ones that came before them.
+Everything since Milestone 1 has been ordinary feature work.
 
 ## What it does
 
