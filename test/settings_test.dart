@@ -100,4 +100,21 @@ void main() {
 
     expect(result.fontSize, expected);
   });
+
+  test('round-trips startQuakeAtLogin through json', () {
+    const expected = true;
+    final settings = Settings(startQuakeAtLogin: expected);
+
+    final result = settingsFromJson(settingsToJson(settings));
+
+    expect(result.startQuakeAtLogin, expected);
+  });
+
+  test('a missing startQuakeAtLogin field decodes to false', () {
+    const expected = false;
+
+    final result = settingsFromJson(const {});
+
+    expect(result.startQuakeAtLogin, expected);
+  });
 }

@@ -35,12 +35,14 @@ class Settings {
     this.colorScheme = TerminalColorScheme.defaultScheme,
     this.fontFamily = TerminalFontFamily.defaultFamily,
     this.fontSize,
+    this.startQuakeAtLogin = false,
   });
 
   final String? executablePath;
   final TerminalColorScheme colorScheme;
   final TerminalFontFamily fontFamily;
   final double? fontSize;
+  final bool startQuakeAtLogin;
 }
 
 /// A blank path means "use the default" — normalized to null wherever a
@@ -56,6 +58,7 @@ Map<String, dynamic> settingsToJson(Settings settings) {
     'colorScheme': settings.colorScheme.name,
     'fontFamily': settings.fontFamily.name,
     'fontSize': settings.fontSize,
+    'startQuakeAtLogin': settings.startQuakeAtLogin,
   };
 }
 
@@ -65,6 +68,7 @@ Settings settingsFromJson(Map<String, dynamic> json) {
     colorScheme: _colorSchemeFromName(json['colorScheme'] as String?),
     fontFamily: _fontFamilyFromName(json['fontFamily'] as String?),
     fontSize: (json['fontSize'] as num?)?.toDouble(),
+    startQuakeAtLogin: json['startQuakeAtLogin'] as bool? ?? false,
   );
 }
 

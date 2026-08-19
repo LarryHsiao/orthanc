@@ -26,6 +26,7 @@ void main() {
     Settings initial = const Settings(),
     bool Function(String)? exists,
     String version = '1.1.4',
+    Future<void> Function(bool)? setLaunchAtLogin,
   }) async {
     final settings = ValueNotifier(initial);
     final file = File('${tempDir.path}/settings.json');
@@ -40,6 +41,7 @@ void main() {
               exists: exists ?? (_) => true,
               detectedDefault: 'cmd.exe',
               version: version,
+              setLaunchAtLogin: setLaunchAtLogin ?? (_) async {},
             ),
             child: const Text('open'),
           ),
@@ -387,5 +389,90 @@ void main() {
 
     expect(settings.value.fontFamily, expectedFamily);
     expect(settings.value.fontSize, expectedSize);
+  });
+
+  testWidgets(
+    'start-quake-at-login checkbox is prefilled with the current setting',
+    (tester) async {
+      const expected = true;
+
+      await pumpDialog(
+        tester,
+        initial: const Settings(startQuakeAtLogin: expected),
+      );
+
+      final checkbox = tester.widget<CheckboxListTile>(
+        find.byType(CheckboxListTile),
+      );
+      expect(checkbox.value, expected);
+    },
+  );
+
+  testWidgets('Save persists the toggled start-quake-at-login setting', (
+    tester,
+  ) async {
+    const expected = true;
+    final settings = await pumpDialog(tester);
+
+    await tester.ensureVisible(find.byType(CheckboxListTile));
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(settings.value.startQuakeAtLogin, expected);
+  });
+
+  testWidgets(
+    'Cancel does not persist a toggled start-quake-at-login setting',
+    (tester) async {
+      const expected = false;
+      final settings = await pumpDialog(tester);
+
+      await tester.ensureVisible(find.byType(CheckboxListTile));
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(settings.value.startQuakeAtLogin, expected);
+    },
+  );
+
+  group('native login-item registration', () {
+    testWidgets('Save with a toggled setting calls setLaunchAtLogin', (
+      tester,
+    ) async {
+      const expected = [true];
+      final calls = <bool>[];
+      await pumpDialog(
+        tester,
+        setLaunchAtLogin: (enabled) async => calls.add(enabled),
+      );
+
+      await tester.ensureVisible(find.byType(CheckboxListTile));
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(calls, expected);
+    });
+
+    testWidgets(
+      'Save with an unchanged setting does not call setLaunchAtLogin',
+      (tester) async {
+        const expected = <bool>[];
+        final calls = <bool>[];
+        await pumpDialog(
+          tester,
+          setLaunchAtLogin: (enabled) async => calls.add(enabled),
+        );
+
+        await tester.tap(find.widgetWithText(TextButton, 'Save'));
+        await tester.pumpAndSettle();
+
+        expect(calls, expected);
+      },
+    );
   });
 }

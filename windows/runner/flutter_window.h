@@ -34,6 +34,13 @@ class FlutterWindow : public Win32Window {
       const flutter::MethodCall<flutter::EncodableValue>& call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
+  // Dispatches a call arriving on |launch_at_login_channel_|, writing or
+  // removing this app's `Run` registry value. See `launch_at_login.dart` for
+  // the Dart side of the same contract.
+  void HandleLaunchAtLoginMethodCall(
+      const flutter::MethodCall<flutter::EncodableValue>& call,
+      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+
   // Restores the window, positions it per |arguments| (a {x, y, width,
   // height} map, or null to leave the frame as it is), and forces it to the
   // foreground.
@@ -59,6 +66,12 @@ class FlutterWindow : public Win32Window {
   // side of the same contract.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       quake_channel_;
+
+  // Registers or unregisters this app as a login item. Constructed for every
+  // instance, same as |system_menu_channel_| — Settings is reachable from any
+  // window, not just the quake one.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      launch_at_login_channel_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

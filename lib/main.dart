@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'app_root.dart';
 import 'handoff_endpoint.dart';
+import 'home_directory.dart';
+import 'launch_at_login.dart';
 import 'new_instance.dart';
 import 'quake_geometry_store.dart';
 import 'quake_lock.dart';
@@ -145,6 +147,17 @@ class _OrthancAppState extends State<OrthancApp> {
         environment: Platform.environment,
       ),
       version: info.version,
+      setLaunchAtLogin: (enabled) => const LaunchAtLogin().setEnabled(
+        enabled,
+        isWindows: Platform.isWindows,
+        isMacOS: Platform.isMacOS,
+        homeDir: homeDirectory(
+          isWindows: Platform.isWindows,
+          environment: Platform.environment,
+        ),
+        bundleId: info.packageName,
+        resolvedExecutable: Platform.resolvedExecutable,
+      ),
     );
   }
 

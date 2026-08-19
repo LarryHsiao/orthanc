@@ -1,6 +1,7 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <string>
 #include <variant>
 
 #include "flutter/generated_plugin_registrant.h"
@@ -16,6 +17,38 @@ constexpr UINT_PTR kQuakeMenuId = 0x1020;
 // WM_HOTKEY ids are a separate namespace from menu ids — no multiple-of-16
 // constraint applies.
 constexpr int kQuakeHotKeyId = 1;
+
+// Where the "start at login" registration lives. HKCU needs no elevation and
+// applies only to the current user, matching how the app itself installs.
+constexpr wchar_t kRunKeyPath[] =
+    L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+constexpr wchar_t kRunValueName[] = L"Orthanc Quake Mode";
+
+// Writes or removes the `Run` value that starts this app in quake mode at
+// login. Errors are swallowed by design, the same as `registerHotKey` above —
+// there is no good place to surface a registry failure to the user, and a
+// failed write simply leaves login-start off.
+void SetLaunchAtLogin(bool enabled) {
+  HKEY key;
+  if (RegCreateKeyExW(HKEY_CURRENT_USER, kRunKeyPath, 0, nullptr, 0,
+                       KEY_SET_VALUE, nullptr, &key,
+                       nullptr) != ERROR_SUCCESS) {
+    return;
+  }
+  if (enabled) {
+    wchar_t exePath[MAX_PATH];
+    DWORD length = GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    if (length > 0 && length < MAX_PATH) {
+      std::wstring command = L"\"" + std::wstring(exePath) + L"\" quake";
+      RegSetValueExW(key, kRunValueName, 0, REG_SZ,
+                     reinterpret_cast<const BYTE*>(command.c_str()),
+                     static_cast<DWORD>((command.size() + 1) * sizeof(wchar_t)));
+    }
+  } else {
+    RegDeleteValueW(key, kRunValueName);
+  }
+  RegCloseKey(key);
+}
 
 // The title bar's native right-click/system menu has no Flutter-side
 // equivalent, so this appends "Settings…", "Keyboard Shortcuts…" and "Quake
@@ -124,6 +157,18 @@ bool FlutterWindow::OnCreate() {
           flutter_controller_->engine()->messenger(), "orthanc/system_menu",
           &flutter::StandardMethodCodec::GetInstance());
 
+  launch_at_login_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "orthanc/launch_at_login",
+          &flutter::StandardMethodCodec::GetInstance());
+  launch_at_login_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+                 result) {
+        HandleLaunchAtLoginMethodCall(call, std::move(result));
+      });
+
   if (quake_) {
     quake_channel_ =
         std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
@@ -191,6 +236,28 @@ void FlutterWindow::HandleQuakeMethodCall(
   }
   if (call.method_name() == "hide") {
     ShowWindow(GetHandle(), SW_MINIMIZE);
+    result->Success();
+    return;
+  }
+  result->NotImplemented();
+}
+
+void FlutterWindow::HandleLaunchAtLoginMethodCall(
+    const flutter::MethodCall<flutter::EncodableValue>& call,
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  if (call.method_name() == "setEnabled") {
+    const auto* map =
+        std::get_if<flutter::EncodableMap>(call.arguments());
+    bool enabled = false;
+    if (map) {
+      auto it = map->find(flutter::EncodableValue("enabled"));
+      if (it != map->end()) {
+        if (const auto* value = std::get_if<bool>(&it->second)) {
+          enabled = *value;
+        }
+      }
+    }
+    SetLaunchAtLogin(enabled);
     result->Success();
     return;
   }

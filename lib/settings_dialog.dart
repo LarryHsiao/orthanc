@@ -18,6 +18,7 @@ Future<void> showSettingsDialog(
   required bool Function(String) exists,
   required String detectedDefault,
   required String version,
+  required Future<void> Function(bool enabled) setLaunchAtLogin,
 }) {
   return showDialog(
     context: context,
@@ -27,6 +28,7 @@ Future<void> showSettingsDialog(
       exists: exists,
       detectedDefault: detectedDefault,
       version: version,
+      setLaunchAtLogin: setLaunchAtLogin,
     ),
   );
 }
@@ -38,6 +40,7 @@ class _SettingsDialog extends StatefulWidget {
     required this.exists,
     required this.detectedDefault,
     required this.version,
+    required this.setLaunchAtLogin,
   });
 
   final ValueNotifier<Settings> settings;
@@ -45,6 +48,7 @@ class _SettingsDialog extends StatefulWidget {
   final bool Function(String) exists;
   final String detectedDefault;
   final String version;
+  final Future<void> Function(bool enabled) setLaunchAtLogin;
 
   @override
   State<_SettingsDialog> createState() => _SettingsDialogState();
@@ -57,6 +61,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   late var _colorScheme = widget.settings.value.colorScheme;
   late var _fontFamily = widget.settings.value.fontFamily;
   late var _fontSize = widget.settings.value.fontSize;
+  late var _startQuakeAtLogin = widget.settings.value.startQuakeAtLogin;
 
   @override
   void initState() {
@@ -165,7 +170,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 fontFamily: terminalFontFamilyName(_fontFamily),
                 fontSize: _displayedFontSize,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: _startQuakeAtLogin,
+                onChanged: (checked) =>
+                    setState(() => _startQuakeAtLogin = checked ?? false),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('Start quake mode at login'),
+              ),
+              const SizedBox(height: 8),
               Text(
                 'v${widget.version}',
                 style: Theme.of(
@@ -218,7 +232,11 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       colorScheme: _colorScheme,
       fontFamily: _fontFamily,
       fontSize: _fontSize,
+      startQuakeAtLogin: _startQuakeAtLogin,
     );
+    if (_startQuakeAtLogin != widget.settings.value.startQuakeAtLogin) {
+      widget.setLaunchAtLogin(_startQuakeAtLogin);
+    }
     widget.settings.value = updated;
     writeSettings(updated, file: widget.file);
     Navigator.pop(context);
