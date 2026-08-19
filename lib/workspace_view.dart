@@ -15,6 +15,33 @@ import 'terminal_color_schemes.dart';
 import 'terminal_font_families.dart';
 import 'workspace.dart';
 
+/// The pane under whole-window fractional coordinates [fx]/[fy] — the same
+/// 0..1 space [Workspace.paneRects] speaks — paired with the drop zone
+/// within its own rect, or null when the point falls outside every pane
+/// (the divider gutter, or off the tree entirely).
+///
+/// The pure half of what a drag's pointer position resolves to: turning a
+/// raw global [Offset] into this fractional space needs a real rendered
+/// box, so that conversion stays in [_WorkspaceViewState]
+/// (`_fractionalPosition`); everything past that point — which pane, which
+/// zone — does not, and lives here so it is testable with no widget tree.
+({String id, Direction? side})? dropTargetAt(
+  Workspace workspace,
+  double fx,
+  double fy,
+) {
+  for (final entry in workspace.paneRects().entries) {
+    final rect = entry.value;
+    if (fx >= rect.left &&
+        fx <= rect.right &&
+        fy >= rect.top &&
+        fy <= rect.bottom) {
+      return (id: entry.key, side: rect.zoneAt(fx, fy));
+    }
+  }
+  return null;
+}
+
 /// The window: the sessions, their arrangement, and the keys that change it.
 class WorkspaceView extends StatefulWidget {
   const WorkspaceView({
@@ -141,9 +168,12 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   }
 
   void _onDragUpdate(String id, Offset globalPosition) {
-    final target = _paneAt(globalPosition);
-    final next = (target != null && target != id) ? target : null;
-    final side = next == null ? null : _sideAt(next, globalPosition);
+    final fraction = _fractionalPosition(globalPosition);
+    final hit = fraction == null
+        ? null
+        : dropTargetAt(workspace, fraction.dx, fraction.dy);
+    final next = (hit != null && hit.id != id) ? hit.id : null;
+    final side = next == null ? null : hit!.side;
     if (next == _dragHoverId && side == _dragHoverSide) return;
     setState(() {
       _dragHoverId = next;
@@ -151,16 +181,14 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     });
   }
 
-  /// The drop zone within [paneId]'s own rect that [globalPosition]
-  /// falls in, converted through the same [_boundsKey] box [_paneAt]
-  /// already uses.
-  Direction? _sideAt(String paneId, Offset globalPosition) {
+  /// Converts [globalPosition] into the same 0..1 fractional space
+  /// [Workspace.paneRects] speaks, through [_boundsKey]'s own rendered
+  /// box — or null before that box has ever been laid out.
+  Offset? _fractionalPosition(Offset globalPosition) {
     final box = _boundsKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || box.size.isEmpty) return null;
     final local = box.globalToLocal(globalPosition);
-    final rect = workspace.paneRects()[paneId];
-    if (rect == null) return null;
-    return rect.zoneAt(local.dx / box.size.width, local.dy / box.size.height);
+    return Offset(local.dx / box.size.width, local.dy / box.size.height);
   }
 
   void _onDragEnd(String id) {
@@ -175,31 +203,6 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           ? workspace.swap(id, target)
           : workspace.move(sourceId: id, targetId: target, side: side);
     });
-  }
-
-  /// The pane whose [Workspace.paneRects] rectangle contains
-  /// [globalPosition], or null when the point falls outside every pane
-  /// (the divider gutter, or off the tree entirely) — converted through
-  /// [_boundsKey]'s own box into the same 0..1 fractional space
-  /// [Workspace.paneRects] already speaks.
-  String? _paneAt(Offset globalPosition) {
-    final box = _boundsKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null || box.size.isEmpty) return null;
-
-    final local = box.globalToLocal(globalPosition);
-    final fx = local.dx / box.size.width;
-    final fy = local.dy / box.size.height;
-
-    for (final entry in workspace.paneRects().entries) {
-      final rect = entry.value;
-      if (fx >= rect.left &&
-          fx <= rect.right &&
-          fy >= rect.top &&
-          fy <= rect.bottom) {
-        return entry.key;
-      }
-    }
-    return null;
   }
 
   /// Moves keyboard focus onto [id]'s session, once end of frame arrives.
