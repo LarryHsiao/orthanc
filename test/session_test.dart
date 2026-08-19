@@ -158,6 +158,29 @@ void main() {
     });
   });
 
+  test('releasePty returns null when the session was never started', () {
+    const expected = null;
+    final session = Session(id: 'a', executable: 'cmd.exe');
+
+    expect(session.releasePty(), expected);
+  });
+
+  test('releasePty is safe to call before a later dispose', () {
+    final session = Session(id: 'a', executable: 'cmd.exe');
+
+    session.releasePty();
+
+    expect(session.dispose, returnsNormally);
+  });
+
+  test('releasePty is idempotent — a second call also returns null', () {
+    const expected = null;
+    final session = Session(id: 'a', executable: 'cmd.exe');
+    session.releasePty();
+
+    expect(session.releasePty(), expected);
+  });
+
   test('dispose() on a never-started session does not throw', () {
     final session = Session(id: 'a', executable: 'cmd.exe');
 

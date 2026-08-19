@@ -31,6 +31,47 @@ void main() {
     expect(sessions[session.id], expected);
   });
 
+  test('detach removes the session from the registry', () {
+    const expected = null;
+    final sessions = Sessions(settings: ValueNotifier(const Settings()));
+    final session = sessions.spawn();
+
+    sessions.detach(session.id);
+
+    expect(sessions[session.id], expected);
+  });
+
+  test('detach returns the removed session', () {
+    final sessions = Sessions(settings: ValueNotifier(const Settings()));
+    final session = sessions.spawn();
+
+    final detached = sessions.detach(session.id);
+
+    expect(detached, same(session));
+  });
+
+  test('detach returns null for an id that was never spawned', () {
+    const expected = null;
+    final sessions = Sessions(settings: ValueNotifier(const Settings()));
+
+    final detached = sessions.detach('missing');
+
+    expect(detached, expected);
+  });
+
+  test('detach does not dispose the session, unlike remove', () {
+    final sessions = Sessions(settings: ValueNotifier(const Settings()));
+    final session = sessions.spawn();
+
+    sessions.detach(session.id);
+
+    // A disposed ValueNotifier throws FlutterError on addListener — the
+    // one directly observable signal that dispose() never ran. remove()
+    // would have disposed it and made this throw.
+    expect(() => session.activity.addListener(() {}), returnsNormally);
+    session.dispose();
+  });
+
   test('spawns using the configured executable path when set', () {
     const expected = r'C:\custom\shell.exe';
     final sessions = Sessions(

@@ -39,6 +39,12 @@ class Sessions {
     _byId.remove(id)?.dispose();
   }
 
+  /// Removes [id] from the registry without disposing it — the session
+  /// keeps running under whoever takes it over next, e.g. a pane handed
+  /// off to another window. Unlike [remove], nothing about the session
+  /// itself is torn down here; the caller now owns its whole lifecycle.
+  Session? detach(String id) => _byId.remove(id);
+
   void disposeAll() {
     for (final session in _byId.values) {
       session.dispose();

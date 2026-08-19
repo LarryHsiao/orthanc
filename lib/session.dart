@@ -183,6 +183,18 @@ class Session {
     terminal.write('the process exited with exit code $code');
   }
 
+  /// Hands back this session's pty without touching it — the process keeps
+  /// running under whoever holds the return value now, e.g. a pane handed
+  /// off to another window rather than closed. [dispose] is safe to call
+  /// afterward: its own `_pty?.kill()` is a no-op once `_pty` is null here,
+  /// so every other teardown (the notifiers, the focus node) still runs
+  /// normally — no separate flag on [dispose] is needed for this.
+  Pty? releasePty() {
+    final pty = _pty;
+    _pty = null;
+    return pty;
+  }
+
   void dispose() {
     if (_disposed) return;
     _disposed = true;
