@@ -991,4 +991,180 @@ void main() {
       expect(workspace.collapsedIds, expected);
     });
   });
+
+  group('Workspace.insert', () {
+    test('inserts as a sibling after the target when the parent already '
+        'runs that axis', () {
+      final expected = ['a', 'b', 'z'];
+
+      // row[a, b] — insert 'z' onto 'b's right edge.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .insert(newSessionId: 'z', targetId: 'b', side: Direction.right);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('inserts as a sibling before the target when the parent already '
+        'runs that axis', () {
+      final expected = ['a', 'z', 'b'];
+
+      // row[a, b] — insert 'z' onto 'b's left edge.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .insert(newSessionId: 'z', targetId: 'b', side: Direction.left);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('wraps the target in a new split when the parent runs the other '
+        'axis', () {
+      // column[a, b] — insert 'z' onto 'b's right edge: 'b's own parent
+      // is a column, the wrong axis for a left/right drop, so 'b' is
+      // wrapped in a fresh row.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .insert(newSessionId: 'z', targetId: 'b', side: Direction.right);
+
+      final root = workspace.root as SplitNode;
+      expect(root.axis, SplitAxis.column);
+      expect(root.children.length, 2);
+      expect((root.children[0] as PaneNode).sessionId, 'a');
+      final nested = root.children[1] as SplitNode;
+      expect(nested.axis, SplitAxis.row);
+      expect((nested.children[0] as PaneNode).sessionId, 'b');
+      expect((nested.children[1] as PaneNode).sessionId, 'z');
+    });
+
+    test('a centre drop (side null) lands beside the target along its own '
+        'parent axis', () {
+      final expected = ['a', 'b', 'z'];
+
+      // row[a, b] — a centre drop on 'b' has nothing to swap with here,
+      // so it joins 'b's own row as the next sibling instead.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .insert(newSessionId: 'z', targetId: 'b');
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('a centre drop on the whole tree (a lone pane) wraps it in a '
+        'fresh row', () {
+      final workspace = Workspace.single(
+        'a',
+      ).insert(newSessionId: 'z', targetId: 'a');
+
+      final root = workspace.root as SplitNode;
+      expect(root.axis, SplitAxis.row);
+      expect((root.children[0] as PaneNode).sessionId, 'a');
+      expect((root.children[1] as PaneNode).sessionId, 'z');
+    });
+
+    test('wraps a target while an untouched sibling stays where it was', () {
+      // row[a, b, c] — insert 'z' onto 'c's top edge. 'c's own parent
+      // (the row) runs the wrong axis for an up/down drop, so 'c' alone
+      // is wrapped in a fresh column; 'b' stays exactly where it was, as
+      // the row's other child.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .insert(newSessionId: 'z', targetId: 'c', side: Direction.up);
+
+      final root = workspace.root as SplitNode;
+      expect(root.axis, SplitAxis.row);
+      expect(root.children.length, 3);
+      expect((root.children[1] as PaneNode).sessionId, 'b');
+      final nested = root.children[2] as SplitNode;
+      expect(nested.axis, SplitAxis.column);
+      expect((nested.children[0] as PaneNode).sessionId, 'z');
+      expect((nested.children[1] as PaneNode).sessionId, 'c');
+    });
+
+    test('is a no-op when the new id equals the target id', () {
+      final expected = ['a', 'b'];
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .insert(newSessionId: 'b', targetId: 'b', side: Direction.right);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('is a no-op when the target id is missing from the tree', () {
+      final expected = ['a', 'b'];
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .insert(newSessionId: 'z', targetId: 'zz', side: Direction.right);
+
+      expect(workspace.sessionIds, expected);
+    });
+
+    test('focuses the inserted pane', () {
+      const expected = 'z';
+
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.row, newSessionId: 'b')
+          .focus('a')
+          .insert(newSessionId: 'z', targetId: 'b', side: Direction.right);
+
+      expect(workspace.focusedId, expected);
+    });
+
+    test('re-evens ratios at the landing split rather than keeping a '
+        'prior drag', () {
+      final expected = [1 / 3, 1 / 3, 1 / 3];
+
+      // row[a, b], then the a|b divider dragged uneven. Inserting 'z'
+      // onto 'b's right edge lands in the same row, which re-evens via
+      // evenRatios regardless of what the drag left behind.
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+      final resized = workspace.resizeSplit(
+        split: workspace.root,
+        dividerIndex: 0,
+        delta: 0.2,
+      );
+      final inserted = resized.insert(
+        newSessionId: 'z',
+        targetId: 'b',
+        side: Direction.right,
+      );
+
+      expect((inserted.root as SplitNode).ratios, expected);
+    });
+
+    test('drops a collapse entry the insert leaves illegal', () {
+      final expected = <String>{};
+
+      // column[a, b], with 'b' collapsed. Inserting 'z' onto 'b's right
+      // edge wraps 'b' in a fresh row holding 'b' and 'z' — 'b's new
+      // parent is a row, where collapse is never legal.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .toggleCollapse('b')
+          .insert(newSessionId: 'z', targetId: 'b', side: Direction.right);
+
+      expect(workspace.collapsedIds, expected);
+    });
+
+    test('leaves an unrelated pane\'s collapse entry alone', () {
+      final expected = {'d'};
+
+      // (a over b) | (c over d), with 'd' collapsed. Inserting 'z' onto
+      // 'b's own right edge (elsewhere entirely) must not touch 'd's
+      // entry.
+      final workspace = Workspace.single('a')
+          .split(axis: SplitAxis.column, newSessionId: 'b')
+          .focus('a')
+          .split(axis: SplitAxis.row, newSessionId: 'c')
+          .split(axis: SplitAxis.column, newSessionId: 'd')
+          .toggleCollapse('d')
+          .insert(newSessionId: 'z', targetId: 'b', side: Direction.right);
+
+      expect(workspace.collapsedIds, expected);
+    });
+  });
 }

@@ -314,6 +314,55 @@ class Workspace {
     );
   }
 
+  /// Splices a pane arriving from outside this tree in beside [targetId]
+  /// — the counterpart to [move] for a session with no existing node to
+  /// lift out first, e.g. a pane just handed over from another window.
+  ///
+  /// [side] reads the same as [move]'s: `left`/`up` land [newSessionId]
+  /// before [targetId], `right`/`down` land it after. `null` — the centre
+  /// dead-zone [PaneRect.zoneAt] returns for a drop away from every edge —
+  /// has nothing to swap with here, unlike an in-tree centre drop, so it
+  /// means "beside", along whichever axis [targetId]'s own parent split
+  /// already runs (or a fresh row, if [targetId] is the whole tree).
+  ///
+  /// A no-op when [targetId] is absent from the tree, or equals
+  /// [newSessionId]. [newSessionId] is assumed not already present
+  /// anywhere in the tree — true by construction for an arriving pane,
+  /// which always carries a fresh, per-process id. Focuses
+  /// [newSessionId], the same convention [split]/[move]/[swap] share.
+  ///
+  /// Collapse cleanup runs through the same [_reconciledCollapse] every
+  /// other shape-changing operation already uses.
+  Workspace insert({
+    required String newSessionId,
+    required String targetId,
+    Direction? side,
+  }) {
+    if (newSessionId == targetId) return this;
+    if (!sessionIds.contains(targetId)) return this;
+
+    final axis = switch (side) {
+      Direction.left || Direction.right => SplitAxis.row,
+      Direction.up || Direction.down => SplitAxis.column,
+      null => _directParent(root, targetId)?.axis ?? SplitAxis.row,
+    };
+    final before = side == Direction.left || side == Direction.up;
+
+    final inserted = _insertAdjacent(
+      root,
+      targetId,
+      axis,
+      newSessionId,
+      before: before,
+    );
+
+    return Workspace(
+      root: inserted,
+      focusedId: newSessionId,
+      collapsedIds: _reconciledCollapse(inserted, collapsedIds),
+    );
+  }
+
   /// The same two rules [split] describes — same-axis sibling insert, or
   /// a cross-axis wrap — generalized to an explicit [anchorId] and an
   /// explicit [before]/after, rather than always [focusedId] and always
