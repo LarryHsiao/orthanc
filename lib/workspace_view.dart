@@ -316,7 +316,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                   delta: delta,
                 );
               }),
-              canDrag: workspace.isSplit,
+              // Unlike highlightFocus above, drag is never gated on
+              // isSplit: a lone pane is exactly the case someone will want
+              // to fling into another window (cross-instance handoff) even
+              // though there is nothing to swap or move it with in-tree.
+              canDrag: true,
               onDragStart: _onDragStart,
               onDragUpdate: _onDragUpdate,
               onDragEnd: _onDragEnd,
