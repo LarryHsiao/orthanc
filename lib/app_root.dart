@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:auto_updater/auto_updater.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_pty/flutter_pty.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,6 +30,8 @@ class AppRoot extends StatefulWidget {
     required this.settings,
     required this.isFirstInstance,
     required this.onEmpty,
+    required this.supportDir,
+    required this.paneOffers,
   });
 
   final ValueNotifier<Settings> settings;
@@ -34,6 +39,13 @@ class AppRoot extends StatefulWidget {
 
   /// Forwarded to [WorkspaceView] — see its own doc for what "empty" means.
   final void Function(int exitCode) onEmpty;
+
+  /// Forwarded to [WorkspaceView] — where a pane handed to this instance
+  /// lands, and where this instance's own outgoing handoffs are addressed.
+  final Directory supportDir;
+
+  /// Forwarded to [WorkspaceView] — panes arriving from another window.
+  final Stream<PtyOffer> paneOffers;
 
   @override
   State<AppRoot> createState() => _AppRootState();
@@ -90,6 +102,8 @@ class _AppRootState extends State<AppRoot> {
           child: WorkspaceView(
             settings: widget.settings,
             onEmpty: widget.onEmpty,
+            supportDir: widget.supportDir,
+            paneOffers: widget.paneOffers,
           ),
         ),
       ],

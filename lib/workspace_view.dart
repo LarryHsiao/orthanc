@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_pty/flutter_pty.dart';
 
+import 'handoff_offer.dart';
 import 'layout_node.dart';
 import 'new_instance.dart';
 import 'session.dart';
@@ -48,6 +52,8 @@ class WorkspaceView extends StatefulWidget {
     super.key,
     required this.settings,
     required this.onEmpty,
+    required this.supportDir,
+    required this.paneOffers,
   });
 
   final ValueNotifier<Settings> settings;
@@ -60,6 +66,15 @@ class WorkspaceView extends StatefulWidget {
   /// [exit] call never returns, so that reopening is unreachable for an
   /// ordinary window, exactly as today.
   final void Function(int exitCode) onEmpty;
+
+  /// Where this instance's own outgoing handoffs are addressed from, and
+  /// where a sender looks to find this instance at all — see
+  /// `handoff_endpoint.dart`.
+  final Directory supportDir;
+
+  /// Panes arriving from another window, one [PtyOffer] per drag —
+  /// `main()`'s single [Pty.listen] call for this process's whole life.
+  final Stream<PtyOffer> paneOffers;
 
   @override
   State<WorkspaceView> createState() => _WorkspaceViewState();
@@ -81,6 +96,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   // is a no-op rather than a second close of a pane already gone.
   final _closed = <String>{};
 
+  StreamSubscription<PtyOffer>? _offerSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -88,6 +105,50 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     final first = _open();
     workspace = Workspace.single(first.id);
     _requestFocus(first.id, before: first.start);
+    _offerSubscription = widget.paneOffers.listen(_handleOffer);
+  }
+
+  /// Answers a pane offered by another window. Rejects outright — never
+  /// reaching [Pty.accept] — for anything that doesn't decode as exactly
+  /// [PaneOffer.currentVersion]'s shape, or if this widget is no longer
+  /// mounted to place it. Otherwise accepts immediately (the sender's own
+  /// [Pty.send] only needs to know ownership was taken, not that every
+  /// last bit of session/tree wiring below has finished), lands beside
+  /// [Workspace.focusedId] — the "dumb" discovery this step deliberately
+  /// ships with, real drop-point geometry is later work — and wires the
+  /// pty in via the same end-of-frame [_requestFocus] seam [Session.start]
+  /// already uses, so it runs only once the new pane's `TerminalView` has
+  /// laid out and can report its real geometry.
+  void _handleOffer(PtyOffer offer) {
+    final metadata = decodePaneOffer(
+      utf8.decode(offer.metadata, allowMalformed: true),
+    );
+    if (metadata == null || !mounted) {
+      Pty.offerReply(offer, false);
+      return;
+    }
+
+    final Pty pty;
+    try {
+      pty = Pty.accept(offer, pid: metadata.pid);
+    } on StateError {
+      Pty.offerReply(offer, false);
+      return;
+    }
+    Pty.offerReply(offer, true);
+
+    final session = sessions.adopt(executable: metadata.executable);
+    session.manualName.value = metadata.manualName;
+    session.name.value = metadata.name;
+    session.activity.value = metadata.activity;
+
+    setState(() {
+      workspace = workspace.insert(
+        newSessionId: session.id,
+        targetId: workspace.focusedId,
+      );
+    });
+    _requestFocus(session.id, before: () => session.adoptPty(pty));
   }
 
   Session _open() {
@@ -280,6 +341,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 
   @override
   void dispose() {
+    _offerSubscription?.cancel();
     sessions.disposeAll();
     super.dispose();
   }

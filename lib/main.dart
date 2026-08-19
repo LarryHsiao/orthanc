@@ -3,10 +3,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_pty/flutter_pty.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'app_root.dart';
+import 'handoff_endpoint.dart';
 import 'new_instance.dart';
 import 'quake_geometry_store.dart';
 import 'quake_lock.dart';
@@ -40,6 +42,14 @@ Future<void> main(List<String> args) async {
     }
   }
 
+  // One listener per process, for as long as it runs — a pane arriving
+  // from another window via drag can land at any point in this instance's
+  // life, not just at startup. Every instance kind (first, secondary,
+  // quake) is an equally valid destination.
+  final paneOffers = Pty.listen(
+    handoffEndpointFile(supportDir: supportDir, pid: pid).path,
+  );
+
   runApp(
     OrthancApp(
       settings: settings,
@@ -47,6 +57,7 @@ Future<void> main(List<String> args) async {
       kind: kind,
       supportDir: supportDir,
       quakeLock: quakeLock,
+      paneOffers: paneOffers,
     ),
   );
 }
@@ -58,6 +69,7 @@ class OrthancApp extends StatefulWidget {
     required this.settingsFile,
     required this.kind,
     required this.supportDir,
+    required this.paneOffers,
     this.quakeLock,
   });
 
@@ -65,6 +77,11 @@ class OrthancApp extends StatefulWidget {
   final File settingsFile;
   final InstanceKind kind;
   final Directory supportDir;
+
+  /// Panes arriving from another window — forwarded to [WorkspaceView] via
+  /// [AppRoot]. See `main()`: one [Pty.listen] call per process, for this
+  /// process's whole life.
+  final Stream<PtyOffer> paneOffers;
 
   /// Held open for as long as this process runs, when [kind] is
   /// [InstanceKind.quake] — see `main()`. Closed in [State.dispose].
@@ -239,6 +256,8 @@ class _OrthancAppState extends State<OrthancApp> {
                 settings: widget.settings,
                 isFirstInstance: widget.kind == InstanceKind.first,
                 onEmpty: _onEmpty,
+                supportDir: widget.supportDir,
+                paneOffers: widget.paneOffers,
               ),
             ),
           ),
