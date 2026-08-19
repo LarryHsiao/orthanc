@@ -20,15 +20,23 @@ class Sessions {
 
   /// Starts a session running the configured executable, or the detected
   /// shell when none is configured — the same command for every pane.
-  Session spawn() {
-    final session = Session(
-      id: '${_next++}',
-      executable: shellCommand(
-        isWindows: Platform.isWindows,
-        environment: Platform.environment,
-        configured: settings.value.executablePath,
-      ),
-    );
+  Session spawn() => _register(
+    shellCommand(
+      isWindows: Platform.isWindows,
+      environment: Platform.environment,
+      configured: settings.value.executablePath,
+    ),
+  );
+
+  /// Registers a session for a pane arriving from another window, without
+  /// spawning anything — the caller wires its pty separately via
+  /// [Session.adoptPty] once the transfer completes. [executable] comes
+  /// from the sender's own offer, not this instance's configured shell:
+  /// an adopted pane keeps running whatever program it already was.
+  Session adopt({required String executable}) => _register(executable);
+
+  Session _register(String executable) {
+    final session = Session(id: '${_next++}', executable: executable);
     _byId[session.id] = session;
     return session;
   }

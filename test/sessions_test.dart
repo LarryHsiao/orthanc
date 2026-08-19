@@ -82,4 +82,32 @@ void main() {
 
     expect(session.executable, expected);
   });
+
+  test('adopt registers a session under a fresh id, findable by it', () {
+    final sessions = Sessions(settings: ValueNotifier(const Settings()));
+
+    final session = sessions.adopt(executable: '/bin/zsh');
+
+    expect(sessions[session.id], same(session));
+  });
+
+  test('adopt uses the executable it is given, not the configured shell', () {
+    const expected = '/bin/zsh';
+    final sessions = Sessions(
+      settings: ValueNotifier(const Settings(executablePath: '/usr/bin/fish')),
+    );
+
+    final session = sessions.adopt(executable: expected);
+
+    expect(session.executable, expected);
+  });
+
+  test('adopt and spawn share the same id sequence, never colliding', () {
+    final sessions = Sessions(settings: ValueNotifier(const Settings()));
+
+    final spawned = sessions.spawn();
+    final adopted = sessions.adopt(executable: '/bin/zsh');
+
+    expect(spawned.id, isNot(adopted.id));
+  });
 }

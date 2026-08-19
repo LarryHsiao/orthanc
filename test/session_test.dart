@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -179,6 +181,19 @@ void main() {
     session.releasePty();
 
     expect(session.releasePty(), expected);
+  });
+
+  test('handOffTo attempts nothing and returns false for a never-started '
+      'session', () async {
+    const expected = false;
+    final session = Session(id: 'a', executable: 'cmd.exe');
+
+    final result = await session.handOffTo(
+      'some-endpoint',
+      metadata: Uint8List(0),
+    );
+
+    expect(result, expected);
   });
 
   test('dispose() on a never-started session does not throw', () {

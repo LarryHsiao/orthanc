@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/widgets.dart';
@@ -149,6 +150,24 @@ class Session {
     );
   }
 
+  /// Wires an already-live pty handed over from another window — the
+  /// counterpart to [start] for a pane that arrives rather than spawns.
+  /// [replay] (if any — the sender's scrollback, already made
+  /// replay-safe) is written to the terminal *before* the pty is wired,
+  /// so its own live output can never interleave with it. Resizes to the
+  /// terminal's current geometry once wired — delivering `SIGWINCH`,
+  /// which is what makes a full-screen program redraw over the replayed
+  /// history — then resumes the pty: the first live byte arrives only
+  /// after this call returns. A no-op if this session already has a pty.
+  void adoptPty(Pty pty, {String? replay}) {
+    if (_pty != null) return;
+    if (replay != null && replay.isNotEmpty) terminal.write(replay);
+    _pty = pty;
+    _wire(pty);
+    pty.resize(terminal.viewHeight, terminal.viewWidth);
+    pty.resume();
+  }
+
   void _wire(Pty pty) {
     pty.output.cast<List<int>>().transform(const Utf8Decoder()).listen((data) {
       if (_disposed) return;
@@ -193,6 +212,36 @@ class Session {
     final pty = _pty;
     _pty = null;
     return pty;
+  }
+
+  /// Attempts to hand this session's pty to another running instance,
+  /// reachable at [endpoint]. Detaches first, so nothing is ever read
+  /// from two processes at once; on acceptance, discards this process's
+  /// copy — the receiver now holds the only live reference — and returns
+  /// true, meaning the caller must remove this session from the tree and
+  /// its registry, since the process it was running now lives elsewhere.
+  /// On rejection, or any failure to reach [endpoint], resumes exactly as
+  /// before and returns false: nothing about this session changed. Also
+  /// false, with no attempt made, if this session was never started.
+  Future<bool> handOffTo(
+    String endpoint, {
+    required Uint8List metadata,
+    int targetPid = 0,
+  }) async {
+    final pty = _pty;
+    if (pty == null) return false;
+
+    await pty.detach();
+    final accepted = await pty.send(endpoint, metadata, targetPid: targetPid);
+
+    if (accepted) {
+      pty.discard();
+      _pty = null;
+    } else {
+      pty.resume();
+    }
+
+    return accepted;
   }
 
   void dispose() {
