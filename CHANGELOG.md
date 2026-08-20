@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.4.1] - 2026-08-20
+
+### Changed
+
+- Cross-instance pane handoff — dragging a pane out of the window to another
+  running Orthanc instance — is now explicitly disabled on Windows; the
+  drag just cancels, the same as dropping on the divider gutter. macOS is
+  unaffected.
+
 ## [1.4.0] - 2026-08-19
 
 ### Added
@@ -50,6 +59,7 @@ commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/r
   The last expanded pane in a column refuses to collapse, and closing a pane
   releases the collapse of any column it would have emptied.
 
+[1.4.1]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.1
 [1.4.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.0
 [1.3.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.3.0
 [1.2.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.2.0

@@ -308,6 +308,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   /// ships with: the first other live instance found, landing beside its
   /// own `focusedId` — real drop-point geometry is separate, later work.
   ///
+  /// A no-op on Windows (see [crossInstanceHandoffSupported]) — the drag
+  /// simply cancels, same as dropping on the divider gutter.
+  ///
   /// Claims [_closed] for [id] *before* any `await`, for the whole
   /// in-flight window: [Session.handOffTo]'s own doc warns that
   /// discarding or killing a pty racing its own in-flight send is unsafe,
@@ -316,6 +319,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   /// confirmed acceptance keeps it, feeding into [_finishRemoval] (which
   /// never re-claims it — the claim already made is what it relies on).
   Future<void> _attemptCrossInstanceHandoff(String id) async {
+    if (!crossInstanceHandoffSupported(isWindows: Platform.isWindows)) {
+      return;
+    }
     if (!_closed.add(id)) return;
 
     final session = sessions[id];

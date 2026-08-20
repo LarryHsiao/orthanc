@@ -50,6 +50,12 @@ List<File> staleHandoffEndpoints({
   ];
 }
 
+/// Whether a drag that leaves a window's tree should attempt cross-instance
+/// handoff at all. Disabled on Windows — [isWindows] is injected rather
+/// than read from `Platform.isWindows` directly, so this stays a pure,
+/// unit-testable predicate; the caller supplies the real platform check.
+bool crossInstanceHandoffSupported({required bool isWindows}) => !isWindows;
+
 /// Every *other* live handoff endpoint under [supportDir] — a running
 /// instance's own socket, excluding [ownPid] — the candidates an outgoing
 /// pane handoff may be addressed to. Paired with each endpoint's pid,

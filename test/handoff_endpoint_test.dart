@@ -34,6 +34,24 @@ void main() {
     });
   });
 
+  group('crossInstanceHandoffSupported', () {
+    test('disabled on Windows', () {
+      const expected = false;
+
+      final result = crossInstanceHandoffSupported(isWindows: true);
+
+      expect(result, expected);
+    });
+
+    test('enabled off Windows', () {
+      const expected = true;
+
+      final result = crossInstanceHandoffSupported(isWindows: false);
+
+      expect(result, expected);
+    });
+  });
+
   group('staleHandoffEndpoints', () {
     test('finds an endpoint whose pid is no longer alive', () {
       const expected = 1;
