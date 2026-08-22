@@ -48,9 +48,23 @@ Future<void> main(List<String> args) async {
   // from another window via drag can land at any point in this instance's
   // life, not just at startup. Every instance kind (first, secondary,
   // quake) is an equally valid destination.
-  final paneOffers = Pty.listen(
-    handoffEndpointFile(supportDir: supportDir, pid: pid).path,
-  );
+  //
+  // Guarded: a native/Dart version mismatch in the handoff plugin (e.g. an
+  // installed build whose flutter_pty.dll predates the Dart bindings it's
+  // called with) must never take the whole window down with it — it did,
+  // once, when this call threw before runApp() ever ran. Falling back to an
+  // empty stream just means this instance never receives a handed-off pane.
+  Stream<PtyOffer> paneOffers;
+  try {
+    paneOffers = Pty.listen(
+      handoffEndpointFile(supportDir: supportDir, pid: pid).path,
+    );
+  } catch (error, stackTrace) {
+    debugPrint(
+      'Pty.listen failed, handoff receiving disabled: $error\n$stackTrace',
+    );
+    paneOffers = const Stream<PtyOffer>.empty();
+  }
 
   runApp(
     OrthancApp(
