@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.4.2] - 2026-08-22
+
+### Fixed
+
+- A stale native handoff plugin (`flutter_pty`'s Windows library missing a
+  symbol its Dart bindings called) could throw before the window was ever
+  shown, leaving the process running with no visible window. The failing
+  call is now guarded — a mismatch there degrades cross-instance handoff
+  instead of hiding the whole app.
+
 ## [1.4.1] - 2026-08-20
 
 ### Changed
@@ -59,6 +69,7 @@ commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/r
   The last expanded pane in a column refuses to collapse, and closing a pane
   releases the collapse of any column it would have emptied.
 
+[1.4.2]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.2
 [1.4.1]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.1
 [1.4.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.0
 [1.3.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.3.0
