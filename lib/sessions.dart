@@ -36,7 +36,11 @@ class Sessions {
   Session adopt({required String executable}) => _register(executable);
 
   Session _register(String executable) {
-    final session = Session(id: '${_next++}', executable: executable);
+    final session = Session(
+      id: '${_next++}',
+      executable: executable,
+      historyLines: settings.value.historyLines,
+    );
     _byId[session.id] = session;
     return session;
   }

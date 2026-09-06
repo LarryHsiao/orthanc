@@ -60,7 +60,9 @@ void main() {
 
     await pumpDialog(tester, initial: const Settings(executablePath: expected));
 
-    final field = tester.widget<TextField>(find.byType(TextField));
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('executablePathField')),
+    );
     expect(field.controller!.text, expected);
   });
 
@@ -129,7 +131,9 @@ void main() {
 
     await pumpDialog(tester);
 
-    final field = tester.widget<TextField>(find.byType(TextField));
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('executablePathField')),
+    );
     expect(field.decoration!.hintText, expected);
   });
 
@@ -139,7 +143,10 @@ void main() {
     const expected = 'No file exists at this path — the old value is kept.';
     await pumpDialog(tester, exists: (_) => false);
 
-    await tester.enterText(find.byType(TextField), r'C:\missing\shell.exe');
+    await tester.enterText(
+      find.byKey(const Key('executablePathField')),
+      r'C:\missing\shell.exe',
+    );
     await tester.pump();
 
     final save = tester.widget<TextButton>(
@@ -155,7 +162,10 @@ void main() {
     const expected = r'C:\custom\shell.exe';
     final settings = await pumpDialog(tester);
 
-    await tester.enterText(find.byType(TextField), expected);
+    await tester.enterText(
+      find.byKey(const Key('executablePathField')),
+      expected,
+    );
     await tester.pump();
     await tester.tap(find.widgetWithText(TextButton, 'Save'));
     await tester.pumpAndSettle();
@@ -173,7 +183,9 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Reset to default'));
     await tester.pump();
 
-    final field = tester.widget<TextField>(find.byType(TextField));
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('executablePathField')),
+    );
     expect(field.controller!.text, expected);
     final reset = tester.widget<TextButton>(
       find.widgetWithText(TextButton, 'Reset to default'),
@@ -218,12 +230,95 @@ void main() {
     const expected = null;
     final settings = await pumpDialog(tester);
 
-    await tester.enterText(find.byType(TextField), r'C:\custom\shell.exe');
+    await tester.enterText(
+      find.byKey(const Key('executablePathField')),
+      r'C:\custom\shell.exe',
+    );
     await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
     await tester.pumpAndSettle();
 
     expect(settings.value.executablePath, expected);
     expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('history lines field is prefilled with the current value', (
+    tester,
+  ) async {
+    const expected = '50000';
+
+    await pumpDialog(tester, initial: const Settings(historyLines: 50000));
+
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('historyLinesField')),
+    );
+    expect(field.controller!.text, expected);
+  });
+
+  testWidgets('history lines field shows the default as placeholder text', (
+    tester,
+  ) async {
+    const expected = 'default: $defaultHistoryLines';
+
+    await pumpDialog(tester);
+
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('historyLinesField')),
+    );
+    expect(field.decoration!.hintText, expected);
+  });
+
+  testWidgets(
+    'a non-numeric history lines entry disables Save and shows an error',
+    (tester) async {
+      const expected =
+          'Enter a whole number between $minHistoryLines and $maxHistoryLines.';
+      await pumpDialog(tester);
+
+      await tester.enterText(
+        find.byKey(const Key('historyLinesField')),
+        'not-a-number',
+      );
+      await tester.pump();
+
+      final save = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Save'),
+      );
+      expect(save.onPressed, isNull);
+      expect(find.text(expected), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an out-of-range history lines entry disables Save and shows an error',
+    (tester) async {
+      await pumpDialog(tester);
+
+      await tester.enterText(
+        find.byKey(const Key('historyLinesField')),
+        '${maxHistoryLines + 1}',
+      );
+      await tester.pump();
+
+      final save = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Save'),
+      );
+      expect(save.onPressed, isNull);
+    },
+  );
+
+  testWidgets('Save persists a valid history lines entry', (tester) async {
+    const expected = 25000;
+    final settings = await pumpDialog(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('historyLinesField')),
+      '$expected',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(settings.value.historyLines, expected);
   });
 
   testWidgets('font family dropdown is prefilled with the current selection', (

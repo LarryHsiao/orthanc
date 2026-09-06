@@ -28,6 +28,11 @@ enum TerminalFontFamily {
   courierNew,
 }
 
+/// The default scrollback cap for a session's terminal, in lines — both
+/// [Settings.historyLines]'s default and the value the dialog's hint text
+/// shows.
+const defaultHistoryLines = 10000;
+
 /// The user's persisted preferences.
 class Settings {
   const Settings({
@@ -36,6 +41,7 @@ class Settings {
     this.fontFamily = TerminalFontFamily.defaultFamily,
     this.fontSize,
     this.startQuakeAtLogin = false,
+    this.historyLines = defaultHistoryLines,
   });
 
   final String? executablePath;
@@ -43,6 +49,10 @@ class Settings {
   final TerminalFontFamily fontFamily;
   final double? fontSize;
   final bool startQuakeAtLogin;
+
+  /// How many lines of scrollback each new pane's terminal keeps. Only
+  /// newly-spawned sessions pick up a change — see [Session.historyLines].
+  final int historyLines;
 }
 
 /// A blank path means "use the default" — normalized to null wherever a
@@ -59,6 +69,7 @@ Map<String, dynamic> settingsToJson(Settings settings) {
     'fontFamily': settings.fontFamily.name,
     'fontSize': settings.fontSize,
     'startQuakeAtLogin': settings.startQuakeAtLogin,
+    'historyLines': settings.historyLines,
   };
 }
 
@@ -69,6 +80,7 @@ Settings settingsFromJson(Map<String, dynamic> json) {
     fontFamily: _fontFamilyFromName(json['fontFamily'] as String?),
     fontSize: (json['fontSize'] as num?)?.toDouble(),
     startQuakeAtLogin: json['startQuakeAtLogin'] as bool? ?? false,
+    historyLines: json['historyLines'] as int? ?? defaultHistoryLines,
   );
 }
 

@@ -117,4 +117,21 @@ void main() {
 
     expect(result.startQuakeAtLogin, expected);
   });
+
+  test('round-trips historyLines through json', () {
+    const expected = 50000;
+    final settings = Settings(historyLines: expected);
+
+    final result = settingsFromJson(settingsToJson(settings));
+
+    expect(result.historyLines, expected);
+  });
+
+  test('a missing historyLines field decodes to defaultHistoryLines', () {
+    const expected = defaultHistoryLines;
+
+    final result = settingsFromJson(const {});
+
+    expect(result.historyLines, expected);
+  });
 }

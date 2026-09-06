@@ -55,8 +55,14 @@ class _SettingsDialog extends StatefulWidget {
 }
 
 class _SettingsDialogState extends State<_SettingsDialog> {
+  static const _executablePathFieldKey = Key('executablePathField');
+  static const _historyLinesFieldKey = Key('historyLinesField');
+
   late final _controller = TextEditingController(
     text: widget.settings.value.executablePath ?? '',
+  );
+  late final _historyLinesController = TextEditingController(
+    text: '${widget.settings.value.historyLines}',
   );
   late var _colorScheme = widget.settings.value.colorScheme;
   late var _fontFamily = widget.settings.value.fontFamily;
@@ -67,15 +73,19 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   void initState() {
     super.initState();
     _controller.addListener(() => setState(() {}));
+    _historyLinesController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _historyLinesController.dispose();
     super.dispose();
   }
 
   bool get _valid => executableExists(_controller.text, exists: widget.exists);
+
+  int? get _historyLines => parseHistoryLines(_historyLinesController.text);
 
   double get _displayedFontSize =>
       clampFontSize(_fontSize ?? defaultTerminalFontSize).roundToDouble();
@@ -97,12 +107,28 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               const Text('Startup executable path'),
               const SizedBox(height: 4),
               TextField(
+                key: _executablePathFieldKey,
                 controller: _controller,
                 decoration: InputDecoration(
                   hintText: 'default: ${widget.detectedDefault} (detected)',
                   errorText: _valid
                       ? null
                       : 'No file exists at this path — the old value is kept.',
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Scrollback history (lines)'),
+              const SizedBox(height: 4),
+              TextField(
+                key: _historyLinesFieldKey,
+                controller: _historyLinesController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'default: $defaultHistoryLines',
+                  errorText: _historyLines != null
+                      ? null
+                      : 'Enter a whole number between $minHistoryLines and '
+                            '$maxHistoryLines.',
                 ),
               ),
               const SizedBox(height: 16),
@@ -205,7 +231,10 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        TextButton(onPressed: _valid ? _save : null, child: const Text('Save')),
+        TextButton(
+          onPressed: _valid && _historyLines != null ? _save : null,
+          child: const Text('Save'),
+        ),
       ],
     );
   }
@@ -233,6 +262,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       fontFamily: _fontFamily,
       fontSize: _fontSize,
       startQuakeAtLogin: _startQuakeAtLogin,
+      historyLines: _historyLines!,
     );
     if (_startQuakeAtLogin != widget.settings.value.startQuakeAtLogin) {
       widget.setLaunchAtLogin(_startQuakeAtLogin);

@@ -19,7 +19,8 @@ Settings reconcileSettings({
       current.executablePath != next.executablePath ||
       current.colorScheme != next.colorScheme ||
       current.fontFamily != next.fontFamily ||
-      current.fontSize != next.fontSize;
+      current.fontSize != next.fontSize ||
+      current.historyLines != next.historyLines;
   return changed ? next : current;
 }
 

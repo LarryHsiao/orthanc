@@ -14,3 +14,18 @@ double clampFontSize(double size) {
   if (size > maxTerminalFontSize) return maxTerminalFontSize;
   return size;
 }
+
+const minHistoryLines = 1000;
+const maxHistoryLines = 100000;
+
+/// Parses a scrollback line-count entry, returning null when it isn't a
+/// whole number within [minHistoryLines, maxHistoryLines] — rejected rather
+/// than clamped, the same treatment [executableExists] gives free-text
+/// entry, so a mistake shows up in the dialog instead of being silently
+/// substituted.
+int? parseHistoryLines(String value) {
+  final parsed = int.tryParse(value.trim());
+  if (parsed == null) return null;
+  if (parsed < minHistoryLines || parsed > maxHistoryLines) return null;
+  return parsed;
+}

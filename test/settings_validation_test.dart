@@ -55,4 +55,55 @@ void main() {
 
     expect(result, expected);
   });
+
+  test('parseHistoryLines accepts a value in range', () {
+    const expected = 20000;
+
+    final result = parseHistoryLines('20000');
+
+    expect(result, expected);
+  });
+
+  test('parseHistoryLines trims surrounding whitespace', () {
+    const expected = 20000;
+
+    final result = parseHistoryLines('  20000  ');
+
+    expect(result, expected);
+  });
+
+  test('parseHistoryLines rejects a non-numeric value', () {
+    const expected = null;
+
+    final result = parseHistoryLines('not-a-number');
+
+    expect(result, expected);
+  });
+
+  test('parseHistoryLines rejects a value below the minimum', () {
+    const expected = null;
+
+    final result = parseHistoryLines('${minHistoryLines - 1}');
+
+    expect(result, expected);
+  });
+
+  test('parseHistoryLines rejects a value above the maximum', () {
+    const expected = null;
+
+    final result = parseHistoryLines('${maxHistoryLines + 1}');
+
+    expect(result, expected);
+  });
+
+  test('parseHistoryLines accepts the boundary values', () {
+    final expected = [minHistoryLines, maxHistoryLines];
+
+    final result = [
+      parseHistoryLines('$minHistoryLines'),
+      parseHistoryLines('$maxHistoryLines'),
+    ];
+
+    expect(result, expected);
+  });
 }

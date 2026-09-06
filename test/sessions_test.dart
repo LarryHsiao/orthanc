@@ -83,6 +83,17 @@ void main() {
     expect(session.executable, expected);
   });
 
+  test('spawns using the configured historyLines', () {
+    const expected = 50000;
+    final sessions = Sessions(
+      settings: ValueNotifier(const Settings(historyLines: expected)),
+    );
+
+    final session = sessions.spawn();
+
+    expect(session.historyLines, expected);
+  });
+
   test('adopt registers a session under a fresh id, findable by it', () {
     final sessions = Sessions(settings: ValueNotifier(const Settings()));
 

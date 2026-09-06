@@ -10,6 +10,7 @@ import 'package:xterm/xterm.dart';
 
 import 'home_directory.dart';
 import 'pty_environment.dart';
+import 'settings.dart';
 import 'shell_prompt_hook.dart';
 
 /// One running program, its terminal, and what the window needs to know of it.
@@ -18,7 +19,11 @@ import 'shell_prompt_hook.dart';
 /// restart its process. That is why the pty lives here rather than in a State,
 /// as it did while the app held exactly one terminal for its whole life.
 class Session {
-  Session({required this.id, required this.executable}) {
+  Session({
+    required this.id,
+    required this.executable,
+    this.historyLines = defaultHistoryLines,
+  }) {
     activity.addListener(_onActivityChanged);
     focusNode.addListener(_onFocusChanged);
   }
@@ -26,7 +31,17 @@ class Session {
   final String id;
   final String executable;
 
-  final terminal = Terminal(maxLines: 10000);
+  /// How many lines of scrollback this session's terminal keeps — fixed for
+  /// this session's lifetime, from [Settings.historyLines] at the moment it
+  /// was spawned. See [terminal]'s `late` initializer for why this must be
+  /// a constructor-set field rather than a plain default.
+  final int historyLines;
+
+  /// `late` so its initializer runs after the constructor body has set
+  /// [historyLines] — a plain field initializer runs before `this` exists
+  /// and cannot read a sibling field, the same reason [focusNode] below is
+  /// `late`.
+  late final terminal = Terminal(maxLines: historyLines);
 
   /// Selection state for [terminal] — held here for the same reason
   /// [terminal] itself is: a pane's right-click Copy/Paste menu needs to

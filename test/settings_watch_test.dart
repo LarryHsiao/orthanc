@@ -44,6 +44,15 @@ void main() {
     expect(result, same(next));
   });
 
+  test('returns next when historyLines differs', () {
+    const current = Settings(historyLines: 10000);
+    const next = Settings(historyLines: 50000);
+
+    final result = reconcileSettings(current: current, next: next);
+
+    expect(result, same(next));
+  });
+
   test('returns current unchanged when every field is identical', () {
     const current = Settings(
       executablePath: 'a',

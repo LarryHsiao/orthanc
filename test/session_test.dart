@@ -4,8 +4,29 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orthanc/session.dart';
+import 'package:orthanc/settings.dart';
 
 void main() {
+  test('defaults historyLines to defaultHistoryLines', () {
+    const expected = defaultHistoryLines;
+
+    final session = Session(id: 'a', executable: 'cmd.exe');
+
+    expect(session.historyLines, expected);
+  });
+
+  test('terminal.maxLines reflects the given historyLines', () {
+    const expected = 50000;
+
+    final session = Session(
+      id: 'a',
+      executable: 'cmd.exe',
+      historyLines: expected,
+    );
+
+    expect(session.terminal.maxLines, expected);
+  });
+
   test('stores the id and executable it is given', () {
     const expectedId = 'a';
     const expectedExecutable = 'cmd.exe';
