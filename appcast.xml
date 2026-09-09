@@ -5,16 +5,16 @@
         <description>Orthanc release feed</description>
         <language>en</language>
         <item>
-            <title>Version 1.4.0</title>
-            <pubDate>Wed, 19 Aug 2026 08:50:28 +0000</pubDate>
-            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.4.0/orthanc-setup-1.4.0.exe" sparkle:dsaSignature="MD0CHCbSS/acz4BHg+AFFmgwIBHMwht0TvWgD5NvLEECHQDtzAOt16YMZOSK8fs7qLrgMW9oKbtHMZOs3t9V" sparkle:version="1.4.0+25" sparkle:os="windows" length="11253304" type="application/octet-stream" />
-        </item>
-        <item>
             <title>Version 1.4.1</title>
             <sparkle:version>26</sparkle:version>
             <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
             <pubDate>Sat, 22 Aug 2026 02:23:13 +0000</pubDate>
             <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.4.1/orthanc.dmg" sparkle:edSignature="rKevedeFt/7U1SXeY0JIqD0Gk3S3ycQSnn7pixyfcPuRSh3Bto0drh5tyraW60A3MKgqPVczIaT2lvRE0GouBg==" sparkle:os="macos" length="21837223" type="application/octet-stream" />
+        </item>
+        <item>
+            <title>Version 1.4.3</title>
+            <pubDate>Wed, 09 Sep 2026 02:30:51 +0000</pubDate>
+            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.4.3/orthanc-setup-1.4.3.exe" sparkle:dsaSignature="MD0CHCcJwp8j+nFEK2yfjQX67Zw9Ta8WMzdjBrIUutICHQDX96k8rAtVX+IwleeBaixAAhCWxl7DAJej3uA4" sparkle:version="1.4.3+28" sparkle:os="windows" length="11250792" type="application/octet-stream" />
         </item>
     </channel>
 </rss>
