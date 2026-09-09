@@ -68,4 +68,36 @@ void main() {
       expect(result, expected);
     },
   );
+
+  test('shows only the last path segment when name is a path that differs '
+      'from activity', () {
+    const expected = 'orthanc — ✳ Compacting…';
+
+    final result = paneTitle(
+      name: '/Users/larryhsiao/orthanc',
+      activity: '✳ Compacting…',
+    );
+
+    expect(result, expected);
+  });
+
+  test('falls back to the full path at the filesystem root, where there is no '
+      'last segment', () {
+    const expected = '/ — ✳ Thinking…';
+
+    final result = paneTitle(name: '/', activity: '✳ Thinking…');
+
+    expect(result, expected);
+  });
+
+  test('shows a Windows path\'s last segment too', () {
+    const expected = 'orthanc — ✳ Compacting…';
+
+    final result = paneTitle(
+      name: r'C:\Users\larry\orthanc',
+      activity: '✳ Compacting…',
+    );
+
+    expect(result, expected);
+  });
 }

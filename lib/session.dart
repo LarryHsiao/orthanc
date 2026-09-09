@@ -9,6 +9,7 @@ import 'package:flutter_pty/flutter_pty.dart';
 import 'package:xterm/xterm.dart';
 
 import 'home_directory.dart';
+import 'pane_title.dart';
 import 'pty_environment.dart';
 import 'settings.dart';
 import 'shell_prompt_hook.dart';
@@ -209,8 +210,16 @@ class Session {
       if (value.isNotEmpty) activity.value = value;
     };
 
+    // Once `name` already holds a real directory (from the shell's own idle
+    // hook — see shell_prompt_hook.dart), a program's own OSC 1 — Claude
+    // Code's OSC 0 sets both notifiers together, per pane_title.dart's doc
+    // comment — must not overwrite it with its own non-path message, or the
+    // directory context `paneTitle()` combines against `activity` is lost
+    // the moment the program starts announcing itself.
     terminal.onIconChange = (value) {
-      if (value.isNotEmpty) name.value = value;
+      if (value.isEmpty) return;
+      if (looksLikePath(name.value) && !looksLikePath(value)) return;
+      name.value = value;
     };
   }
 
