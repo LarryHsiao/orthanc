@@ -15,7 +15,7 @@ Linux is not supported.
 
 Twenty tagged releases stand, `v1.0.0` through `v1.1.18`, built and published
 for both platforms. Milestones 0 and 1 are complete and walked by hand on macOS
-and Windows alike. `flutter test` runs 491 green.
+and Windows alike. `flutter test` runs 522 green.
 
 Everything since Milestone 1 has been ordinary feature work.
 
@@ -73,6 +73,16 @@ Everything since Milestone 1 has been ordinary feature work.
   - Copy and Paste also answer to a keyboard chord (see *Key bindings*
     below) — on Windows, bound directly by Orthanc rather than left to the
     terminal engine's own keytab, which was unreliable there.
+- **Drag a file onto a pane** to write its path into that pane's terminal —
+  as an `@`-reference when a running program owns the pane, so Claude Code
+  reads the file and loads an image as image content rather than a
+  filename; as a bare quoted path when the shell sits idle at its prompt.
+  Several files join one per line, except under `cmd.exe`, which joins with
+  spaces instead since it has no bracketed paste of its own. The pane under
+  the cursor receives the drop and takes focus, glowing while hovered.
+  Under an unhooked shell (PowerShell, fish), every drop reads as "a
+  program owns this pane" — there is no announced prompt to tell the two
+  cases apart.
 
 ### Key bindings
 
@@ -110,6 +120,10 @@ handling underneath, which already works there and was left untouched.
 - [`xterm`](https://pub.dev/packages/xterm) (xterm.dart) parses that output as a
   real terminal — ANSI escapes, cursor positioning, resizing — and renders it,
   forwarding keyboard input back to the spawned process.
+- [`desktop_drop`](https://pub.dev/packages/desktop_drop) delivers a dropped
+  file's path and the pointer's position — the one third-party runtime
+  dependency here that isn't a fork Orthanc itself maintains (see *The pinned
+  dependencies* below for those).
 
 Around those two:
 
@@ -124,8 +138,10 @@ Around those two:
 - `lib/session_clipboard.dart` — copies a selection to, and pastes from, the
   system clipboard for a given session; called from the right-click menu and,
   on Windows, from a bound key press alike.
+- `lib/session_drop.dart` — writes a file drop's paths into a session's
+  terminal, in whichever form `lib/dropped_paths_text.dart` decides.
 
-Nine files hold pure decisions with no I/O, which is why they carry the bulk of
+Ten files hold pure decisions with no I/O, which is why they carry the bulk of
 the tests:
 
 - `lib/shell_command.dart` — resolves the shell's absolute path per platform,
@@ -140,6 +156,8 @@ the tests:
   let the terminal have it.
 - `lib/session_path.dart` — whether a pane's announced name is a working
   directory worth offering to copy, or a running program's own title.
+- `lib/dropped_paths_text.dart` — the exact bracketed-paste text a file drop
+  writes: quoted bare paths or `@`-references, joined for the pane's shell.
 - `lib/hyperlink.dart` — which modifier opens a link, and which URI schemes are
   safe to launch.
 - `lib/shell_prompt_hook.dart` — which shell an executable names, and the
@@ -206,7 +224,7 @@ pane that wants no color can still set `NO_COLOR` for itself.
 flutter test
 ```
 
-491 tests across 40 files. The pure decisions above are unit-tested directly,
+522 tests across 42 files. The pure decisions above are unit-tested directly,
 along with the layout tree, title composition, and settings validation and
 (de)serialization; the pane bar and the settings dialog carry widget tests. The
 pty/terminal wiring itself can only be judged by actually running the app — see

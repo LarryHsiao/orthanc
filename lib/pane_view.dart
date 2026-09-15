@@ -44,6 +44,7 @@ class PaneView extends StatefulWidget {
     required this.isDropTarget,
     required this.isBeingDragged,
     required this.dropSide,
+    required this.isFileDropTarget,
   });
 
   /// The focus border is painted *over* the pane, never around it. xterm
@@ -114,6 +115,19 @@ class PaneView extends StatefulWidget {
 
   static const dropEdgeKey = Key('pane-drop-edge');
 
+  /// Whether a file dragged in from outside the window is currently
+  /// hovering over this pane — a separate flag from [isDropTarget], which
+  /// answers the same question for a pane being dragged in *from* this
+  /// window. Its own colour, deliberately distinct from the amber
+  /// [dropHighlightKey] uses: amber already means "a pane will be swapped
+  /// or moved here," and a file drop changes no layout at all — wearing
+  /// the layout-drag colour would say something untrue.
+  final bool isFileDropTarget;
+
+  /// Same reasoning as [focusBorderKey] — painted over the pane, never
+  /// around it, so the pty never reflows when a file starts hovering.
+  static const fileDropHighlightKey = Key('pane-file-drop-highlight');
+
   @override
   State<PaneView> createState() => _PaneViewState();
 }
@@ -146,6 +160,7 @@ class _PaneViewState extends State<PaneView> {
             if (!widget.focused && !widget.collapsed) _attentionBorder(),
             if (widget.isDropTarget)
               widget.dropSide == null ? _dropHighlight() : _dropEdge(),
+            if (widget.isFileDropTarget) _fileDropHighlight(),
           ],
         ),
       ),
@@ -224,13 +239,27 @@ class _PaneViewState extends State<PaneView> {
     );
   }
 
-  Widget _dropHighlight() => Positioned.fill(
+  Widget _dropHighlight() =>
+      _dropFill(key: PaneView.dropHighlightKey, color: Colors.amber);
+
+  Widget _fileDropHighlight() => _dropFill(
+    key: PaneView.fileDropHighlightKey,
+    color: Colors.lightGreenAccent,
+  );
+
+  /// The shared shape behind [_dropHighlight] and [_fileDropHighlight] — a
+  /// full-pane tinted fill with a matching border, in whichever [color]
+  /// tells the two kinds of hover apart. [Positioned.fill] and
+  /// [IgnorePointer] are load-bearing, not decoration: this paints over the
+  /// pane rather than consuming layout, the same constraint [focusBorderKey]
+  /// documents, so xterm never reflows while a drag or drop hovers.
+  Widget _dropFill({required Key key, required Color color}) => Positioned.fill(
     child: IgnorePointer(
       child: DecoratedBox(
-        key: PaneView.dropHighlightKey,
+        key: key,
         decoration: BoxDecoration(
-          color: Colors.amber.withValues(alpha: 0.15),
-          border: Border.all(color: Colors.amber, width: 2),
+          color: color.withValues(alpha: 0.15),
+          border: Border.all(color: color, width: 2),
         ),
       ),
     ),

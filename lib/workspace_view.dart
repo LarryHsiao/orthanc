@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
@@ -12,6 +13,7 @@ import 'layout_node.dart';
 import 'new_instance.dart';
 import 'session.dart';
 import 'session_clipboard.dart';
+import 'session_drop.dart';
 import 'sessions.dart';
 import 'settings.dart';
 import 'settings_validation.dart';
@@ -46,6 +48,15 @@ import 'workspace.dart';
     }
   }
   return null;
+}
+
+/// [dropTargetAt]'s pane id alone, with its drop zone discarded — a file
+/// dropped near a pane's edge must land *in* that pane, never split it the
+/// way a pane-rearranging drag does with the same geometry. The zone only
+/// ever meant something for [_onDragUpdate]/[_onDragEnd]'s session-swap; a
+/// dropped file has no "side" to be on.
+String? dropPaneAt(Workspace workspace, double fx, double fy) {
+  return dropTargetAt(workspace, fx, fy)?.id;
 }
 
 /// A liveness probe for [liveHandoffEndpoints] — `SIGCONT` is the closest
@@ -95,6 +106,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   String? _dragSourceId;
   String? _dragHoverId;
   Direction? _dragHoverSide;
+
+  /// The pane a file dragged in from outside the window is currently
+  /// hovering over — set by [_onFileDragUpdated], cleared on
+  /// [_onFileDragExited] or [_onFileDrop] itself.
+  String? _fileDropHoverId;
 
   // kill() (called by Sessions.remove(), via Session.dispose()) only
   // requests termination — exitCode's future, and thus the listener
@@ -258,6 +274,52 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 
   void _onDragStart(String id) {
     setState(() => _dragSourceId = id);
+  }
+
+  /// A file (or several) dragged in from outside the window and released —
+  /// resolved through the same [_fractionalPosition] + [dropPaneAt] geometry
+  /// [_onDragUpdate] uses for pane-rearranging, so the two never disagree
+  /// about which pane a point belongs to. Landing on the divider gutter, or
+  /// outside the tree entirely, is a silent no-op — nothing to fling this at.
+  ///
+  /// Focuses the pane it lands in, matching [_split]/[_onDragEnd]'s own
+  /// convention that an action naming a pane also focuses it.
+  void _onFileDrop(DropDoneDetails details) {
+    final fraction = _fractionalPosition(details.globalPosition);
+    final id = fraction == null
+        ? null
+        : dropPaneAt(workspace, fraction.dx, fraction.dy);
+    if (id == null) return;
+    final session = sessions[id];
+    if (session == null) return;
+    setState(() => _fileDropHoverId = null);
+    _onPaneFocus(id);
+    dropPathsInto(
+      session,
+      details.files
+          .map((file) => file.path)
+          .where((p) => p.isNotEmpty)
+          .toList(),
+      isWindows: Platform.isWindows,
+    );
+  }
+
+  /// A file dragging over the window, not yet released — mirrors
+  /// [_onDragUpdate]'s own geometry and its no-change early return, so
+  /// [setState] fires only when the hovered pane actually changes.
+  void _onFileDragUpdated(DropEventDetails details) {
+    final fraction = _fractionalPosition(details.globalPosition);
+    final id = fraction == null
+        ? null
+        : dropPaneAt(workspace, fraction.dx, fraction.dy);
+    if (id == _fileDropHoverId) return;
+    setState(() => _fileDropHoverId = id);
+  }
+
+  /// The drag left the window (or [DropTarget] itself was disabled) without
+  /// dropping — clears whatever pane was glowing.
+  void _onFileDragExited(DropEventDetails details) {
+    setState(() => _fileDropHoverId = null);
   }
 
   void _onDragUpdate(String id, Offset globalPosition) {
@@ -487,42 +549,53 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           // _onKey's doc for why this is not a backstop for the no-focus
           // case.
           onKeyEvent: _onKey,
-          child: Container(
-            key: _boundsKey,
-            child: SplitView(
-              node: workspace.root,
-              sessions: sessions,
-              focusedId: workspace.focusedId,
-              highlightFocus: workspace.isSplit,
-              collapsedIds: workspace.collapsedIds,
-              collapsibleIds: workspace.collapsibleIds,
-              theme: terminalThemeFor(settings.colorScheme),
-              fontFamily: terminalFontFamilyName(settings.fontFamily),
-              fontSize: clampFontSize(
-                settings.fontSize ?? defaultTerminalFontSize,
+          // Wraps _boundsKey's Container rather than sitting inside it, so
+          // the box paneRects() is measured against — and every pane-drag
+          // regression that leans on it — stays exactly as it was before
+          // this feature existed.
+          child: DropTarget(
+            onDragDone: _onFileDrop,
+            onDragUpdated: _onFileDragUpdated,
+            onDragExited: _onFileDragExited,
+            child: Container(
+              key: _boundsKey,
+              child: SplitView(
+                node: workspace.root,
+                sessions: sessions,
+                focusedId: workspace.focusedId,
+                highlightFocus: workspace.isSplit,
+                collapsedIds: workspace.collapsedIds,
+                collapsibleIds: workspace.collapsibleIds,
+                theme: terminalThemeFor(settings.colorScheme),
+                fontFamily: terminalFontFamilyName(settings.fontFamily),
+                fontSize: clampFontSize(
+                  settings.fontSize ?? defaultTerminalFontSize,
+                ),
+                onFocus: _onPaneFocus,
+                onKeyEvent: _onKey,
+                onToggleCollapse: _toggleCollapse,
+                onExpand: _expand,
+                onResize: (split, index, delta) => setState(() {
+                  workspace = workspace.resizeSplit(
+                    split: split,
+                    dividerIndex: index,
+                    delta: delta,
+                  );
+                }),
+                // Unlike highlightFocus above, drag is never gated on
+                // isSplit: a lone pane is exactly the case someone will
+                // want to fling into another window (cross-instance
+                // handoff) even though there is nothing to swap or move it
+                // with in-tree.
+                canDrag: true,
+                onDragStart: _onDragStart,
+                onDragUpdate: _onDragUpdate,
+                onDragEnd: _onDragEnd,
+                dragSourceId: _dragSourceId,
+                dragHoverId: _dragHoverId,
+                dragHoverSide: _dragHoverSide,
+                fileDropHoverId: _fileDropHoverId,
               ),
-              onFocus: _onPaneFocus,
-              onKeyEvent: _onKey,
-              onToggleCollapse: _toggleCollapse,
-              onExpand: _expand,
-              onResize: (split, index, delta) => setState(() {
-                workspace = workspace.resizeSplit(
-                  split: split,
-                  dividerIndex: index,
-                  delta: delta,
-                );
-              }),
-              // Unlike highlightFocus above, drag is never gated on
-              // isSplit: a lone pane is exactly the case someone will want
-              // to fling into another window (cross-instance handoff) even
-              // though there is nothing to swap or move it with in-tree.
-              canDrag: true,
-              onDragStart: _onDragStart,
-              onDragUpdate: _onDragUpdate,
-              onDragEnd: _onDragEnd,
-              dragSourceId: _dragSourceId,
-              dragHoverId: _dragHoverId,
-              dragHoverSide: _dragHoverSide,
             ),
           ),
         );

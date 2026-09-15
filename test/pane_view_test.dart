@@ -28,6 +28,7 @@ void main() {
     void Function(String id)? onDragEnd,
     bool isDropTarget = false,
     Direction? dropSide,
+    bool isFileDropTarget = false,
   }) async {
     final theSession = session ?? Session(id: 'a', executable: 'cmd.exe');
     addTearDown(theSession.dispose);
@@ -55,6 +56,7 @@ void main() {
             isDropTarget: isDropTarget,
             isBeingDragged: false,
             dropSide: dropSide,
+            isFileDropTarget: isFileDropTarget,
           ),
         ),
       ),
@@ -131,6 +133,38 @@ void main() {
     expect(find.byKey(PaneView.dropHighlightKey), findsNothing);
     expect(find.byKey(PaneView.dropEdgeKey), findsNothing);
   });
+
+  testWidgets('a file-drop highlight appears when isFileDropTarget is set', (
+    tester,
+  ) async {
+    await pumpPaneView(tester, focused: false, isFileDropTarget: true);
+
+    expect(find.byKey(PaneView.fileDropHighlightKey), findsOneWidget);
+  });
+
+  testWidgets('no file-drop highlight appears when the flag is clear', (
+    tester,
+  ) async {
+    await pumpPaneView(tester, focused: false);
+
+    expect(find.byKey(PaneView.fileDropHighlightKey), findsNothing);
+  });
+
+  testWidgets(
+    'the file-drop highlight does not reflow the terminal beneath it',
+    (tester) async {
+      // The guard focusBorderKey's own doc comment names: an overlay that
+      // consumed layout would resize xterm's cell grid — and every running
+      // program in it — each time a file starts or stops hovering.
+      await pumpPaneView(tester, focused: false);
+      final withoutHighlight = tester.getSize(find.byType(TerminalView));
+
+      await pumpPaneView(tester, focused: false, isFileDropTarget: true);
+      final withHighlight = tester.getSize(find.byType(TerminalView));
+
+      expect(withHighlight, withoutHighlight);
+    },
+  );
 
   testWidgets('an unfocused pane draws no border at all', (tester) async {
     await pumpPaneView(tester, focused: false);

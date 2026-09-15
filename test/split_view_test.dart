@@ -21,6 +21,7 @@ void main() {
     required bool highlightFocus,
     required Sessions sessions,
     Set<String> collapsedIds = const {},
+    String? fileDropHoverId,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -54,6 +55,7 @@ void main() {
                 dragSourceId: null,
                 dragHoverId: null,
                 dragHoverSide: null,
+                fileDropHoverId: fileDropHoverId,
               ),
             ),
           ),
@@ -175,5 +177,54 @@ void main() {
     );
 
     expect(bottomOfLastPane(tester), expected);
+  });
+
+  group('fileDropHoverId', () {
+    testWidgets('highlights only the pane it names, not its sibling', (
+      tester,
+    ) async {
+      const expected = true; // the highlight sits in the right half
+
+      final sessions = newSessions();
+      final left = sessions.spawn();
+      final right = sessions.spawn();
+
+      await pumpSplitView(
+        tester,
+        node: SplitNode(
+          axis: SplitAxis.row,
+          children: [PaneNode(left.id), PaneNode(right.id)],
+          ratios: const [0.5, 0.5],
+        ),
+        focusedId: left.id,
+        highlightFocus: false,
+        sessions: sessions,
+        fileDropHoverId: right.id,
+      );
+
+      expect(find.byKey(PaneView.fileDropHighlightKey), findsOneWidget);
+      final rect = tester.getRect(find.byKey(PaneView.fileDropHighlightKey));
+      expect(rect.center.dx > boundsWidth / 2, expected);
+    });
+
+    testWidgets('highlights nothing when no file is hovering', (tester) async {
+      final sessions = newSessions();
+      final left = sessions.spawn();
+      final right = sessions.spawn();
+
+      await pumpSplitView(
+        tester,
+        node: SplitNode(
+          axis: SplitAxis.row,
+          children: [PaneNode(left.id), PaneNode(right.id)],
+          ratios: const [0.5, 0.5],
+        ),
+        focusedId: left.id,
+        highlightFocus: false,
+        sessions: sessions,
+      );
+
+      expect(find.byKey(PaneView.fileDropHighlightKey), findsNothing);
+    });
   });
 }

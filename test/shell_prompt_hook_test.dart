@@ -46,6 +46,40 @@ void main() {
     });
   });
 
+  group('isCmdShell', () {
+    test('recognizes cmd.exe', () {
+      const expected = true;
+
+      final result = isCmdShell('cmd.exe');
+
+      expect(result, expected);
+    });
+
+    test('recognizes cmd.exe by its full path, case-insensitively', () {
+      const expected = true;
+
+      final result = isCmdShell(r'C:\Windows\System32\CMD.EXE');
+
+      expect(result, expected);
+    });
+
+    test('returns false for bash', () {
+      const expected = false;
+
+      final result = isCmdShell('/bin/bash');
+
+      expect(result, expected);
+    });
+
+    test('returns false for PowerShell', () {
+      const expected = false;
+
+      final result = isCmdShell('powershell.exe');
+
+      expect(result, expected);
+    });
+  });
+
   group('bashPromptHookScript', () {
     test('sources the user rc file when one is given', () {
       final expected =

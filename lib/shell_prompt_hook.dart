@@ -15,6 +15,14 @@ String _baseName(String executable) {
       : segment;
 }
 
+/// Whether [executable] is `cmd.exe` — checked by name rather than folded
+/// into [ShellKind], since cmd is hooked by launch arguments rather than an
+/// rc file (see [shellPromptHook]) and has no bracketed paste of its own: a
+/// newline pasted at a bare `cmd` prompt runs as a pressed Enter, which is
+/// why `dropped_paths_text.dart`'s multi-file join needs this same answer
+/// outside prompt-hook installation.
+bool isCmdShell(String executable) => _baseName(executable) == 'cmd';
+
 /// Which [ShellKind] [executable] is, or null for a shell this app leaves
 /// alone — its pane then just shows whatever title it last happened to set,
 /// as before this feature existed.
@@ -130,7 +138,7 @@ ShellLaunch shellPromptHook({
     case ShellKind.zsh:
       return _installZshHook(isWindows: isWindows, environment: environment);
     case null:
-      if (isWindows && _baseName(executable) == 'cmd') {
+      if (isWindows && isCmdShell(executable)) {
         return ShellLaunch(
           arguments: cmdPromptHookArguments(),
           environment: const {},

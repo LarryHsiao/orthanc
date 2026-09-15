@@ -67,4 +67,45 @@ void main() {
       expect(result?.id, expected);
     });
   });
+
+  group('dropPaneAt', () {
+    test('discards the edge zone a pane-rearrange drag would use', () {
+      const expected = 'b';
+
+      // row[a, b] — near b's own left edge, inside dropTargetAt's own
+      // drop-edge band (proven non-null above). A file dropped here must
+      // land in 'b', never imply a split the way a pane drag would.
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+
+      final result = dropPaneAt(workspace, 0.55, 0.5);
+
+      expect(result, expected);
+    });
+
+    test('finds the pane containing the given fraction', () {
+      const expected = 'b';
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+
+      final result = dropPaneAt(workspace, 0.75, 0.5);
+
+      expect(result, expected);
+    });
+
+    test('returns null for a point off the whole tree', () {
+      const expected = null;
+
+      final workspace = Workspace.single(
+        'a',
+      ).split(axis: SplitAxis.row, newSessionId: 'b');
+
+      final result = dropPaneAt(workspace, 1.5, 0.5);
+
+      expect(result, expected);
+    });
+  });
 }

@@ -40,6 +40,7 @@ class SplitView extends StatelessWidget {
     required this.dragSourceId,
     required this.dragHoverId,
     required this.dragHoverSide,
+    required this.fileDropHoverId,
   });
 
   static const dividerThickness = 4.0;
@@ -83,6 +84,11 @@ class SplitView extends StatelessWidget {
   /// itself is null.
   final Direction? dragHoverSide;
 
+  /// The pane a file dragged in from outside the window is currently
+  /// hovering over, or null — a separate signal from [dragHoverId], which
+  /// answers the same question for a pane dragged in from this window.
+  final String? fileDropHoverId;
+
   @override
   Widget build(BuildContext context) {
     return switch (node) {
@@ -115,6 +121,7 @@ class SplitView extends StatelessWidget {
       isBeingDragged: sessionId == dragSourceId,
       isDropTarget: sessionId == dragHoverId,
       dropSide: sessionId == dragHoverId ? dragHoverSide : null,
+      isFileDropTarget: sessionId == fileDropHoverId,
     );
   }
 
@@ -255,6 +262,7 @@ class SplitView extends StatelessWidget {
       dragSourceId: dragSourceId,
       dragHoverId: dragHoverId,
       dragHoverSide: dragHoverSide,
+      fileDropHoverId: fileDropHoverId,
     );
   }
 

@@ -12,6 +12,17 @@ commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/r
 
 ### Added
 
+- Drag a file onto a pane to write its path into that pane's terminal — an
+  `@`-reference when a running program (Claude Code, most likely) owns the
+  pane, so an image drops in as image content rather than a filename;
+  a bare quoted path when the shell sits idle at its prompt. Several files
+  join one per line, except under `cmd.exe`, which has no bracketed paste
+  of its own and joins with spaces instead so a multi-file drop can't run
+  each line as a command. The pane under the cursor receives the drop and
+  takes focus, and glows while hovered. Under PowerShell or fish — shells
+  Orthanc has no title-on-prompt hook for — every drop is read as "a
+  program owns this pane," since there is no announced prompt to tell the
+  two cases apart.
 - A `Copy Path` item in the right-click menu, copying a pane's current
   working directory — fed by the same shell prompt hook that already names
   it in the pane bar, so it is live under bash, zsh and `cmd.exe`, and
