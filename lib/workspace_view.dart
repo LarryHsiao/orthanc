@@ -529,7 +529,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   void _pasteIntoFocused() {
     final session = sessions[workspace.focusedId];
     if (session == null) return;
-    unawaited(pasteIntoSession(session));
+    unawaited(pasteIntoSession(session, isWindows: Platform.isWindows));
   }
 
   @override

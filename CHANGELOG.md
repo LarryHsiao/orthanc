@@ -12,6 +12,11 @@ commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/r
 
 ### Added
 
+- Copy a file in Finder or Explorer, then paste it into a pane — right-click
+  Paste, Windows' `Ctrl+Shift+V`, or macOS's `Cmd+V` — and its real path
+  lands the same way a drop would: `@`-referenced when a program owns the
+  pane, bare-quoted when the shell sits idle. A copied web link is never
+  mistaken for a file. Ordinary text still pastes as text, unchanged.
 - Drag a file onto a pane to write its path into that pane's terminal — an
   `@`-reference when a running program (Claude Code, most likely) owns the
   pane, so an image drops in as image content rather than a filename;

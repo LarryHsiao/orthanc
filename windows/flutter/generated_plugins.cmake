@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   auto_updater_windows
   desktop_drop
+  pasteboard
   url_launcher_windows
 )
 

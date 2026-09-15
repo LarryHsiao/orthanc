@@ -7,6 +7,12 @@ import 'shell_prompt_hook.dart';
 /// bracketed paste — and clears its selection, matching [pasteIntoSession]'s
 /// own shape. A no-op with nothing dropped.
 ///
+/// Also called by `pasteIntoSession` itself, once it has found a file on
+/// the clipboard rather than one dropped: the gesture that produced [paths]
+/// is the caller's business, not this function's — a path is a path either
+/// way, and the pane decides its form the same way regardless of how it
+/// arrived.
+///
 /// Which form each path takes is inferred from the pane, not asked of the
 /// user: [sessionPath] returning null means a running program (most likely
 /// Claude Code) currently owns the pane's title, so the path becomes an

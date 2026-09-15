@@ -380,11 +380,24 @@ void main() {
             }
             return null;
           });
+      // pasteIntoSession now checks the clipboard for a file before falling
+      // back to text — mocked here, explicitly returning none, so these
+      // tests keep proving the menu's text-paste path is unchanged rather
+      // than leaning on an unmocked channel's own null-safe fallback.
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('pasteboard'), (
+            call,
+          ) async {
+            if (call.method == 'files') return <String>[];
+            return null;
+          });
     });
 
     tearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('pasteboard'), null);
     });
 
     testWidgets('right-click opens a menu with Copy, Copy Path and Paste', (

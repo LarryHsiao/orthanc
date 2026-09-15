@@ -87,7 +87,11 @@ void main() {
       final outputs = <String>[];
       session.terminal.onOutput = outputs.add;
 
-      await pasteIntoSession(session);
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => [],
+      );
 
       expect(outputs, expected);
     });
@@ -100,7 +104,11 @@ void main() {
       final outputs = <String>[];
       session.terminal.onOutput = outputs.add;
 
-      await pasteIntoSession(session);
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => [],
+      );
 
       expect(outputs, expected);
     });
@@ -116,9 +124,93 @@ void main() {
         session.terminal.buffer.createAnchor(5, 0),
       );
 
-      await pasteIntoSession(session);
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => [],
+      );
 
       expect(session.terminalController.selection, expected);
+    });
+
+    test('prefers a file on the clipboard over its text', () async {
+      const expected = ['@/Users/x/shot.png'];
+      await Clipboard.setData(const ClipboardData(text: 'ignored'));
+      final session = Session(id: 'a', executable: '/bin/zsh');
+      addTearDown(session.dispose);
+      session.name.value = 'Compacting…'; // a program owns the title
+      final outputs = <String>[];
+      session.terminal.onOutput = outputs.add;
+
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => ['/Users/x/shot.png'],
+        fileExists: (_) => true,
+      );
+
+      expect(outputs, expected);
+    });
+
+    test('falls back to text when no candidate file checks out', () async {
+      // The Safari case: a "file" whose path doesn't exist on disk is
+      // rejected by pastedFilePaths, so the clipboard's text is used.
+      const expected = ['https://example.com/a/b'];
+      await Clipboard.setData(
+        const ClipboardData(text: 'https://example.com/a/b'),
+      );
+      final session = Session(id: 'a', executable: '/bin/zsh');
+      addTearDown(session.dispose);
+      final outputs = <String>[];
+      session.terminal.onOutput = outputs.add;
+
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => ['/a/b'],
+        fileExists: (_) => false,
+      );
+
+      expect(outputs, expected);
+    });
+
+    test('clears the selection on a file paste too', () async {
+      const expected = null;
+      final session = Session(id: 'a', executable: '/bin/zsh');
+      addTearDown(session.dispose);
+      session.name.value = '/Users/x';
+      session.terminal.write('hello');
+      session.terminalController.setSelection(
+        session.terminal.buffer.createAnchor(0, 0),
+        session.terminal.buffer.createAnchor(5, 0),
+      );
+
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => ['/Users/x/shot.png'],
+        fileExists: (_) => true,
+      );
+
+      expect(session.terminalController.selection, expected);
+    });
+
+    test('space-joins two clipboard files under cmd.exe', () async {
+      const expected = [r'"C:\a.txt" "C:\b.txt"'];
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      addTearDown(session.dispose);
+      session.name.value = r'C:\Users\x';
+      final outputs = <String>[];
+      session.terminal.onOutput = outputs.add;
+
+      await pasteIntoSession(
+        session,
+        isWindows: true,
+        readFiles: () async => [r'C:\a.txt', r'C:\b.txt'],
+        fileExists: (_) => true,
+      );
+
+      expect(outputs, expected);
     });
   });
 }

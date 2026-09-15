@@ -15,7 +15,7 @@ Linux is not supported.
 
 Twenty tagged releases stand, `v1.0.0` through `v1.1.18`, built and published
 for both platforms. Milestones 0 and 1 are complete and walked by hand on macOS
-and Windows alike. `flutter test` runs 522 green.
+and Windows alike. `flutter test` runs 548 green.
 
 Everything since Milestone 1 has been ordinary feature work.
 
@@ -69,20 +69,28 @@ Everything since Milestone 1 has been ordinary feature work.
     shell prompt hook that names it in the pane bar; enabled once the shell
     has announced one, so it stays greyed out under a shell the hook does not
     cover (PowerShell, say) and before the first prompt is drawn.
-  - **Paste** — always offered; a no-op with nothing on the clipboard.
+  - **Paste** — always offered; a no-op with nothing on the clipboard. A
+    file copied in Finder or Explorer is read as a file (see below), same
+    as a drop; only when the clipboard holds no plausible file does it
+    fall back to plain text.
   - Copy and Paste also answer to a keyboard chord (see *Key bindings*
     below) — on Windows, bound directly by Orthanc rather than left to the
-    terminal engine's own keytab, which was unreliable there.
-- **Drag a file onto a pane** to write its path into that pane's terminal —
-  as an `@`-reference when a running program owns the pane, so Claude Code
-  reads the file and loads an image as image content rather than a
-  filename; as a bare quoted path when the shell sits idle at its prompt.
-  Several files join one per line, except under `cmd.exe`, which joins with
-  spaces instead since it has no bracketed paste of its own. The pane under
-  the cursor receives the drop and takes focus, glowing while hovered.
-  Under an unhooked shell (PowerShell, fish), every drop reads as "a
-  program owns this pane" — there is no announced prompt to tell the two
-  cases apart.
+    terminal engine's own keytab, which was unreliable there; on macOS,
+    `Cmd+V` is rerouted through Orthanc's own code first so it can check
+    the clipboard for a file before falling back to `xterm`'s own text
+    paste.
+- **Drag a file onto a pane, or copy one and paste it**, to write its path
+  into that pane's terminal — as an `@`-reference when a running program
+  owns the pane, so Claude Code reads the file and loads an image as image
+  content rather than a filename; as a bare quoted path when the shell sits
+  idle at its prompt. Several files join one per line, except under
+  `cmd.exe`, which joins with spaces instead since it has no bracketed
+  paste of its own. A dropped file lands in the pane under the cursor and
+  takes focus, glowing while hovered; a pasted file lands wherever Paste
+  already would. Under an unhooked shell (PowerShell, fish), every drop or
+  paste reads as "a program owns this pane" — there is no announced prompt
+  to tell the two cases apart. A copied web link is never mistaken for a
+  file, even though macOS's own clipboard APIs can blur the two.
 
 ### Key bindings
 
@@ -109,8 +117,12 @@ one row here that is not scoped to Orthanc: it is a system-wide hotkey,
 claimed only while a quake instance runs, and consumed globally — including
 inside the quake window's own terminal. Copy and Paste are the one row where
 the two platforms differ in more than the chord: on Windows the binding is
-Orthanc's own, ahead of the terminal; on macOS it is `xterm`'s own keyboard
-handling underneath, which already works there and was left untouched.
+Orthanc's own, ahead of the terminal, for both. On macOS, Copy is still
+`xterm`'s own keyboard handling underneath, untouched — but Paste is not:
+`xterm`'s `TerminalView` hard-codes its own Cmd+V handler with no override
+slot, so Orthanc reroutes the key through a custom shortcut map and its own
+`Actions` widget to check the clipboard for a file first, falling back to
+`xterm`'s own text-paste behavior only when there isn't one.
 
 ## How it works
 
@@ -121,9 +133,13 @@ handling underneath, which already works there and was left untouched.
   real terminal — ANSI escapes, cursor positioning, resizing — and renders it,
   forwarding keyboard input back to the spawned process.
 - [`desktop_drop`](https://pub.dev/packages/desktop_drop) delivers a dropped
-  file's path and the pointer's position — the one third-party runtime
-  dependency here that isn't a fork Orthanc itself maintains (see *The pinned
-  dependencies* below for those).
+  file's path and the pointer's position.
+- [`pasteboard`](https://pub.dev/packages/pasteboard) reads a file's real
+  path off the system clipboard when one was copied there — Flutter's own
+  `Clipboard` API is text-only and cannot see it. Together with
+  `desktop_drop`, these are the two third-party runtime dependencies here
+  that aren't forks Orthanc itself maintains (see *The pinned dependencies*
+  below for those).
 
 Around those two:
 
@@ -136,13 +152,14 @@ Around those two:
 - `lib/split_view.dart`, `lib/workspace_view.dart` — render that tree, and
   intercept key presses ahead of the terminal.
 - `lib/session_clipboard.dart` — copies a selection to, and pastes from, the
-  system clipboard for a given session; called from the right-click menu and,
-  on Windows, from a bound key press alike.
-- `lib/session_drop.dart` — writes a file drop's paths into a session's
-  terminal, in whichever form `lib/dropped_paths_text.dart` decides.
+  system clipboard for a given session; called from the right-click menu,
+  Windows' bound key press, and (via its own `Actions` override) macOS's
+  `Cmd+V` alike. A file on the clipboard is checked before plain text, in
+  whichever form `lib/dropped_paths_text.dart` decides — the same path
+  `lib/session_drop.dart` writes a drop's paths through.
 
-Ten files hold pure decisions with no I/O, which is why they carry the bulk of
-the tests:
+Twelve files hold pure decisions with no I/O, which is why they carry the
+bulk of the tests:
 
 - `lib/shell_command.dart` — resolves the shell's absolute path per platform,
   since a GUI app launched outside a shell does not inherit an interactive
@@ -158,6 +175,11 @@ the tests:
   directory worth offering to copy, or a running program's own title.
 - `lib/dropped_paths_text.dart` — the exact bracketed-paste text a file drop
   writes: quoted bare paths or `@`-references, joined for the pane's shell.
+- `lib/pasted_file_paths.dart` — which of a clipboard paste's reported file
+  paths are plausible enough to write into a pty; rejects a macOS web link
+  that could otherwise be mistaken for one.
+- `lib/terminal_paste_shortcuts.dart` — macOS's `Cmd+V`, rebound to check
+  the clipboard for a file before `xterm`'s own text-paste handling.
 - `lib/hyperlink.dart` — which modifier opens a link, and which URI schemes are
   safe to launch.
 - `lib/shell_prompt_hook.dart` — which shell an executable names, and the
@@ -224,7 +246,7 @@ pane that wants no color can still set `NO_COLOR` for itself.
 flutter test
 ```
 
-522 tests across 42 files. The pure decisions above are unit-tested directly,
+548 tests across 45 files. The pure decisions above are unit-tested directly,
 along with the layout tree, title composition, and settings validation and
 (de)serialization; the pane bar and the settings dialog carry widget tests. The
 pty/terminal wiring itself can only be judged by actually running the app — see

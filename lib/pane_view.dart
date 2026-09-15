@@ -12,6 +12,7 @@ import 'session.dart';
 import 'session_clipboard.dart';
 import 'session_path.dart';
 import 'terminal_font_families.dart';
+import 'terminal_paste_shortcuts.dart';
 
 /// One pane: its bar, and the terminal beneath — unless [collapsed], in
 /// which case only the bar renders, at its own fixed height, and the
@@ -136,6 +137,16 @@ class _PaneViewState extends State<PaneView> {
   final _terminalKey = GlobalKey<TerminalViewState>();
   MouseCursor _cursor = SystemMouseCursors.text;
 
+  // late final, not rebuilt in build(): TerminalView.didUpdateWidget
+  // reassigns its ShortcutManager's shortcuts on every rebuild, and fresh
+  // SingleActivator instances on every frame would defeat that setter's
+  // own equality-based no-op guard, invalidating the shortcut index for no
+  // reason. null on every platform but macOS — see terminalPasteShortcuts.
+  late final _shortcuts = terminalPasteShortcuts(
+    isMacOS: Platform.isMacOS,
+    defaults: defaultTerminalShortcuts,
+  );
+
   @override
   Widget build(BuildContext context) {
     // Listener sees every pointer down regardless of the gesture arena; a
@@ -192,25 +203,44 @@ class _PaneViewState extends State<PaneView> {
             // can draw rows past its box and into PaneBar above it. Clip
             // explicitly rather than rely on that render object doing it.
             child: ClipRect(
-              child: MouseRegion(
-                onHover: _onHover,
-                onExit: (_) => _setCursor(SystemMouseCursors.text),
-                child: TerminalView(
-                  key: _terminalKey,
-                  widget.session.terminal,
-                  controller: widget.session.terminalController,
-                  focusNode: widget.session.focusNode,
-                  onKeyEvent: widget.onKeyEvent,
-                  onTapUp: _onTapUp,
-                  onSecondaryTapUp: _onSecondaryTapUp,
-                  mouseCursor: _cursor,
-                  theme: widget.theme,
-                  // See terminalFontFamilyFallback's doc comment for why
-                  // this list is shaped and ordered the way it is.
-                  textStyle: TerminalStyle(
-                    fontFamily: widget.fontFamily,
-                    fontSize: widget.fontSize,
-                    fontFamilyFallback: terminalFontFamilyFallback,
+              // Not a gesture handler — Actions/Shortcuts register no
+              // GestureRecognizer and hit-test nothing, so this does not
+              // reintroduce the tap-arena hazard the Listener above this
+              // whole subtree exists to avoid. Its only job: catch
+              // PanePasteIntent, which _shortcuts routes Cmd+V to on macOS,
+              // before it can fall through anywhere else — xterm's own
+              // TerminalActions, nested inside TerminalView below, has no
+              // handler for this Intent type and is walked straight past.
+              child: Actions(
+                actions: {
+                  PanePasteIntent: CallbackAction<PanePasteIntent>(
+                    onInvoke: (_) => pasteIntoSession(
+                      widget.session,
+                      isWindows: Platform.isWindows,
+                    ),
+                  ),
+                },
+                child: MouseRegion(
+                  onHover: _onHover,
+                  onExit: (_) => _setCursor(SystemMouseCursors.text),
+                  child: TerminalView(
+                    key: _terminalKey,
+                    widget.session.terminal,
+                    controller: widget.session.terminalController,
+                    focusNode: widget.session.focusNode,
+                    onKeyEvent: widget.onKeyEvent,
+                    onTapUp: _onTapUp,
+                    onSecondaryTapUp: _onSecondaryTapUp,
+                    mouseCursor: _cursor,
+                    theme: widget.theme,
+                    shortcuts: _shortcuts,
+                    // See terminalFontFamilyFallback's doc comment for why
+                    // this list is shaped and ordered the way it is.
+                    textStyle: TerminalStyle(
+                      fontFamily: widget.fontFamily,
+                      fontSize: widget.fontSize,
+                      fontFamilyFallback: terminalFontFamilyFallback,
+                    ),
                   ),
                 ),
               ),
@@ -400,7 +430,7 @@ class _PaneViewState extends State<PaneView> {
       case _ClipboardMenuAction.copyPath:
         _copyPath();
       case _ClipboardMenuAction.paste:
-        await pasteIntoSession(widget.session);
+        await pasteIntoSession(widget.session, isWindows: Platform.isWindows);
       case null:
         break;
     }
