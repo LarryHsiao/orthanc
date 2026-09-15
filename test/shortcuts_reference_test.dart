@@ -44,6 +44,23 @@ void main() {
     );
   });
 
+  test(
+    'windows labels carry the copy and paste chords bound in _windowsAction',
+    () {
+      final entries = paneShortcuts(isWindows: true);
+
+      expectContains(entries, const ShortcutEntry('Copy', 'Ctrl+Shift+C'));
+      expectContains(entries, const ShortcutEntry('Paste', 'Ctrl+Shift+V'));
+    },
+  );
+
+  test('mac labels carry the terminal\'s own copy and paste chords', () {
+    final entries = paneShortcuts(isWindows: false);
+
+    expectContains(entries, const ShortcutEntry('Copy', '⌘C'));
+    expectContains(entries, const ShortcutEntry('Paste', '⌘V'));
+  });
+
   test('every entry has a non-empty label and key combination', () {
     for (final isWindows in [true, false]) {
       for (final entry in paneShortcuts(isWindows: isWindows)) {

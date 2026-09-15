@@ -9,6 +9,8 @@ import 'hyperlink.dart';
 import 'layout_node.dart';
 import 'pane_bar.dart';
 import 'session.dart';
+import 'session_clipboard.dart';
+import 'session_path.dart';
 import 'terminal_font_families.dart';
 
 /// One pane: its bar, and the terminal beneath — unless [collapsed], in
@@ -352,6 +354,11 @@ class _PaneViewState extends State<PaneView> {
           enabled: widget.session.terminalController.selection != null,
           child: const Text('Copy'),
         ),
+        PopupMenuItem(
+          value: _ClipboardMenuAction.copyPath,
+          enabled: sessionPath(widget.session.name.value) != null,
+          child: const Text('Copy Path'),
+        ),
         const PopupMenuItem(
           value: _ClipboardMenuAction.paste,
           child: Text('Paste'),
@@ -360,29 +367,23 @@ class _PaneViewState extends State<PaneView> {
     );
     switch (action) {
       case _ClipboardMenuAction.copy:
-        _copySelection();
+        copySelection(widget.session);
+      case _ClipboardMenuAction.copyPath:
+        _copyPath();
       case _ClipboardMenuAction.paste:
-        await _pasteFromClipboard();
+        await pasteIntoSession(widget.session);
       case null:
         break;
     }
   }
 
-  // Selection survives a copy — matching xterm's own CopySelectionTextIntent
-  // handler, which never clears it either.
-  void _copySelection() {
-    final selection = widget.session.terminalController.selection;
-    if (selection == null) return;
-    final text = widget.session.terminal.buffer.getText(selection);
-    Clipboard.setData(ClipboardData(text: text));
-  }
-
-  Future<void> _pasteFromClipboard() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text;
-    if (text == null || text.isEmpty) return;
-    widget.session.terminal.paste(text);
-    widget.session.terminalController.clearSelection();
+  // Guarded by sessionPath rather than copying session.name.value blind —
+  // a running program's own OSC title (not a path) must never reach the
+  // clipboard in the directory's place.
+  void _copyPath() {
+    final path = sessionPath(widget.session.name.value);
+    if (path == null) return;
+    Clipboard.setData(ClipboardData(text: path));
   }
 
   void _setCursor(MouseCursor cursor) {
@@ -405,4 +406,4 @@ class _PaneViewState extends State<PaneView> {
   }
 }
 
-enum _ClipboardMenuAction { copy, paste }
+enum _ClipboardMenuAction { copy, copyPath, paste }

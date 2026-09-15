@@ -11,6 +11,7 @@ import 'handoff_offer.dart';
 import 'layout_node.dart';
 import 'new_instance.dart';
 import 'session.dart';
+import 'session_clipboard.dart';
 import 'sessions.dart';
 import 'settings.dart';
 import 'settings_validation.dart';
@@ -418,9 +419,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     if (action == null) return KeyEventResult.ignored;
 
     // A held hotkey streams KeyRepeatEvents; re-firing split/close on every
-    // one would cascade panes into existence or out of it. The repeat is
-    // still swallowed here rather than falling through to the pty, but it
-    // triggers no second action.
+    // one would cascade panes into existence or out of it — a held
+    // Ctrl+Shift+V would likewise paste on every repeat instead of once. The
+    // repeat is still swallowed here rather than falling through to the pty,
+    // but it triggers no second action.
     if (event is! KeyRepeatEvent) _dispatch(action);
     return KeyEventResult.handled;
   }
@@ -449,7 +451,23 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         _toggleCollapse(workspace.focusedId);
       case NewWindow():
         startNewInstance();
+      case CopySelection():
+        _copyFocusedSelection();
+      case PasteClipboard():
+        _pasteIntoFocused();
     }
+  }
+
+  void _copyFocusedSelection() {
+    final session = sessions[workspace.focusedId];
+    if (session == null) return;
+    copySelection(session);
+  }
+
+  void _pasteIntoFocused() {
+    final session = sessions[workspace.focusedId];
+    if (session == null) return;
+    unawaited(pasteIntoSession(session));
   }
 
   @override
