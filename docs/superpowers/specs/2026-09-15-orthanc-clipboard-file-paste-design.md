@@ -229,16 +229,22 @@ filename.
   pane) affects `isCmdShell` here exactly as it already does for file-drop
   — inherited, not introduced.
 
+## Verified by hand
+
+**2026-09-15, macOS:** both `Cmd+V` and the right-click "Paste" menu item
+were confirmed working by hand.
+
 ## Unverified — to be settled during implementation
 
 1. **Whether `NSPasteboard.readObjects(forClasses: [NSURL.self])` also
    reads plain-string pasteboard entries** — if it does, copying the
    *literal text* `/etc/hosts` and pasting could produce `@/etc/hosts`
-   instead of plain text, since both plausibility gates would pass. Settled
-   by hand: copy the literal text `/etc/hosts`, paste, see which form
-   lands. If it fires, the narrow fix: prefer text whenever
-   `Clipboard.getData`'s string equals the single candidate path exactly,
-   since a genuine Finder file-copy's text flavor is the *basename*, never
-   the full POSIX path.
+   instead of plain text, since both plausibility gates would pass. The
+   macOS pass above did not specifically exercise this case. Settled by
+   hand: copy the literal text `/etc/hosts`, paste, see which form lands.
+   If it fires, the narrow fix: prefer text whenever `Clipboard.getData`'s
+   string equals the single candidate path exactly, since a genuine
+   Finder file-copy's text flavor is the *basename*, never the full POSIX
+   path.
 2. **The whole feature on Windows** — this development machine is
    macOS-only, the same limitation the file-drop design already carries.
