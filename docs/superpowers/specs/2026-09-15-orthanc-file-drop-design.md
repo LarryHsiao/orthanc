@@ -198,16 +198,22 @@ Claude describe the image, not recite its filename.
   not `DropDoneDetails` — different types, easy to conflate when wiring the
   three callbacks side by side.
 
+## Verified by hand
+
+**2026-09-15, macOS:** the feature was confirmed working by hand on macOS —
+a dropped file lands correctly and the pane behaves as designed.
+
 ## Unverified
 
 **How Claude Code's `@`-parser terminates a path token, and whether it
-honours a backslash-escaped space, was never confirmed by hand** — the
-physical check (drop a space-bearing image onto a live Claude Code pane,
-read what lands) needs a real drag gesture on a real desktop, which was
-judged too invasive to script against a live session and left to whoever
-runs this feature next. `_atPath`'s backslash-escaping is built on the
-documented reasoning in *Architecture* above, not on an observed result.
-If the escaped form fails in practice, the fix is narrow: drop the escaping
-in `_atPath` for the POSIX branch too, update
-`test/dropped_paths_text_test.dart`'s two affected cases, and record the
-finding here.
+honours a backslash-escaped space, remains unconfirmed** — the macOS pass
+above did not specifically exercise a space-bearing path, so `_atPath`'s
+backslash-escaping still rests on the documented reasoning in *Architecture*
+above, not an observed result for that particular case. If the escaped form
+fails in practice, the fix is narrow: drop the escaping in `_atPath` for the
+POSIX branch too, update `test/dropped_paths_text_test.dart`'s two affected
+cases, and record the finding here.
+
+**Windows** (the `cmd.exe` space-join, the `@`-verbatim Windows path form,
+and the coordinate-space/build checks generally) has not been hand-verified
+at all — this development machine is macOS-only.
