@@ -115,6 +115,28 @@ void main() {
 
       expect(action, expected);
     });
+
+    test(
+      'Cmd+C is left for the terminal — xterm\'s own keytab copies there',
+      () {
+        const expected = null;
+
+        final action = macAction(LogicalKeyboardKey.keyC, meta: true);
+
+        expect(action, expected);
+      },
+    );
+
+    test(
+      'Cmd+V is left for the terminal — xterm\'s own keytab pastes there',
+      () {
+        const expected = null;
+
+        final action = macAction(LogicalKeyboardKey.keyV, meta: true);
+
+        expect(action, expected);
+      },
+    );
   });
 
   group('Windows', () {
@@ -150,6 +172,63 @@ void main() {
       );
 
       expect(action, isA<ClosePane>());
+    });
+
+    test('Ctrl+Shift+C copies the selection', () {
+      final action = windowsAction(
+        LogicalKeyboardKey.keyC,
+        control: true,
+        shift: true,
+      );
+
+      expect(action, isA<CopySelection>());
+    });
+
+    test('Ctrl+Shift+V pastes the clipboard', () {
+      final action = windowsAction(
+        LogicalKeyboardKey.keyV,
+        control: true,
+        shift: true,
+      );
+
+      expect(action, isA<PasteClipboard>());
+    });
+
+    test('Ctrl+C is left for the terminal — it is SIGINT', () {
+      const expected = null;
+
+      final action = windowsAction(LogicalKeyboardKey.keyC, control: true);
+
+      expect(action, expected);
+    });
+
+    test('Ctrl+V is left for the terminal — readline quoted-insert', () {
+      const expected = null;
+
+      final action = windowsAction(LogicalKeyboardKey.keyV, control: true);
+
+      expect(action, expected);
+    });
+
+    test('Ctrl+Shift+Alt+C is left for the terminal — extra modifier', () {
+      const expected = null;
+
+      final action = windowsAction(
+        LogicalKeyboardKey.keyC,
+        control: true,
+        shift: true,
+        alt: true,
+      );
+
+      expect(action, expected);
+    });
+
+    test('a bare C is left for the terminal', () {
+      const expected = null;
+
+      final action = windowsAction(LogicalKeyboardKey.keyC);
+
+      expect(action, expected);
     });
 
     test('Alt+Down moves focus down', () {

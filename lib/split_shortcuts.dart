@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'layout_node.dart';
 
 /// Something a key press asks of the app, rather than of the terminal — of
-/// the layout, mostly, though [NewWindow] asks for a whole second instance.
+/// the layout, mostly, though [NewWindow] asks for a whole second instance
+/// and [CopySelection]/[PasteClipboard] ask for the clipboard.
 sealed class PaneAction {
   const PaneAction();
 }
@@ -32,7 +33,19 @@ class NewWindow extends PaneAction {
   const NewWindow();
 }
 
-/// What a key press means to the layout, or null to let the terminal have it.
+/// Windows only — xterm's own keyboard handling of `Ctrl+Shift+C` is
+/// unreliable there, per _windowsAction's doc comment; macOS keeps xterm's
+/// own `Cmd+C`, which already works.
+class CopySelection extends PaneAction {
+  const CopySelection();
+}
+
+/// Windows only — see [CopySelection]; macOS keeps xterm's own `Cmd+V`.
+class PasteClipboard extends PaneAction {
+  const PasteClipboard();
+}
+
+/// What a key press means to the app, or null to let the terminal have it.
 ///
 /// Each platform wears the scheme of the terminal already in use there — iTerm2
 /// on macOS, Windows Terminal on Windows. Ctrl+D is bound on neither: it is
@@ -84,11 +97,15 @@ PaneAction? _windowsAction(
     }
     if (key == LogicalKeyboardKey.keyZ) return const ToggleCollapse();
   }
-  if (isControlPressed &&
-      isShiftPressed &&
-      !isAltPressed &&
-      key == LogicalKeyboardKey.keyW) {
-    return const ClosePane();
+  if (isControlPressed && isShiftPressed && !isAltPressed) {
+    if (key == LogicalKeyboardKey.keyW) return const ClosePane();
+    // Windows Terminal's own copy/paste chords, bound here rather than left
+    // to xterm's keyboard handling — unreliable on Windows (see the
+    // right-click Copy/Paste menu's own history). Ctrl+C stays SIGINT and
+    // Ctrl+V stays readline's quoted-insert, since neither matches without
+    // Shift.
+    if (key == LogicalKeyboardKey.keyC) return const CopySelection();
+    if (key == LogicalKeyboardKey.keyV) return const PasteClipboard();
   }
   // Windows has no menu bar to hang "New Window" from, so the chord is the
   // only way to ask for a second instance there. It costs the terminal its

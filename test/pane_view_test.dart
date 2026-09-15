@@ -353,12 +353,15 @@ void main() {
           .setMockMethodCallHandler(SystemChannels.platform, null);
     });
 
-    testWidgets('right-click opens a menu with Copy and Paste', (tester) async {
+    testWidgets('right-click opens a menu with Copy, Copy Path and Paste', (
+      tester,
+    ) async {
       await pumpPaneView(tester, focused: true);
 
       await rightClick(tester);
 
       expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('Copy Path'), findsOneWidget);
       expect(find.text('Paste'), findsOneWidget);
     });
 
@@ -423,6 +426,60 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(session.terminalController.selection, expected);
+    });
+
+    testWidgets('Copy Path is disabled when no directory was announced', (
+      tester,
+    ) async {
+      const expected = false;
+      await pumpPaneView(tester, focused: true);
+
+      await rightClick(tester);
+
+      expect(menuItem(tester, 'Copy Path').enabled, expected);
+    });
+
+    testWidgets(
+      'Copy Path is disabled when the title is a program message, not a path',
+      (tester) async {
+        const expected = false;
+        final session = Session(id: 'a', executable: 'cmd.exe');
+        session.name.value = 'Compacting…';
+
+        await pumpPaneView(tester, focused: true, session: session);
+        await rightClick(tester);
+
+        expect(menuItem(tester, 'Copy Path').enabled, expected);
+      },
+    );
+
+    testWidgets('Copy Path is enabled once the shell announces a directory', (
+      tester,
+    ) async {
+      const expected = true;
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      session.name.value = r'C:\Users\larry';
+
+      await pumpPaneView(tester, focused: true, session: session);
+      await rightClick(tester);
+
+      expect(menuItem(tester, 'Copy Path').enabled, expected);
+    });
+
+    testWidgets('selecting Copy Path sends the directory to the clipboard', (
+      tester,
+    ) async {
+      const expected = r'C:\Users\larry';
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      session.name.value = expected;
+      await pumpPaneView(tester, focused: true, session: session);
+      await rightClick(tester);
+
+      await tester.tap(find.text('Copy Path'));
+      await tester.pumpAndSettle();
+
+      final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+      expect(clipboard?.text, expected);
     });
 
     testWidgets('selecting Paste writes the clipboard text into the terminal', (

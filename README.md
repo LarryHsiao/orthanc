@@ -15,7 +15,7 @@ Linux is not supported.
 
 Twenty tagged releases stand, `v1.0.0` through `v1.1.18`, built and published
 for both platforms. Milestones 0 and 1 are complete and walked by hand on macOS
-and Windows alike. `flutter test` runs 428 green.
+and Windows alike. `flutter test` runs 491 green.
 
 Everything since Milestone 1 has been ordinary feature work.
 
@@ -62,9 +62,17 @@ Everything since Milestone 1 has been ordinary feature work.
   button ends the instance), and minimizes rather than hides, so the taskbar
   button survives too — there is no Windows slide, since the window's content
   is a swap-chain-backed surface `AnimateWindow` cannot capture.
-- **Copy and Paste from a right-click menu.** Copy (enabled only with an
-  active selection) and Paste, reachable by gesture rather than a shell
-  convention — the reliable path on every platform, keyboard shortcuts aside.
+- **Copy, Copy Path and Paste from a right-click menu**, reachable by gesture
+  rather than a shell convention.
+  - **Copy** — enabled only with an active selection.
+  - **Copy Path** — the pane's current working directory, fed by the same
+    shell prompt hook that names it in the pane bar; enabled once the shell
+    has announced one, so it stays greyed out under a shell the hook does not
+    cover (PowerShell, say) and before the first prompt is drawn.
+  - **Paste** — always offered; a no-op with nothing on the clipboard.
+  - Copy and Paste also answer to a keyboard chord (see *Key bindings*
+    below) — on Windows, bound directly by Orthanc rather than left to the
+    terminal engine's own keytab, which was unreliable there.
 
 ### Key bindings
 
@@ -81,13 +89,18 @@ macOS, Windows Terminal on Windows.
 | Open hyperlink      | `Cmd`+click         | `Ctrl`+click   |
 | New window          | `Cmd+N`             | `Ctrl+N`       |
 | Toggle quake window | `` Ctrl+` ``        | `` Ctrl+` ``   |
+| Copy                | `Cmd+C`             | `Ctrl+Shift+C` |
+| Paste               | `Cmd+V`             | `Ctrl+Shift+V` |
 
 Every binding demands exactly its own modifiers and no others; anything not
 listed reaches the terminal untouched. `Ctrl+D` is bound on neither platform: it
 is EOF, and would kill a session rather than split one. The quake toggle is the
 one row here that is not scoped to Orthanc: it is a system-wide hotkey,
 claimed only while a quake instance runs, and consumed globally — including
-inside the quake window's own terminal.
+inside the quake window's own terminal. Copy and Paste are the one row where
+the two platforms differ in more than the chord: on Windows the binding is
+Orthanc's own, ahead of the terminal; on macOS it is `xterm`'s own keyboard
+handling underneath, which already works there and was left untouched.
 
 ## How it works
 
@@ -108,8 +121,11 @@ Around those two:
   the operations over it (split, close, focus, collapse, find a neighbour).
 - `lib/split_view.dart`, `lib/workspace_view.dart` — render that tree, and
   intercept key presses ahead of the terminal.
+- `lib/session_clipboard.dart` — copies a selection to, and pastes from, the
+  system clipboard for a given session; called from the right-click menu and,
+  on Windows, from a bound key press alike.
 
-Eight files hold pure decisions with no I/O, which is why they carry the bulk of
+Nine files hold pure decisions with no I/O, which is why they carry the bulk of
 the tests:
 
 - `lib/shell_command.dart` — resolves the shell's absolute path per platform,
@@ -120,8 +136,10 @@ the tests:
 - `lib/home_directory.dart` — where a pane starts and where its rc files live.
   Windows never sets `HOME`, so this prefers it only when it names a path
   Windows can actually use, and falls back to `USERPROFILE`.
-- `lib/split_shortcuts.dart` — what a key press means to the layout, or null to
+- `lib/split_shortcuts.dart` — what a key press means to the app, or null to
   let the terminal have it.
+- `lib/session_path.dart` — whether a pane's announced name is a working
+  directory worth offering to copy, or a running program's own title.
 - `lib/hyperlink.dart` — which modifier opens a link, and which URI schemes are
   safe to launch.
 - `lib/shell_prompt_hook.dart` — which shell an executable names, and the
@@ -188,7 +206,7 @@ pane that wants no color can still set `NO_COLOR` for itself.
 flutter test
 ```
 
-428 tests across 37 files. The pure decisions above are unit-tested directly,
+491 tests across 40 files. The pure decisions above are unit-tested directly,
 along with the layout tree, title composition, and settings validation and
 (de)serialization; the pane bar and the settings dialog carry widget tests. The
 pty/terminal wiring itself can only be judged by actually running the app — see

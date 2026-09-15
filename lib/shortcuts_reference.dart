@@ -8,8 +8,10 @@ class ShortcutEntry {
 }
 
 /// Every pane shortcut bound in `paneAction` (split_shortcuts.dart) and the
-/// app menu's New Window item, labelled for display. Branches by platform the
-/// same way `paneAction` itself does — mac symbols vs Windows chord text.
+/// app menu's New Window item, labelled for display, plus Copy/Paste — bound
+/// in `paneAction` on Windows, but left to xterm's own keytab on macOS, where
+/// it is listed here only for discoverability. Branches by platform the same
+/// way `paneAction` itself does — mac symbols vs Windows chord text.
 List<ShortcutEntry> paneShortcuts({required bool isWindows}) {
   if (isWindows) {
     const quakeToggle = ShortcutEntry('Toggle quake window', 'Ctrl+`');
@@ -24,6 +26,8 @@ List<ShortcutEntry> paneShortcuts({required bool isWindows}) {
       ShortcutEntry('Move focus up', 'Alt+Up'),
       ShortcutEntry('Move focus down', 'Alt+Down'),
       ShortcutEntry('Collapse/expand pane', 'Shift+Alt+Z'),
+      ShortcutEntry('Copy', 'Ctrl+Shift+C'),
+      ShortcutEntry('Paste', 'Ctrl+Shift+V'),
     ];
   }
   const quakeToggle = ShortcutEntry('Toggle quake window', '⌘`');
@@ -38,5 +42,7 @@ List<ShortcutEntry> paneShortcuts({required bool isWindows}) {
     ShortcutEntry('Move focus up', '⌘⌥↑'),
     ShortcutEntry('Move focus down', '⌘⌥↓'),
     ShortcutEntry('Collapse/expand pane', '⌘⇧⏎'),
+    ShortcutEntry('Copy', '⌘C'),
+    ShortcutEntry('Paste', '⌘V'),
   ];
 }

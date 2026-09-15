@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [Unreleased]
+
+### Added
+
+- A `Copy Path` item in the right-click menu, copying a pane's current
+  working directory — fed by the same shell prompt hook that already names
+  it in the pane bar, so it is live under bash, zsh and `cmd.exe`, and
+  greyed out under a shell the hook does not cover (PowerShell, say).
+- `Ctrl+Shift+C` and `Ctrl+Shift+V` on Windows, bound directly by Orthanc
+  ahead of the terminal engine, to copy the selection and paste.
+
+### Fixed
+
+- Keyboard copy and paste on Windows, unreliable through the terminal
+  engine's own keyboard handling since the right-click Copy/Paste menu was
+  added as a workaround for exactly this (see the `8771b58` commit that
+  introduced it).
+
 ## [1.4.2] - 2026-08-22
 
 ### Fixed
