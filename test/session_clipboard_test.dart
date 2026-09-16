@@ -91,6 +91,7 @@ void main() {
         session,
         isWindows: false,
         readFiles: () async => [],
+        readImage: () async => null,
       );
 
       expect(outputs, expected);
@@ -108,6 +109,7 @@ void main() {
         session,
         isWindows: false,
         readFiles: () async => [],
+        readImage: () async => null,
       );
 
       expect(outputs, expected);
@@ -128,6 +130,7 @@ void main() {
         session,
         isWindows: false,
         readFiles: () async => [],
+        readImage: () async => null,
       );
 
       expect(session.terminalController.selection, expected);
@@ -169,6 +172,7 @@ void main() {
         isWindows: false,
         readFiles: () async => ['/a/b'],
         fileExists: (_) => false,
+        readImage: () async => null,
       );
 
       expect(outputs, expected);
@@ -190,6 +194,96 @@ void main() {
         isWindows: false,
         readFiles: () async => ['/Users/x/shot.png'],
         fileExists: (_) => true,
+      );
+
+      expect(session.terminalController.selection, expected);
+    });
+
+    test('writes a clipboard image to a file and pastes its path', () async {
+      const expected = ['@/tmp/orthanc-paste-1.png'];
+      final session = Session(id: 'a', executable: '/bin/zsh');
+      addTearDown(session.dispose);
+      session.name.value = 'Compacting…'; // a program owns the title
+      final outputs = <String>[];
+      session.terminal.onOutput = outputs.add;
+      final written = <Uint8List>[];
+
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => [],
+        readImage: () async => Uint8List.fromList([1, 2, 3]),
+        writeImageFile: (bytes) {
+          written.add(bytes);
+          return '/tmp/orthanc-paste-1.png';
+        },
+      );
+
+      expect(outputs, expected);
+      expect(written, [
+        Uint8List.fromList([1, 2, 3]),
+      ]);
+    });
+
+    test('prefers a clipboard file over a clipboard image', () async {
+      const expected = ['@/Users/x/shot.png'];
+      final session = Session(id: 'a', executable: '/bin/zsh');
+      addTearDown(session.dispose);
+      session.name.value = 'Compacting…';
+      final outputs = <String>[];
+      session.terminal.onOutput = outputs.add;
+      var imageRead = false;
+
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => ['/Users/x/shot.png'],
+        fileExists: (_) => true,
+        readImage: () async {
+          imageRead = true;
+          return Uint8List.fromList([1]);
+        },
+      );
+
+      expect(outputs, expected);
+      expect(imageRead, false);
+    });
+
+    test('falls back to text when the clipboard image is empty', () async {
+      const expected = ['pasted!'];
+      await Clipboard.setData(const ClipboardData(text: 'pasted!'));
+      final session = Session(id: 'a', executable: 'cmd.exe');
+      addTearDown(session.dispose);
+      final outputs = <String>[];
+      session.terminal.onOutput = outputs.add;
+
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => [],
+        readImage: () async => Uint8List(0),
+      );
+
+      expect(outputs, expected);
+    });
+
+    test('clears the selection on an image paste too', () async {
+      const expected = null;
+      final session = Session(id: 'a', executable: '/bin/zsh');
+      addTearDown(session.dispose);
+      session.name.value = '/Users/x'; // shell just announced its prompt
+      session.terminal.write('hello');
+      session.terminalController.setSelection(
+        session.terminal.buffer.createAnchor(0, 0),
+        session.terminal.buffer.createAnchor(5, 0),
+      );
+
+      await pasteIntoSession(
+        session,
+        isWindows: false,
+        readFiles: () async => [],
+        readImage: () async => Uint8List.fromList([1]),
+        writeImageFile: (_) => '/Users/x/shot.png',
       );
 
       expect(session.terminalController.selection, expected);
