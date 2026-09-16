@@ -8,10 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
-## [Unreleased]
+## [1.5.0] - 2026-09-16
 
 ### Added
 
+- Copy an image with no file behind it — from LINE, a browser, or a
+  screenshot tool — and paste it into a pane. The clipboard's raw image
+  bytes are written to a temp PNG and handed to the pane the same way a
+  dropped or clipboard-copied file already is, landing as an `@`-reference
+  when a program owns the pane. A file on the clipboard still wins over an
+  image, and an image still falls back to plain text if the clipboard holds
+  neither.
 - Copy a file in Finder or Explorer, then paste it into a pane — right-click
   Paste, Windows' `Ctrl+Shift+V`, or macOS's `Cmd+V` — and its real path
   lands the same way a drop would: `@`-referenced when a program owns the
@@ -103,6 +110,7 @@ commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/r
   The last expanded pane in a column refuses to collapse, and closing a pane
   releases the collapse of any column it would have emptied.
 
+[1.5.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.5.0
 [1.4.2]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.2
 [1.4.1]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.1
 [1.4.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.0
