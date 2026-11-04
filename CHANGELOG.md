@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.5.2] - 2026-11-05
+
+### Fixed
+
+- Copying a selection no longer carries spaces after a line's last
+  character. A shell command ending in `\` pasted with trailing spaces after
+  the backslash, which stops the shell treating it as a line continuation;
+  those blanks are now trimmed. A space at a soft-wrap point inside the
+  selection is kept. Cmd+C on macOS now copies the same way as the
+  right-click menu and Ctrl+Shift+C on Windows.
+
 ## [1.5.1] - 2026-11-04
 
 ### Fixed
