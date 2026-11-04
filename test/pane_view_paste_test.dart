@@ -10,6 +10,11 @@ import 'package:orthanc/settings.dart';
 import 'package:orthanc/terminal_color_schemes.dart';
 import 'package:orthanc/terminal_font_families.dart';
 
+// testMacOSWidget skips on any non-macOS host: PaneView rebinds Cmd+V only
+// when the host's `Platform.isMacOS` is true, which
+// `debugDefaultTargetPlatformOverride` cannot fake — so elsewhere these tests
+// would exercise xterm's own paste, not the wiring.
+
 /// The one file that mocks the `pasteboard` channel — every other test that
 /// exercises `pasteIntoSession` reaches it through the injected `readFiles`
 /// seam instead, precisely to keep this channel-mocking surface small. This
@@ -89,7 +94,7 @@ void main() {
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
-    });
+    }, skip: !Platform.isMacOS);
   }
 
   Future<Session> pumpPaneView(WidgetTester tester, {Session? session}) async {
