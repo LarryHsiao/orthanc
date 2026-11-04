@@ -3,7 +3,10 @@
 .superpowers/
 
 # Claude Code project-local settings (machine-specific, may carry secrets)
-.claude/
+.claude/*
+# ...except the shared SessionStart hook that installs Flutter in cloud sessions
+!.claude/settings.json
+!.claude/hooks/
 
 # Miscellaneous
 *.class

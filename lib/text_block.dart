@@ -72,9 +72,7 @@ String dedent(String text) {
     if (common == null || indent < common) common = indent;
   }
   final cut = common ?? 0;
-  return lines
-      .map((l) => l.length >= cut ? l.substring(cut) : '')
-      .join('\n');
+  return lines.map((l) => l.length >= cut ? l.substring(cut) : '').join('\n');
 }
 
 bool _isBlank(Buffer buffer, int row) {
