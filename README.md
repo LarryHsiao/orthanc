@@ -178,8 +178,9 @@ bulk of the tests:
 - `lib/pasted_file_paths.dart` — which of a clipboard paste's reported file
   paths are plausible enough to write into a pty; rejects a macOS web link
   that could otherwise be mistaken for one.
-- `lib/terminal_paste_shortcuts.dart` — macOS's `Cmd+V`, rebound to check
-  the clipboard for a file before `xterm`'s own text-paste handling.
+- `lib/terminal_clipboard_shortcuts.dart` — macOS's `Cmd+V`, rebound to check
+  the clipboard for a file before `xterm`'s own text-paste handling, and
+  `Cmd+C`, rebound to `copySelection` so a copy trims trailing blanks.
 - `lib/hyperlink.dart` — which modifier opens a link, and which URI schemes are
   safe to launch.
 - `lib/shell_prompt_hook.dart` — which shell an executable names, and the

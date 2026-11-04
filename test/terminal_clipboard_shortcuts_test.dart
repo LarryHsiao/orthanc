@@ -1,18 +1,23 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:orthanc/terminal_paste_shortcuts.dart';
+import 'package:orthanc/terminal_clipboard_shortcuts.dart';
 
 bool _isMetaV(ShortcutActivator activator) =>
     activator is SingleActivator &&
     activator.trigger == LogicalKeyboardKey.keyV &&
     activator.meta;
 
+bool _isMetaC(ShortcutActivator activator) =>
+    activator is SingleActivator &&
+    activator.trigger == LogicalKeyboardKey.keyC &&
+    activator.meta;
+
 /// A fresh map on every call, its `SingleActivator` keys built without
 /// `const` — deliberately, matching the real fork's own non-`const`
 /// `_defaultAppleShortcuts`. A `const` map here would canonicalize its
 /// `SingleActivator(keyV, meta: true)` key to the exact same instance
-/// `terminal_paste_shortcuts.dart` constructs for its own replacement
+/// `terminal_clipboard_shortcuts.dart` constructs for its own replacement
 /// entry, which would make even the naive, buggy `map[key] = value`
 /// assignment appear to work in this test — silently defeating the one
 /// regression this file exists to catch.
@@ -29,11 +34,11 @@ Map<ShortcutActivator, Intent> _buildDefaults() {
 }
 
 void main() {
-  group('terminalPasteShortcuts', () {
+  group('terminalClipboardShortcuts', () {
     test('returns null off macOS', () {
       const expected = null;
 
-      final result = terminalPasteShortcuts(
+      final result = terminalClipboardShortcuts(
         isMacOS: false,
         defaults: _buildDefaults(),
       );
@@ -49,7 +54,7 @@ void main() {
       // xterm's own PasteTextIntent entry keeps winning.
       const expected = 1;
 
-      final result = terminalPasteShortcuts(
+      final result = terminalClipboardShortcuts(
         isMacOS: true,
         defaults: _buildDefaults(),
       )!;
@@ -60,7 +65,7 @@ void main() {
     test('that entry asks for a pane paste', () {
       final expected = isA<PanePasteIntent>();
 
-      final result = terminalPasteShortcuts(
+      final result = terminalClipboardShortcuts(
         isMacOS: true,
         defaults: _buildDefaults(),
       )!;
@@ -69,24 +74,31 @@ void main() {
       expect(result[activator], expected);
     });
 
-    test('leaves Cmd+C untouched', () {
-      const expected = CopySelectionTextIntent.copy;
+    test('binds exactly one activator to Cmd+C', () {
+      // Same duplicate-key hazard as Cmd+V: xterm's own CopySelectionTextIntent
+      // entry would keep winning if a second Cmd+C key were merely added.
+      const expected = 1;
 
-      final result = terminalPasteShortcuts(
+      final result = terminalClipboardShortcuts(
+        isMacOS: true,
+        defaults: _buildDefaults(),
+      )!;
+
+      expect(result.keys.where(_isMetaC).length, expected);
+    });
+
+    test('that entry asks for a pane copy', () {
+      final expected = isA<PaneCopyIntent>();
+
+      final result = terminalClipboardShortcuts(
         isMacOS: true,
         defaults: _buildDefaults(),
       )!;
       // Looked up by predicate, not by constructing a fresh SingleActivator
       // key — the map's own keys are non-const (see _buildDefaults), so a
       // freshly built lookup key would never be identical to the one
-      // actually stored, and this assertion would wrongly read as null
-      // rather than proving the entry survived untouched.
-      final activator = result.keys.singleWhere(
-        (a) =>
-            a is SingleActivator &&
-            a.trigger == LogicalKeyboardKey.keyC &&
-            a.meta,
-      );
+      // actually stored, and this lookup would wrongly read as null.
+      final activator = result.keys.singleWhere(_isMetaC);
 
       expect(result[activator], expected);
     });
@@ -94,7 +106,7 @@ void main() {
     test('leaves Cmd+A untouched', () {
       const expected = SelectAllTextIntent(SelectionChangedCause.keyboard);
 
-      final result = terminalPasteShortcuts(
+      final result = terminalClipboardShortcuts(
         isMacOS: true,
         defaults: _buildDefaults(),
       )!;
@@ -112,7 +124,7 @@ void main() {
       const expected = 3;
       final defaults = _buildDefaults();
 
-      terminalPasteShortcuts(isMacOS: true, defaults: defaults);
+      terminalClipboardShortcuts(isMacOS: true, defaults: defaults);
 
       expect(defaults.length, expected);
     });

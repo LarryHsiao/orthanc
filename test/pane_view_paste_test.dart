@@ -10,10 +10,10 @@ import 'package:orthanc/settings.dart';
 import 'package:orthanc/terminal_color_schemes.dart';
 import 'package:orthanc/terminal_font_families.dart';
 
-// testMacOSWidget skips on any non-macOS host: PaneView rebinds Cmd+V only
-// when the host's `Platform.isMacOS` is true, which
+// testMacOSWidget skips on any non-macOS host: PaneView rebinds Cmd+V and
+// Cmd+C only when the host's `Platform.isMacOS` is true, which
 // `debugDefaultTargetPlatformOverride` cannot fake — so elsewhere these tests
-// would exercise xterm's own paste, not the wiring.
+// would exercise xterm's own paste and copy, not the wiring.
 
 /// The one file that mocks the `pasteboard` channel — every other test that
 /// exercises `pasteIntoSession` reaches it through the injected `readFiles`
@@ -252,6 +252,23 @@ void main() {
       session.terminalController.setSelection(
         session.terminal.buffer.createAnchor(0, 0),
         session.terminal.buffer.createAnchor(5, 0),
+      );
+
+      await pressCmd(tester, LogicalKeyboardKey.keyC);
+
+      final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+      expect(clipboard?.text, expected);
+    });
+
+    testMacOSWidget('Cmd+C trims the blanks after a trailing backslash', (
+      tester,
+    ) async {
+      const expected = 'curl \\';
+      final session = await pumpPaneView(tester);
+      session.terminal.write('curl \\      ');
+      session.terminalController.setSelection(
+        session.terminal.buffer.createAnchor(0, 0),
+        session.terminal.buffer.createAnchor(20, 0),
       );
 
       await pressCmd(tester, LogicalKeyboardKey.keyC);

@@ -14,12 +14,21 @@ class PanePasteIntent extends Intent {
   const PanePasteIntent();
 }
 
-/// [defaults] with macOS's `Cmd+V` rebound to [PanePasteIntent], or `null`
-/// on every other platform — `null` is what `TerminalView` already treats
-/// as "use your own defaults," so Windows and Linux stay byte-identical to
-/// before this feature.
+/// Asks the pane to copy its selection through `copySelection`, which trims
+/// the blanks xterm's own copy would carry onto the clipboard. A distinct
+/// `Intent` type from Flutter's `CopySelectionTextIntent` for the same
+/// reason [PanePasteIntent] is distinct from `PasteTextIntent`: xterm's own
+/// `TerminalActions` handles the stock type and cannot be shadowed.
+class PaneCopyIntent extends Intent {
+  const PaneCopyIntent();
+}
+
+/// [defaults] with macOS's `Cmd+C` rebound to [PaneCopyIntent] and `Cmd+V`
+/// to [PanePasteIntent], or `null` on every other platform — `null` is what
+/// `TerminalView` already treats as "use your own defaults," so Windows and
+/// Linux stay byte-identical to before this feature.
 ///
-/// The `Cmd+V` entry is *removed by predicate, then re-inserted* — never
+/// Each entry is *removed by predicate, then re-inserted* — never
 /// assigned over a freshly built key. `SingleActivator` declares no
 /// `operator==` (Flutter's own `shortcuts.dart` defines exactly one
 /// `operator==` in the whole file, and it belongs to the unrelated
@@ -28,25 +37,30 @@ class PanePasteIntent extends Intent {
 /// default identity equality and *add a second entry* rather than replace
 /// the first. `ShortcutManager` resolves the *first* accepting activator in
 /// insertion order, so the stale entry — xterm's own — would keep winning,
-/// Cmd+V would keep doing exactly what it does today, and nothing would
+/// the key would keep doing exactly what it does today, and nothing would
 /// ever error. This is why this function's own test asserts the resulting
-/// map holds exactly one Cmd+V entry, not merely that it holds one mapping
-/// to [PanePasteIntent].
-Map<ShortcutActivator, Intent>? terminalPasteShortcuts({
+/// map holds exactly one entry per key, not merely that it holds one mapping
+/// to our intent.
+Map<ShortcutActivator, Intent>? terminalClipboardShortcuts({
   required bool isMacOS,
   required Map<ShortcutActivator, Intent> defaults,
 }) {
   if (!isMacOS) return null;
   return Map.of(defaults)
-    ..removeWhere(_isPlainMetaV)
+    ..removeWhere(_isPlainMeta(LogicalKeyboardKey.keyC))
+    ..removeWhere(_isPlainMeta(LogicalKeyboardKey.keyV))
+    ..[const SingleActivator(LogicalKeyboardKey.keyC, meta: true)] =
+        const PaneCopyIntent()
     ..[const SingleActivator(LogicalKeyboardKey.keyV, meta: true)] =
         const PanePasteIntent();
 }
 
-bool _isPlainMetaV(ShortcutActivator activator, Intent _) =>
-    activator is SingleActivator &&
-    activator.trigger == LogicalKeyboardKey.keyV &&
-    activator.meta &&
-    !activator.control &&
-    !activator.alt &&
-    !activator.shift;
+bool Function(ShortcutActivator, Intent) _isPlainMeta(LogicalKeyboardKey key) {
+  return (activator, _) =>
+      activator is SingleActivator &&
+      activator.trigger == key &&
+      activator.meta &&
+      !activator.control &&
+      !activator.alt &&
+      !activator.shift;
+}
