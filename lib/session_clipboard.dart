@@ -5,6 +5,7 @@ import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as p;
 
 import 'pasted_file_paths.dart';
+import 'selection_text.dart';
 import 'session.dart';
 import 'session_drop.dart';
 
@@ -14,7 +15,7 @@ import 'session_drop.dart';
 void copySelection(Session session) {
   final selection = session.terminalController.selection;
   if (selection == null) return;
-  final text = session.terminal.buffer.getText(selection);
+  final text = selectionText(session.terminal.buffer, selection);
   Clipboard.setData(ClipboardData(text: text));
 }
 
