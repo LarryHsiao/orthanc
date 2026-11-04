@@ -56,6 +56,78 @@ void main() {
     expect(actual, expected);
   });
 
+  test('written spaces after the last glyph are trimmed', () {
+    final terminal = Terminal();
+    terminal.write('curl \\      \r\nnext');
+
+    final expected = 'curl \\\nnext';
+
+    final actual = _copy(terminal, CellOffset(0, 0), CellOffset(79, 1));
+    expect(actual, expected);
+  });
+
+  test('a written space at a soft-wrap point survives the join', () {
+    final terminal = Terminal();
+    terminal.resize(6, 3);
+    terminal.write('hello world');
+
+    final expected = 'hello world';
+
+    final actual = _copy(terminal, CellOffset(0, 0), CellOffset(5, 1));
+    expect(actual, expected);
+  });
+
+  test('a selection ending before the wrapped row trims the gap space', () {
+    final terminal = Terminal();
+    terminal.resize(6, 3);
+    terminal.write('hello world');
+
+    final expected = 'hello';
+
+    final actual = _copy(terminal, CellOffset(0, 0), CellOffset(5, 0));
+    expect(actual, expected);
+  });
+
+  test('leading written spaces are kept', () {
+    final terminal = Terminal();
+    terminal.write('  x');
+
+    final expected = '  x';
+
+    final actual = _copy(terminal, CellOffset(0, 0), CellOffset(79, 0));
+    expect(actual, expected);
+  });
+
+  test('a selection ending mid-row drops its trailing spaces', () {
+    final terminal = Terminal();
+    terminal.write('foo   bar');
+
+    final expected = 'foo';
+
+    final actual = _copy(terminal, CellOffset(0, 0), CellOffset(5, 0));
+    expect(actual, expected);
+  });
+
+  test('a row holding only spaces copies as an empty line', () {
+    final terminal = Terminal();
+    terminal.write('a\r\n   \r\nb');
+
+    final expected = 'a\n\nb';
+
+    final actual = _copy(terminal, CellOffset(0, 0), CellOffset(79, 2));
+    expect(actual, expected);
+  });
+
+  test('written spaces between glyphs are kept', () {
+    final terminal = Terminal();
+    terminal.write('a  b');
+
+    final expected = 'a  b';
+
+    final actual = _copy(terminal, CellOffset(0, 0), CellOffset(79, 0));
+    expect(actual, expected);
+  });
+
   test('separate rows are joined by a newline', () {
     final terminal = Terminal();
     terminal.write('one\r\n\x1b[2Ctwo');
