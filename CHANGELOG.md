@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.5.1] - 2026-11-04
+
+### Fixed
+
+- Copying a selection from a pane running Claude Code keeps its indentation.
+  Programs that move the cursor instead of printing spaces left cells the
+  copy used to drop, so an indented command pasted with its leading spaces
+  gone; those cells now copy as spaces, while blanks after a line's last
+  character are still trimmed.
+
 ## [1.5.0] - 2026-09-16
 
 ### Added
@@ -110,6 +120,7 @@ commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/r
   The last expanded pane in a column refuses to collapse, and closing a pane
   releases the collapse of any column it would have emptied.
 
+[1.5.1]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.5.1
 [1.5.0]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.5.0
 [1.4.2]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.2
 [1.4.1]: https://github.com/LarryHsiao/orthanc/releases/tag/v1.4.1
