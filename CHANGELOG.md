@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [Unreleased]
+
+### Added
+
+- `Cmd`+click (macOS) or `Ctrl`+click (Windows) on plain text copies the
+  block of lines around it, up to the nearest blank line on either side —
+  one click to grab a shell snippet from Claude Code's reply. Shared
+  indentation and trailing blanks are stripped, the copied lines are
+  highlighted, and a brief "Copied" note confirms it. The same click on a
+  link still opens the link.
+
 ## [1.5.1] - 2026-11-04
 
 ### Fixed

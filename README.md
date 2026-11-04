@@ -41,6 +41,14 @@ Everything since Milestone 1 has been ordinary feature work.
   and open on `Cmd`/`Ctrl`+click — `http` and `https` only, since OSC 8 lets a
   program claim any scheme and launching those from untrusted terminal output is
   a real risk. Other schemes still underline; they simply do nothing.
+- **Click a command block to copy it.** `Cmd`/`Ctrl`+click on plain text
+  copies the whole block around it — every line up to the nearest blank line
+  above and below — so a shell snippet in Claude Code's reply is one click
+  from the clipboard. The indentation all its lines share is stripped, along
+  with trailing blanks; the copied block is highlighted and a brief "Copied"
+  note appears. Content-blind: it reads only where the blank lines fall, so a
+  snippet that itself contains a blank line copies one part at a time, and a
+  line the program wrapped itself (rather than the terminal) copies as two.
 - **A focus you can see.** The focused pane carries a dimmed accent bar and
   border; a pane that finishes a burst of activity while unfocused fills its
   bar and frames its body in a dimmed palette-yellow until it is looked at,
@@ -105,6 +113,7 @@ macOS, Windows Terminal on Windows.
 | Close pane          | `Cmd+W`             | `Ctrl+Shift+W` |
 | Collapse / expand   | `Cmd+Shift+Enter`   | `Alt+Shift+Z`  |
 | Open hyperlink      | `Cmd`+click         | `Ctrl`+click   |
+| Copy a text block   | `Cmd`+click         | `Ctrl`+click   |
 | New window          | `Cmd+N`             | `Ctrl+N`       |
 | Toggle quake window | `` Ctrl+` ``        | `` Ctrl+` ``   |
 | Copy                | `Cmd+C`             | `Ctrl+Shift+C` |

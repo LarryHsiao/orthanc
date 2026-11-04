@@ -13,6 +13,7 @@ import 'session_clipboard.dart';
 import 'session_path.dart';
 import 'terminal_font_families.dart';
 import 'terminal_paste_shortcuts.dart';
+import 'text_block.dart';
 
 /// One pane: its bar, and the terminal beneath — unless [collapsed], in
 /// which case only the bar renders, at its own fixed height, and the
@@ -383,11 +384,49 @@ class _PaneViewState extends State<PaneView> {
     _setCursor(launchable ? SystemMouseCursors.click : SystemMouseCursors.text);
   }
 
+  /// Cmd+click (macOS) / Ctrl+click (Windows): open the link under the
+  /// pointer if there is one; otherwise copy the block of text around it —
+  /// see [textBlockAt]. One modifier for "act on what I'm pointing at", so a
+  /// command block in Claude Code's reply is one click from the clipboard.
+  /// A plain click is left alone: it focuses the pane and clears a
+  /// selection, and quietly overwriting the clipboard on every click would
+  /// be a nasty surprise.
   void _onTapUp(TapUpDetails details, CellOffset offset) {
     if (!_isLinkModifierHeld()) return;
     final uri = _launchableHyperlinkAt(offset);
-    if (uri == null) return;
-    launchUrl(Uri.parse(uri));
+    if (uri != null) {
+      launchUrl(Uri.parse(uri));
+      return;
+    }
+    // A program's own OSC 8 link with a refused scheme still does nothing,
+    // as before — it is a link, not plain text to copy.
+    if (widget.session.terminal.hyperlinkAt(offset) != null) return;
+    _copyBlockAt(offset.y);
+  }
+
+  void _copyBlockAt(int row) {
+    final terminal = widget.session.terminal;
+    final block = textBlockAt(terminal.buffer, row);
+    if (block == null || block.text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: block.text));
+    // Highlight what was copied, the same way a drag-selection shows it.
+    widget.session.terminalController.setSelection(
+      terminal.buffer.createAnchor(0, block.firstRow),
+      terminal.buffer.createAnchor(
+        terminal.buffer.lines[block.lastRow].length,
+        block.lastRow,
+      ),
+    );
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Copied'),
+          duration: Duration(milliseconds: 1200),
+          behavior: SnackBarBehavior.floating,
+          width: 140,
+        ),
+      );
   }
 
   /// Copy/Paste independent of the keyboard: a gesture, not a shortcut, so
