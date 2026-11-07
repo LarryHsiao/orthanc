@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.6.0] - 2026-11-08
+
+### Added
+
+- Click a `⧉ copy:<name>` line in a pane to copy a code block to the
+  clipboard exactly as its program wrote it. A program writes the block to
+  `orthanc-copy/<name>` in the system temp folder and prints the marker above
+  it; Orthanc shows a hand cursor over the marker and copies the file on a
+  click. This avoids the indentation and hard line breaks that selecting a
+  drawn block carries along. A name with a path separator, a leading dot or
+  a Windows device name, a missing file, or a file that is not valid UTF-8
+  copies nothing.
+
 ## [1.5.2] - 2026-11-05
 
 ### Fixed
