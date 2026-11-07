@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xterm/xterm.dart';
 
+import 'copy_marker.dart';
 import 'hyperlink.dart';
 import 'layout_node.dart';
 import 'pane_bar.dart';
@@ -384,10 +385,20 @@ class _PaneViewState extends State<PaneView> {
     final offset = state.renderTerminal.getCellOffset(event.localPosition);
     final launchable =
         _isLinkModifierHeld() && _launchableHyperlinkAt(offset) != null;
-    _setCursor(launchable ? SystemMouseCursors.click : SystemMouseCursors.text);
+    final overMarker = _copyMarkerAt(offset) != null;
+    _setCursor(
+      launchable || overMarker
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.text,
+    );
   }
 
   void _onTapUp(TapUpDetails details, CellOffset offset) {
+    final block = _copyMarkerAt(offset);
+    if (block != null) {
+      _copyBlock(block);
+      return;
+    }
     if (!_isLinkModifierHeld()) return;
     final uri = _launchableHyperlinkAt(offset);
     if (uri == null) return;
@@ -461,6 +472,18 @@ class _PaneViewState extends State<PaneView> {
       isControlPressed: keys.isControlPressed,
       isMetaPressed: keys.isMetaPressed,
     );
+  }
+
+  String? _copyMarkerAt(CellOffset offset) =>
+      copyMarkerAtCell(widget.session.terminal.buffer, offset);
+
+  /// A bare click on a `⧉ copy:<name>` marker puts that block's file on the
+  /// clipboard — the program's own text, free of the gutter and hard wraps a
+  /// drag-selection of its drawn output would carry.
+  void _copyBlock(String name) {
+    final text = readCopyBlock(name);
+    if (text == null) return;
+    Clipboard.setData(ClipboardData(text: text));
   }
 
   String? _launchableHyperlinkAt(CellOffset offset) {
