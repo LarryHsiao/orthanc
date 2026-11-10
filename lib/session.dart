@@ -251,8 +251,9 @@ class Session {
   /// true, meaning the caller must remove this session from the tree and
   /// its registry, since the process it was running now lives elsewhere.
   /// On rejection, or any failure to reach [endpoint], resumes exactly as
-  /// before and returns false: nothing about this session changed. Also
-  /// false, with no attempt made, if this session was never started.
+  /// before and returns false: nothing about this session changed. If the
+  /// send itself throws, the pty is resumed first and the error rethrown.
+  /// Returns false, with no attempt made, if this session was never started.
   Future<bool> handOffTo(
     String endpoint, {
     required Uint8List metadata,
@@ -261,17 +262,15 @@ class Session {
     final pty = _pty;
     if (pty == null) return false;
 
-    await pty.detach();
-    final accepted = await pty.send(endpoint, metadata, targetPid: targetPid);
-
-    if (accepted) {
-      pty.discard();
-      _pty = null;
-    } else {
-      pty.resume();
-    }
-
-    return accepted;
+    return transferPty(
+      detach: pty.detach,
+      send: () => pty.send(endpoint, metadata, targetPid: targetPid),
+      resume: pty.resume,
+      discard: () {
+        pty.discard();
+        _pty = null;
+      },
+    );
   }
 
   void dispose() {
@@ -288,4 +287,33 @@ class Session {
     needsAttention.dispose();
     terminalController.dispose();
   }
+}
+
+/// The sequence behind [Session.handOffTo], with the pty's operations passed
+/// in so it can run without a native pty: [detach] first, so nothing is read
+/// from two processes at once, then [send]. An accepted offer is [discard]ed;
+/// a refused one, or a [send] that throws, is [resume]d — the throw is then
+/// rethrown. Safe because send only throws before the native handoff begins,
+/// so no fd has crossed. A throwing [detach] leaves the pty untouched, so
+/// nothing is resumed for it.
+Future<bool> transferPty({
+  required Future<void> Function() detach,
+  required Future<bool> Function() send,
+  required void Function() resume,
+  required void Function() discard,
+}) async {
+  await detach();
+  final bool accepted;
+  try {
+    accepted = await send();
+  } catch (_) {
+    resume();
+    rethrow;
+  }
+  if (accepted) {
+    discard();
+  } else {
+    resume();
+  }
+  return accepted;
 }

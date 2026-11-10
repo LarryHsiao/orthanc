@@ -6,6 +6,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
+import 'package:path/path.dart' as p;
 
 import 'handoff_endpoint.dart';
 import 'handoff_offer.dart';
@@ -59,11 +60,12 @@ String? dropPaneAt(Workspace workspace, double fx, double fy) {
   return dropTargetAt(workspace, fx, fy)?.id;
 }
 
-/// A liveness probe for [liveHandoffEndpoints] — `SIGCONT` is the closest
-/// substitute `dart:io` exposes for a bare POSIX `kill(pid, 0)`: delivered,
-/// it is a no-op for a normally-running process, and [Process.killPid]
-/// reports whether the target existed to receive it at all.
-bool _isProcessAlive(int pid) => Process.killPid(pid, ProcessSignal.sigcont);
+/// The liveness probe for [liveHandoffEndpoints]: the pid must be running
+/// this same executable, not merely be running — see [isLiveInstance].
+bool _isProcessAlive(int pid) => isLiveInstance(
+  pid,
+  executableName: p.basename(Platform.resolvedExecutable),
+);
 
 /// The window: the sessions, their arrangement, and the keys that change it.
 class WorkspaceView extends StatefulWidget {
@@ -403,8 +405,6 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       _closed.remove(id); // nobody else running — pane stays exactly put
       return;
     }
-    final target = endpoints.first;
-
     final metadata = utf8.encode(
       encodePaneOffer(
         PaneOffer(
@@ -419,22 +419,21 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       ),
     );
 
-    bool accepted;
-    try {
-      accepted = await session.handOffTo(
-        target.file.path,
+    // A refused offer, and a send that throws, both resume the pane inside
+    // handOffTo, so the next candidate starts clean. A throw from detach()
+    // itself leaves the pty untouched; firstAcceptingEndpoint reads any throw
+    // as a rejection.
+    final target = await firstAcceptingEndpoint(
+      endpoints,
+      (endpoint) => session.handOffTo(
+        endpoint.file.path,
         metadata: metadata,
-        targetPid: target.pid,
-      );
-    } catch (_) {
-      // handOffTo can throw uncaught if detach() itself fails (e.g. a
-      // reentrant call) — treated the same as an ordinary rejection
-      // rather than left to escape unhandled from a fire-and-forget call.
-      accepted = false;
-    }
+        targetPid: endpoint.pid,
+      ),
+    );
 
     if (!mounted) return;
-    if (!accepted) {
+    if (target == null) {
       _closed.remove(id); // rejected, or the send itself failed — the
       // pane already resumed inside handOffTo; nothing here changed.
       return;

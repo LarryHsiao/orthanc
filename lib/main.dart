@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'app_root.dart';
@@ -42,6 +43,18 @@ Future<void> main(List<String> args) async {
       requestQuakeSummon(file: quakeSummonFile(supportDir: supportDir));
       exit(0);
     }
+  }
+
+  // Sockets of instances that are gone pile up, and a recycled pid can make
+  // one look alive; clear them before this instance adds its own.
+  if (crossInstanceHandoffSupported(isWindows: Platform.isWindows)) {
+    removeStaleHandoffEndpoints(
+      supportDir: supportDir,
+      isAlive: (pid) => isLiveInstance(
+        pid,
+        executableName: p.basename(Platform.resolvedExecutable),
+      ),
+    );
   }
 
   // One listener per process, for as long as it runs — a pane arriving

@@ -72,3 +72,82 @@ List<({File file, int pid})> liveHandoffEndpoints({
       if (endpoint.pid != ownPid && isAlive(endpoint.pid)) endpoint,
   ];
 }
+
+/// A running instance's handoff endpoint, with the pid that owns it.
+typedef HandoffEndpoint = ({File file, int pid});
+
+/// Offers a pane to [endpoints] one at a time, in order, and returns the first
+/// that accepts it — or null when none does. A throwing [attempt] counts as a
+/// rejection, so one broken endpoint never hides the good ones behind it.
+///
+/// A pid that merely answers a liveness probe is not proof of an Orthanc: a
+/// dead instance's pid can be recycled by an unrelated process while its
+/// socket file lingers. Trying each candidate in turn means such a ghost
+/// costs one refused offer rather than the whole handoff.
+Future<HandoffEndpoint?> firstAcceptingEndpoint(
+  List<HandoffEndpoint> endpoints,
+  Future<bool> Function(HandoffEndpoint endpoint) attempt,
+) async {
+  for (final endpoint in endpoints) {
+    try {
+      if (await attempt(endpoint)) return endpoint;
+    } catch (_) {
+      continue;
+    }
+  }
+  return null;
+}
+
+/// Deletes every endpoint [staleHandoffEndpoints] finds. A file that cannot be
+/// deleted (already gone, or not ours to remove) is left; the next launch
+/// tries again.
+void removeStaleHandoffEndpoints({
+  required Directory supportDir,
+  required bool Function(int pid) isAlive,
+}) {
+  for (final file in staleHandoffEndpoints(
+    supportDir: supportDir,
+    isAlive: isAlive,
+  )) {
+    try {
+      file.deleteSync();
+    } on FileSystemException {
+      continue;
+    }
+  }
+}
+
+/// Whether [psOutput] — the `comm` column `ps -p <pid> -o comm=` prints — names
+/// [executableName]. macOS prints the full path and Linux the bare name; either
+/// is compared by its last path segment, exactly, so `orthanc-helper` is not
+/// `orthanc`.
+bool commandNamesExecutable(String psOutput, String executableName) {
+  final command = psOutput.trim();
+  return command.isNotEmpty && p.basename(command) == executableName;
+}
+
+/// Whether [pid] is a running instance of [executableName], not just any live
+/// process. A bare liveness probe is fooled when a dead instance's pid is
+/// recycled by an unrelated process; asking `ps` what the pid runs is not.
+///
+/// When `ps` cannot be run at all the answer is yes: this decides what gets
+/// deleted, and a leftover socket costs less than a live instance's endpoint
+/// removed.
+bool isLiveInstance(int pid, {required String executableName}) {
+  if (!Process.killPid(pid, ProcessSignal.sigcont)) return false;
+  try {
+    final result = Process.runSync('ps', ['-p', '$pid', '-o', 'comm=']);
+    return psSaysLive(result.exitCode, result.stdout as String, executableName);
+  } on ProcessException {
+    return true;
+  }
+}
+
+/// Reads one `ps -p <pid> -o comm=` run. Exit 0 names the process, so the
+/// answer is whether it is [executableName]; exit 1 with nothing printed is
+/// how `ps` says there is no such pid. Every other outcome — a denied or
+/// failed `ps` — is read as live, for the reason [isLiveInstance] gives.
+bool psSaysLive(int exitCode, String stdout, String executableName) {
+  if (exitCode == 0) return commandNamesExecutable(stdout, executableName);
+  return !(exitCode == 1 && stdout.trim().isEmpty);
+}
