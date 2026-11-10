@@ -37,19 +37,121 @@ String get copyBlockDirectory =>
 /// pane's own width split in two is still found from either half.
 String? copyMarkerAtCell(Buffer buffer, CellOffset offset) {
   if (offset.y < 0 || offset.y >= buffer.height) return null;
-  var first = offset.y;
+  final line = _logicalLine(buffer, offset.y);
+  var column = offset.x;
+  for (var i = 0; i < offset.y - line.firstRow; i++) {
+    column += line.rowLengths[i];
+  }
+  return copyMarkerNameAt(line.text, column);
+}
+
+/// One marker's cells on one buffer row: columns [startColumn] up to, but not
+/// including, [endColumn]. A marker the pane's width split in two yields one
+/// span per row.
+class CopyMarkerSpan {
+  const CopyMarkerSpan({
+    required this.name,
+    required this.row,
+    required this.startColumn,
+    required this.endColumn,
+    this.markerOffset = 0,
+  });
+
+  final String name;
+  final int row;
+  final int startColumn;
+  final int endColumn;
+
+  /// How many characters of the marker lie before this span, so a marker
+  /// split over two rows can show each row its own slice of the label.
+  final int markerOffset;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CopyMarkerSpan &&
+      other.name == name &&
+      other.row == row &&
+      other.startColumn == startColumn &&
+      other.endColumn == endColumn &&
+      other.markerOffset == markerOffset;
+
+  @override
+  int get hashCode =>
+      Object.hash(name, row, startColumn, endColumn, markerOffset);
+
+  @override
+  String toString() =>
+      'CopyMarkerSpan($name, row $row, $startColumn-$endColumn)';
+}
+
+/// Every marker cell run on buffer rows [firstRow] to [lastRow] inclusive,
+/// top to bottom. A marker wrapped across the range's edge still yields the
+/// half that lies inside it.
+List<CopyMarkerSpan> copyMarkerSpans(Buffer buffer, int firstRow, int lastRow) {
+  final spans = <CopyMarkerSpan>[];
+  final last = lastRow < buffer.height ? lastRow : buffer.height - 1;
+  var row = firstRow < 0 ? 0 : firstRow;
+  while (row <= last) {
+    final line = _logicalLine(buffer, row);
+    for (final match in _marker.allMatches(line.text)) {
+      spans.addAll(_rowSpans(line, match, firstRow, last));
+    }
+    row = line.firstRow + line.rowLengths.length;
+  }
+  return spans;
+}
+
+Iterable<CopyMarkerSpan> _rowSpans(
+  _LogicalLine line,
+  RegExpMatch match,
+  int firstRow,
+  int lastRow,
+) sync* {
+  var rowStart = 0;
+  for (var i = 0; i < line.rowLengths.length; i++) {
+    final rowEnd = rowStart + line.rowLengths[i];
+    final start = match.start > rowStart ? match.start : rowStart;
+    final end = match.end < rowEnd ? match.end : rowEnd;
+    final row = line.firstRow + i;
+    if (start < end && row >= firstRow && row <= lastRow) {
+      yield CopyMarkerSpan(
+        name: match.group(1)!,
+        row: row,
+        startColumn: start - rowStart,
+        endColumn: end - rowStart,
+        markerOffset: start - match.start,
+      );
+    }
+    rowStart = rowEnd;
+  }
+}
+
+/// A run of buffer rows joined by soft wraps: the text one cell per
+/// character, and each row's length so a string index maps back to a row.
+class _LogicalLine {
+  const _LogicalLine(this.firstRow, this.text, this.rowLengths);
+
+  final int firstRow;
+  final String text;
+  final List<int> rowLengths;
+}
+
+/// The logical line holding buffer [row]: walk up to where the wrap chain
+/// begins, then down to where it ends.
+_LogicalLine _logicalLine(Buffer buffer, int row) {
+  var first = row;
   while (first > 0 && buffer.lines[first].isWrapped) {
     first--;
   }
   final text = StringBuffer();
-  var column = offset.x;
+  final lengths = <int>[];
   for (var y = first; y < buffer.height; y++) {
     if (y > first && !buffer.lines[y].isWrapped) break;
     final cells = _rowCells(buffer.lines[y]);
-    if (y < offset.y) column += cells.length;
+    lengths.add(cells.length);
     text.write(cells);
   }
-  return copyMarkerNameAt(text.toString(), column);
+  return _LogicalLine(first, text.toString(), lengths);
 }
 
 /// One character per cell: a never-written cell, the spacer half of a wide

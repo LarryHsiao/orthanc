@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:xterm/xterm.dart';
 
 import 'copy_marker.dart';
+import 'copy_marker_chips.dart';
 import 'hyperlink.dart';
 import 'layout_node.dart';
 import 'pane_bar.dart';
@@ -75,6 +77,15 @@ class PaneView extends StatefulWidget {
   /// seen from the corner of the eye and is meant to out-shout.
   static const attentionAccentStrength = 0.85;
 
+  /// How far a copy-marker chip travels from the terminal's background
+  /// toward the palette's yellow, and how far its hover state goes on toward
+  /// white. Warm, so it is told apart from the blue of an ordinary link.
+  static const copyChipStrength = 0.85;
+  static const copyChipHoverLift = 0.3;
+
+  /// How long a chip reads "Copied" after its block lands on the clipboard.
+  static const copiedFlash = Duration(milliseconds: 1500);
+
   final Session session;
   final bool focused;
   final VoidCallback onFocus;
@@ -137,6 +148,19 @@ class PaneView extends StatefulWidget {
 class _PaneViewState extends State<PaneView> {
   final _terminalKey = GlobalKey<TerminalViewState>();
   MouseCursor _cursor = SystemMouseCursors.text;
+  final _scroll = ScrollController();
+  final _hoveredBlock = ValueNotifier<String?>(null);
+  final _copiedBlock = ValueNotifier<String?>(null);
+  Timer? _copiedTimer;
+
+  @override
+  void dispose() {
+    _copiedTimer?.cancel();
+    _scroll.dispose();
+    _hoveredBlock.dispose();
+    _copiedBlock.dispose();
+    super.dispose();
+  }
 
   // late final, not rebuilt in build(): TerminalView.didUpdateWidget
   // reassigns its ShortcutManager's shortcuts on every rebuild, and fresh
@@ -227,31 +251,76 @@ class _PaneViewState extends State<PaneView> {
                 },
                 child: MouseRegion(
                   onHover: _onHover,
-                  onExit: (_) => _setCursor(SystemMouseCursors.text),
-                  child: TerminalView(
-                    key: _terminalKey,
-                    widget.session.terminal,
-                    controller: widget.session.terminalController,
-                    focusNode: widget.session.focusNode,
-                    onKeyEvent: widget.onKeyEvent,
-                    onTapUp: _onTapUp,
-                    onSecondaryTapUp: _onSecondaryTapUp,
-                    mouseCursor: _cursor,
-                    theme: widget.theme,
-                    shortcuts: _shortcuts,
-                    // See terminalFontFamilyFallback's doc comment for why
-                    // this list is shaped and ordered the way it is.
-                    textStyle: TerminalStyle(
-                      fontFamily: widget.fontFamily,
-                      fontSize: widget.fontSize,
-                      fontFamilyFallback: terminalFontFamilyFallback,
-                    ),
+                  onExit: (_) {
+                    _hoveredBlock.value = null;
+                    _setCursor(SystemMouseCursors.text);
+                  },
+                  child: Stack(
+                    children: [
+                      Positioned.fill(child: _terminalView()),
+                      Positioned.fill(child: _copyChips()),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _terminalView() => TerminalView(
+    key: _terminalKey,
+    widget.session.terminal,
+    scrollController: _scroll,
+    controller: widget.session.terminalController,
+    focusNode: widget.session.focusNode,
+    onKeyEvent: widget.onKeyEvent,
+    onTapUp: _onTapUp,
+    onSecondaryTapUp: _onSecondaryTapUp,
+    mouseCursor: _cursor,
+    theme: widget.theme,
+    shortcuts: _shortcuts,
+    // See terminalFontFamilyFallback's doc comment for why
+    // this list is shaped and ordered the way it is.
+    textStyle: TerminalStyle(
+      fontFamily: widget.fontFamily,
+      fontSize: widget.fontSize,
+      fontFamilyFallback: terminalFontFamilyFallback,
+    ),
+  );
+
+  /// The chips painted over `⧉ copy:<name>` markers. Click-through, so the
+  /// tap handler beneath still does the copying.
+  Widget _copyChips() {
+    final background = Color.lerp(
+      widget.theme.background,
+      widget.theme.yellow,
+      PaneView.copyChipStrength,
+    )!;
+    return CopyMarkerChips(
+      terminal: widget.session.terminal,
+      scrollController: _scroll,
+      geometry: () => terminalGeometry(_terminalKey),
+      textStyle: TextStyle(
+        fontFamily: widget.fontFamily,
+        fontSize: widget.fontSize,
+        fontFamilyFallback: terminalFontFamilyFallback,
+      ),
+      background: background,
+      hoverBackground: Color.lerp(
+        background,
+        Colors.white,
+        PaneView.copyChipHoverLift,
+      )!,
+      copiedBackground: Color.lerp(
+        widget.theme.background,
+        widget.theme.green,
+        PaneView.copyChipStrength,
+      )!,
+      foreground: widget.theme.background,
+      hovered: _hoveredBlock,
+      copied: _copiedBlock,
     );
   }
 
@@ -385,9 +454,10 @@ class _PaneViewState extends State<PaneView> {
     final offset = state.renderTerminal.getCellOffset(event.localPosition);
     final launchable =
         _isLinkModifierHeld() && _launchableHyperlinkAt(offset) != null;
-    final overMarker = _copyMarkerAt(offset) != null;
+    final marker = _copyMarkerAt(offset);
+    _hoveredBlock.value = marker;
     _setCursor(
-      launchable || overMarker
+      launchable || marker != null
           ? SystemMouseCursors.click
           : SystemMouseCursors.text,
     );
@@ -484,6 +554,13 @@ class _PaneViewState extends State<PaneView> {
     final text = readCopyBlock(name);
     if (text == null) return;
     Clipboard.setData(ClipboardData(text: text));
+    _flashCopied(name);
+  }
+
+  void _flashCopied(String name) {
+    _copiedBlock.value = name;
+    _copiedTimer?.cancel();
+    _copiedTimer = Timer(PaneView.copiedFlash, () => _copiedBlock.value = null);
   }
 
   String? _launchableHyperlinkAt(CellOffset offset) {

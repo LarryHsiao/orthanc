@@ -140,6 +140,85 @@ void main() {
     });
   });
 
+  group('copyMarkerSpans', () {
+    test('a marker row yields one span over exactly the marker cells', () {
+      final terminal = Terminal()..write('hi\r\n⧉ copy:block-1');
+      final expected = [
+        CopyMarkerSpan(name: 'block-1', row: 1, startColumn: 0, endColumn: 14),
+      ];
+
+      final result = copyMarkerSpans(terminal.buffer, 0, 5);
+
+      expect(result, expected);
+    });
+
+    test('a marker after a wide glyph starts at its own cell', () {
+      final terminal = Terminal()..write('漢字 ⧉ copy:block-1');
+      final expected = [
+        CopyMarkerSpan(name: 'block-1', row: 0, startColumn: 5, endColumn: 19),
+      ];
+
+      final result = copyMarkerSpans(terminal.buffer, 0, 5);
+
+      expect(result, expected);
+    });
+
+    test('a marker wrapped over two rows yields a span per row', () {
+      final terminal = Terminal()
+        ..resize(12, 5)
+        ..write('⧉ copy:block-1');
+      final expected = [
+        CopyMarkerSpan(name: 'block-1', row: 0, startColumn: 0, endColumn: 12),
+        CopyMarkerSpan(
+          name: 'block-1',
+          row: 1,
+          startColumn: 0,
+          endColumn: 2,
+          markerOffset: 12,
+        ),
+      ];
+
+      final result = copyMarkerSpans(terminal.buffer, 0, 4);
+
+      expect(result, expected);
+    });
+
+    test('rows outside the asked range yield nothing', () {
+      final terminal = Terminal()..write('⧉ copy:block-1');
+
+      final result = copyMarkerSpans(terminal.buffer, 3, 6);
+
+      expect(result, isEmpty);
+    });
+
+    test('a range starting on the wrapped half still yields that half', () {
+      final terminal = Terminal()
+        ..resize(12, 5)
+        ..write('⧉ copy:block-1');
+      final expected = [
+        CopyMarkerSpan(
+          name: 'block-1',
+          row: 1,
+          startColumn: 0,
+          endColumn: 2,
+          markerOffset: 12,
+        ),
+      ];
+
+      final result = copyMarkerSpans(terminal.buffer, 1, 4);
+
+      expect(result, expected);
+    });
+
+    test('a refused name yields nothing', () {
+      final terminal = Terminal()..write('⧉ copy:a/b');
+
+      final result = copyMarkerSpans(terminal.buffer, 0, 5);
+
+      expect(result, isEmpty);
+    });
+  });
+
   group('copyMarkerNameAt', () {
     const row = 'see ⧉ copy:block-1 below';
     final start = row.indexOf('⧉');
