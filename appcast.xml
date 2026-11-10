@@ -10,11 +10,11 @@
             <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.6.0/orthanc-setup-1.6.0.exe" sparkle:dsaSignature="MD4CHQDX1VnX5I9Rl2fcJMIehslOLlKfavdIl1cW/0RkAh0Aox6iSEG1Pl1fb6Xq44CW2INsPFFDS95P6Ojq4A==" sparkle:version="1.6.0+32" sparkle:os="windows" length="11363656" type="application/octet-stream" />
         </item>
         <item>
-            <title>Version 1.6.0</title>
-            <sparkle:version>32</sparkle:version>
-            <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
-            <pubDate>Sat, 07 Nov 2026 17:40:35 +0000</pubDate>
-            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.6.0/orthanc.dmg" sparkle:edSignature="Mfh6Bjj++AvZ/7BkrZb3v0AFY83f7+Ueb5As1Ip5CIxqawTVZJkqWUmdW46yH67YYhleb8XqZjx/EOVBYWh3AQ==" sparkle:os="macos" length="22260603" type="application/octet-stream" />
+            <title>Version 1.7.0</title>
+            <sparkle:version>33</sparkle:version>
+            <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
+            <pubDate>Tue, 10 Nov 2026 02:32:35 +0000</pubDate>
+            <enclosure url="https://github.com/LarryHsiao/orthanc/releases/download/v1.7.0/orthanc.dmg" sparkle:edSignature="P/OxyhgtRyBuOssxBcbGBqJfUnyAjT1p3pqQeXf0IxtwgIgiyw+6mkZT1eLmzj6eEzSTu7v/WfxM3UbAl8PlDg==" sparkle:os="macos" length="22281090" type="application/octet-stream" />
         </item>
     </channel>
 </rss>
