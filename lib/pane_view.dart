@@ -293,11 +293,7 @@ class _PaneViewState extends State<PaneView> {
   /// The chips painted over `⧉ copy:<name>` markers. Click-through, so the
   /// tap handler beneath still does the copying.
   Widget _copyChips() {
-    final background = Color.lerp(
-      widget.theme.background,
-      widget.theme.yellow,
-      PaneView.copyChipStrength,
-    )!;
+    final background = _chipTint(widget.theme.yellow);
     return CopyMarkerChips(
       terminal: widget.session.terminal,
       scrollController: _scroll,
@@ -313,16 +309,17 @@ class _PaneViewState extends State<PaneView> {
         Colors.white,
         PaneView.copyChipHoverLift,
       )!,
-      copiedBackground: Color.lerp(
-        widget.theme.background,
-        widget.theme.green,
-        PaneView.copyChipStrength,
-      )!,
+      copiedBackground: _chipTint(widget.theme.green),
       foreground: widget.theme.background,
       hovered: _hoveredBlock,
       copied: _copiedBlock,
     );
   }
+
+  /// The terminal background carried [PaneView.copyChipStrength] of the way
+  /// toward [toward] — how every chip state takes its colour from the palette.
+  Color _chipTint(Color toward) =>
+      Color.lerp(widget.theme.background, toward, PaneView.copyChipStrength)!;
 
   Widget _focusBorder() => _overlayBorder(
     key: PaneView.focusBorderKey,

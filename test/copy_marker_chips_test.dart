@@ -13,8 +13,11 @@ void main() {
     required String output,
     ValueNotifier<String?>? hovered,
     ValueNotifier<String?>? copied,
+    int? columns,
   }) async {
-    final terminal = Terminal()..write(output);
+    final terminal = Terminal();
+    if (columns != null) terminal.resize(columns, 10);
+    terminal.write(output);
     final key = GlobalKey<TerminalViewState>();
     final scroll = ScrollController();
     addTearDown(scroll.dispose);
@@ -23,7 +26,13 @@ void main() {
         home: Scaffold(
           body: Stack(
             children: [
-              TerminalView(terminal, key: key, scrollController: scroll),
+              TerminalView(
+                terminal,
+                key: key,
+                scrollController: scroll,
+                // A fixed width, so a narrow terminal keeps its soft wrap.
+                autoResize: columns == null,
+              ),
               Positioned.fill(
                 child: CopyMarkerChips(
                   terminal: terminal,
@@ -138,5 +147,25 @@ void main() {
     );
 
     expect(label.data, expected);
+  });
+
+  testWidgets('a marker wrapped over two rows draws a chip per row', (
+    tester,
+  ) async {
+    await pump(tester, output: '⧉ copy:block-1', columns: 12);
+    // 12 columns hold "⧉ Copy block-" ; the last two cells fall to row two.
+    const expected = ['⧉ Copy block', '-1'];
+
+    final labels = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byKey(CopyMarkerChips.chipKey),
+            matching: find.byType(Text),
+          ),
+        )
+        .map((text) => text.data)
+        .toList();
+
+    expect(labels, expected);
   });
 }
