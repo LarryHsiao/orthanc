@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.7.0] - 2026-11-10
+
+### Added
+
+- A `⧉ copy:<name>` line now shows as an amber chip reading `⧉ Copy <name>`,
+  drawn over the line so it reads as a button. It brightens under the
+  pointer, and after a click that copied the block it reads `✓ Copied` in
+  green for about a second and a half. The marker line, its name rules and
+  the temp folder are unchanged, so programs and older builds need nothing.
+
+### Fixed
+
+- Dragging a pane out of the quake window into a standalone window failed
+  whenever a dead instance's pid had been reused by another process: the
+  sender offered the pane to that stale endpoint and it snapped back. It now
+  tries each running Orthanc in turn, counts a process as an instance only if
+  it runs Orthanc, and clears dead handoff sockets at startup. A handoff that
+  fails mid-send no longer leaves the pane frozen.
+
 ## [1.6.0] - 2026-11-08
 
 ### Added
