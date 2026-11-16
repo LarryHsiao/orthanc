@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
 import 'layout_node.dart';
+import 'link_preview_source.dart';
 import 'pane_bar.dart';
 import 'pane_view.dart';
 import 'sessions.dart';
@@ -41,6 +42,7 @@ class SplitView extends StatelessWidget {
     required this.dragHoverId,
     required this.dragHoverSide,
     required this.fileDropHoverId,
+    this.linkPreview,
   });
 
   static const dividerThickness = 4.0;
@@ -89,6 +91,10 @@ class SplitView extends StatelessWidget {
   /// answers the same question for a pane dragged in from this window.
   final String? fileDropHoverId;
 
+  /// Where a hovered link's preview comes from, handed to every pane — null
+  /// (the default) for none. Threaded verbatim through the recursion.
+  final LinkPreviewSource? linkPreview;
+
   @override
   Widget build(BuildContext context) {
     return switch (node) {
@@ -122,6 +128,7 @@ class SplitView extends StatelessWidget {
       isDropTarget: sessionId == dragHoverId,
       dropSide: sessionId == dragHoverId ? dragHoverSide : null,
       isFileDropTarget: sessionId == fileDropHoverId,
+      linkPreview: linkPreview,
     );
   }
 
@@ -263,6 +270,7 @@ class SplitView extends StatelessWidget {
       dragHoverId: dragHoverId,
       dragHoverSide: dragHoverSide,
       fileDropHoverId: fileDropHoverId,
+      linkPreview: linkPreview,
     );
   }
 

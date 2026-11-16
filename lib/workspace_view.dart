@@ -11,6 +11,8 @@ import 'package:path/path.dart' as p;
 import 'handoff_endpoint.dart';
 import 'handoff_offer.dart';
 import 'layout_node.dart';
+import 'link_preview_fetch.dart';
+import 'link_preview_source.dart';
 import 'new_instance.dart';
 import 'session.dart';
 import 'session_clipboard.dart';
@@ -103,6 +105,10 @@ class WorkspaceView extends StatefulWidget {
 
 class _WorkspaceViewState extends State<WorkspaceView> {
   late final sessions = Sessions(settings: widget.settings);
+
+  // One fetcher for the whole window, so a link's answer is cached across
+  // every pane rather than fetched again by each.
+  final _linkPreviewFetcher = LinkPreviewFetcher();
   late Workspace workspace;
   final _boundsKey = GlobalKey();
   String? _dragSourceId;
@@ -569,6 +575,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                 fontFamily: terminalFontFamilyName(settings.fontFamily),
                 fontSize: clampFontSize(
                   settings.fontSize ?? defaultTerminalFontSize,
+                ),
+                linkPreview: LinkPreviewSource.forSettings(
+                  settings,
+                  _linkPreviewFetcher,
                 ),
                 onFocus: _onPaneFocus,
                 onKeyEvent: _onKey,

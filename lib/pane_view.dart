@@ -10,6 +10,9 @@ import 'copy_marker.dart';
 import 'copy_marker_chips.dart';
 import 'hyperlink.dart';
 import 'layout_node.dart';
+import 'link_preview_card.dart';
+import 'link_preview_hover.dart';
+import 'link_preview_source.dart';
 import 'pane_bar.dart';
 import 'session.dart';
 import 'session_clipboard.dart';
@@ -49,6 +52,7 @@ class PaneView extends StatefulWidget {
     required this.isBeingDragged,
     required this.dropSide,
     required this.isFileDropTarget,
+    this.linkPreview,
   });
 
   /// The focus border is painted *over* the pane, never around it. xterm
@@ -82,6 +86,12 @@ class PaneView extends StatefulWidget {
   /// white. Warm, so it is told apart from the blue of an ordinary link.
   static const copyChipStrength = 0.85;
   static const copyChipHoverLift = 0.3;
+
+  /// How far a link preview card's fill and its border travel from the
+  /// terminal's background toward its foreground: enough to lift the card off
+  /// the text beneath it without leaving the scheme's palette.
+  static const linkCardTint = 0.12;
+  static const linkCardBorderTint = 0.35;
 
   /// How long a chip reads "Copied" after its block lands on the clipboard.
   static const copiedFlash = Duration(milliseconds: 1500);
@@ -137,6 +147,11 @@ class PaneView extends StatefulWidget {
   /// the layout-drag colour would say something untrue.
   final bool isFileDropTarget;
 
+  /// Where a hovered link's preview card comes from, or null — the default —
+  /// for no preview at all: the pane then starts no timer and makes no
+  /// request.
+  final LinkPreviewSource? linkPreview;
+
   /// Same reasoning as [focusBorderKey] — painted over the pane, never
   /// around it, so the pty never reflows when a file starts hovering.
   static const fileDropHighlightKey = Key('pane-file-drop-highlight');
@@ -153,8 +168,28 @@ class _PaneViewState extends State<PaneView> {
   final _copiedBlock = ValueNotifier<String?>(null);
   Timer? _copiedTimer;
 
+  // Reads widget.linkPreview when it fires, not when built, so a change of
+  // settings reaches a pane that is already open.
+  late final _linkHover = LinkPreviewHover(
+    load: (url) => widget.linkPreview?.preview(url) ?? Future.value(),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // A scroll moves the link out from under the card.
+    _scroll.addListener(_linkHover.clear);
+  }
+
+  @override
+  void didUpdateWidget(PaneView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.linkPreview == null || widget.collapsed) _linkHover.clear();
+  }
+
   @override
   void dispose() {
+    _linkHover.dispose();
     _copiedTimer?.cancel();
     _scroll.dispose();
     _hoveredBlock.dispose();
@@ -178,7 +213,10 @@ class _PaneViewState extends State<PaneView> {
     // GestureDetector here would compete with xterm's own tap recognizer and
     // routinely lose it on a brisk click.
     return Listener(
-      onPointerDown: (_) => widget.onFocus(),
+      onPointerDown: (_) {
+        _linkHover.clear();
+        widget.onFocus();
+      },
       // The body took whatever constraints its parent gave before the Stack
       // stood between them; expand passes those through unchanged, rather
       // than loosening them and leaving the Column to shrink-wrap.
@@ -253,12 +291,14 @@ class _PaneViewState extends State<PaneView> {
                   onHover: _onHover,
                   onExit: (_) {
                     _hoveredBlock.value = null;
+                    _linkHover.clear();
                     _setCursor(SystemMouseCursors.text);
                   },
                   child: Stack(
                     children: [
                       Positioned.fill(child: _terminalView()),
                       Positioned.fill(child: _copyChips()),
+                      _linkPreviewCard(),
                     ],
                   ),
                 ),
@@ -275,7 +315,10 @@ class _PaneViewState extends State<PaneView> {
     scrollController: _scroll,
     controller: widget.session.terminalController,
     focusNode: widget.session.focusNode,
-    onKeyEvent: widget.onKeyEvent,
+    onKeyEvent: (node, event) {
+      _linkHover.clear();
+      return widget.onKeyEvent(node, event);
+    },
     onTapUp: _onTapUp,
     onSecondaryTapUp: _onSecondaryTapUp,
     mouseCursor: _cursor,
@@ -289,6 +332,29 @@ class _PaneViewState extends State<PaneView> {
       fontFamilyFallback: terminalFontFamilyFallback,
     ),
   );
+
+  /// The hovered link's card, in the terminal's own face and palette.
+  Widget _linkPreviewCard() {
+    return LinkPreviewOverlay(
+      hover: _linkHover.shown,
+      textStyle: TextStyle(
+        fontFamily: widget.fontFamily,
+        fontSize: widget.fontSize,
+        fontFamilyFallback: terminalFontFamilyFallback,
+      ),
+      background: Color.lerp(
+        widget.theme.background,
+        widget.theme.foreground,
+        PaneView.linkCardTint,
+      )!,
+      foreground: widget.theme.foreground,
+      border: Color.lerp(
+        widget.theme.background,
+        widget.theme.foreground,
+        PaneView.linkCardBorderTint,
+      )!,
+    );
+  }
 
   /// The chips painted over `⧉ copy:<name>` markers. Click-through, so the
   /// tap handler beneath still does the copying.
@@ -458,6 +524,27 @@ class _PaneViewState extends State<PaneView> {
           ? SystemMouseCursors.click
           : SystemMouseCursors.text,
     );
+    _previewLinkAt(offset);
+  }
+
+  /// Tells the hover which previewable link, if any, the pointer is on — with
+  /// the card's anchor just below that cell. Any link, whether or not the
+  /// open-link modifier is held: the card is a look, the click is the act.
+  void _previewLinkAt(CellOffset offset) {
+    final geometry = terminalGeometry(_terminalKey);
+    final raw = widget.linkPreview == null
+        ? null
+        : _launchableHyperlinkAt(offset);
+    // Not Uri.tryParse(raw ?? ''): the empty string parses to an empty Uri,
+    // which is not null and would make every cell look like a link.
+    final link = raw == null ? null : Uri.tryParse(raw);
+    if (link == null || geometry == null) {
+      _linkHover.pointerOver(null, Offset.zero);
+      return;
+    }
+    final below =
+        geometry.offsetOf(offset) + Offset(0, geometry.cellSize.height);
+    _linkHover.pointerOver(link, below);
   }
 
   void _onTapUp(TapUpDetails details, CellOffset offset) {
