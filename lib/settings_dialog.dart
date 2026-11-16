@@ -57,6 +57,8 @@ class _SettingsDialog extends StatefulWidget {
 class _SettingsDialogState extends State<_SettingsDialog> {
   static const _executablePathFieldKey = Key('executablePathField');
   static const _historyLinesFieldKey = Key('historyLinesField');
+  static const _neverFieldKey = Key('linkPreviewNeverField');
+  static const _onlyFieldKey = Key('linkPreviewOnlyField');
 
   late final _controller = TextEditingController(
     text: widget.settings.value.executablePath ?? '',
@@ -64,6 +66,13 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   late final _historyLinesController = TextEditingController(
     text: '${widget.settings.value.historyLines}',
   );
+  late final _neverController = TextEditingController(
+    text: widget.settings.value.linkPreviewNever.join('\n'),
+  );
+  late final _onlyController = TextEditingController(
+    text: widget.settings.value.linkPreviewOnly.join('\n'),
+  );
+  late var _linkPreviewEnabled = widget.settings.value.linkPreviewEnabled;
   late var _colorScheme = widget.settings.value.colorScheme;
   late var _fontFamily = widget.settings.value.fontFamily;
   late var _fontSize = widget.settings.value.fontSize;
@@ -74,18 +83,36 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     super.initState();
     _controller.addListener(() => setState(() {}));
     _historyLinesController.addListener(() => setState(() {}));
+    _neverController.addListener(() => setState(() {}));
+    _onlyController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _historyLinesController.dispose();
+    _neverController.dispose();
+    _onlyController.dispose();
     super.dispose();
   }
 
   bool get _valid => executableExists(_controller.text, exists: widget.exists);
 
   int? get _historyLines => parseHistoryLines(_historyLinesController.text);
+
+  // Patterns are checked only while link preview is on: a hand-edited bad
+  // pattern in a switched-off, uneditable field must not lock Save.
+  PatternError? get _neverError =>
+      _linkPreviewEnabled ? firstPatternError(_neverController.text) : null;
+
+  PatternError? get _onlyError =>
+      _linkPreviewEnabled ? firstPatternError(_onlyController.text) : null;
+
+  bool get _canSave =>
+      _valid &&
+      _historyLines != null &&
+      _neverError == null &&
+      _onlyError == null;
 
   double get _displayedFontSize =>
       clampFontSize(_fontSize ?? defaultTerminalFontSize).roundToDouble();
@@ -205,6 +232,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 controlAffinity: ListTileControlAffinity.leading,
                 title: const Text('Start quake mode at login'),
               ),
+              const Divider(height: 24),
+              ..._linkPreviewSection(context),
               const SizedBox(height: 8),
               Text(
                 'v${widget.version}',
@@ -232,7 +261,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: _valid && _historyLines != null ? _save : null,
+          onPressed: _canSave ? _save : null,
           child: const Text('Save'),
         ),
       ],
@@ -255,6 +284,82 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     _fontSize = null;
   });
 
+  List<Widget> _linkPreviewSection(BuildContext context) {
+    final caption = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: Colors.grey);
+    return [
+      CheckboxListTile(
+        value: _linkPreviewEnabled,
+        onChanged: (checked) =>
+            setState(() => _linkPreviewEnabled = checked ?? false),
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.leading,
+        title: const Text('Preview links on hover'),
+      ),
+      Text(
+        'Hovering a link fetches the page, so the site sees your IP.',
+        style: caption,
+      ),
+      const SizedBox(height: 16),
+      ..._patternField(
+        label: 'Never preview (regex, one per line)',
+        fieldKey: _neverFieldKey,
+        controller: _neverController,
+        error: _neverError,
+        hint: defaultLinkPreviewNever.first,
+      ),
+      const SizedBox(height: 16),
+      ..._patternField(
+        label: 'Only preview (regex, one per line)',
+        fieldKey: _onlyFieldKey,
+        controller: _onlyController,
+        error: _onlyError,
+        hint: 'empty = any link not excluded',
+      ),
+      const SizedBox(height: 4),
+      Text(
+        'An empty "Only" list means any link not excluded above. '
+        '"Never" wins over "Only".',
+        style: caption,
+      ),
+    ];
+  }
+
+  List<Widget> _patternField({
+    required String label,
+    required Key fieldKey,
+    required TextEditingController controller,
+    required PatternError? error,
+    required String hint,
+  }) {
+    return [
+      Text(label),
+      const SizedBox(height: 4),
+      TextField(
+        key: fieldKey,
+        controller: controller,
+        enabled: _linkPreviewEnabled,
+        // Regex is read character by character, so it gets the terminal's
+        // monospace face rather than the dialog's proportional one.
+        style: const TextStyle(
+          fontFamily: defaultTerminalFontFamily,
+          fontFamilyFallback: terminalFontFamilyFallback,
+        ),
+        keyboardType: TextInputType.multiline,
+        minLines: 2,
+        maxLines: 5,
+        decoration: InputDecoration(
+          hintText: hint,
+          errorMaxLines: 3,
+          errorText: error == null
+              ? null
+              : 'Line ${error.line}: invalid pattern — ${error.reason}.',
+        ),
+      ),
+    ];
+  }
+
   void _save() {
     final updated = Settings(
       executablePath: normalizeExecutablePath(_controller.text),
@@ -263,9 +368,9 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       fontSize: _fontSize,
       startQuakeAtLogin: _startQuakeAtLogin,
       historyLines: _historyLines!,
-      linkPreviewEnabled: widget.settings.value.linkPreviewEnabled,
-      linkPreviewNever: widget.settings.value.linkPreviewNever,
-      linkPreviewOnly: widget.settings.value.linkPreviewOnly,
+      linkPreviewEnabled: _linkPreviewEnabled,
+      linkPreviewNever: patternLinesFromText(_neverController.text),
+      linkPreviewOnly: patternLinesFromText(_onlyController.text),
     );
     if (_startQuakeAtLogin != widget.settings.value.startQuakeAtLogin) {
       widget.setLaunchAtLogin(_startQuakeAtLogin);

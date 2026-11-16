@@ -106,4 +106,63 @@ void main() {
 
     expect(result, expected);
   });
+
+  test('patternLinesFromText trims each line and drops blank ones', () {
+    const expected = [r'^https://a/', r'b\.com'];
+
+    final result = patternLinesFromText('  ^https://a/  \r\n\n   \nb\\.com\n');
+
+    expect(result, expected);
+  });
+
+  test('patternLinesFromText of an empty string is an empty list', () {
+    const expected = <String>[];
+
+    final result = patternLinesFromText('');
+
+    expect(result, expected);
+  });
+
+  test('firstPatternError is null when every line is a valid regex', () {
+    const expected = null;
+
+    final result = firstPatternError('^https://a/\n\n(b|c)\\.com');
+
+    expect(result, expected);
+  });
+
+  test('firstPatternError names the line of the first invalid regex', () {
+    const expected = 2;
+
+    final result = firstPatternError('^https://ok/\n^https://(broken\n(also');
+
+    expect(result?.line, expected);
+  });
+
+  test(
+    'firstPatternError counts blank lines so the number matches the field',
+    () {
+      const expected = 3;
+
+      final result = firstPatternError('^ok\n\n(broken');
+
+      expect(result?.line, expected);
+    },
+  );
+
+  test('firstPatternError carries a non-empty reason', () {
+    const expected = true;
+
+    final result = firstPatternError('(broken');
+
+    expect(result?.reason.isNotEmpty, expected);
+  });
+
+  test('firstPatternError ignores blank lines', () {
+    const expected = null;
+
+    final result = firstPatternError('\n   \n');
+
+    expect(result, expected);
+  });
 }

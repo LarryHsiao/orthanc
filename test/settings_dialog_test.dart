@@ -11,6 +11,17 @@ import 'package:orthanc/terminal_preview.dart';
 void main() {
   late Directory tempDir;
 
+  final quakeCheckbox = find.widgetWithText(
+    CheckboxListTile,
+    'Start quake mode at login',
+  );
+  final linkPreviewCheckbox = find.widgetWithText(
+    CheckboxListTile,
+    'Preview links on hover',
+  );
+  final neverField = find.byKey(const Key('linkPreviewNeverField'));
+  final onlyField = find.byKey(const Key('linkPreviewOnlyField'));
+
   setUp(() {
     tempDir = Directory.systemTemp.createTempSync(
       'orthanc_settings_dialog_test',
@@ -257,6 +268,215 @@ void main() {
     expect(settings.value.linkPreviewEnabled, expected.linkPreviewEnabled);
     expect(settings.value.linkPreviewNever, expected.linkPreviewNever);
     expect(settings.value.linkPreviewOnly, expected.linkPreviewOnly);
+  });
+
+  group('link preview', () {
+    Future<void> tickLinkPreview(WidgetTester tester) async {
+      await tester.ensureVisible(linkPreviewCheckbox);
+      await tester.tap(linkPreviewCheckbox);
+      await tester.pump();
+    }
+
+    Future<void> enter(WidgetTester tester, Finder field, String text) async {
+      await tester.ensureVisible(field);
+      await tester.enterText(field, text);
+      await tester.pump();
+    }
+
+    bool saveEnabled(WidgetTester tester) =>
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Save'))
+            .onPressed !=
+        null;
+
+    testWidgets('the checkbox is off by default', (tester) async {
+      const expected = false;
+
+      await pumpDialog(tester);
+
+      final checkbox = tester.widget<CheckboxListTile>(linkPreviewCheckbox);
+      expect(checkbox.value, expected);
+    });
+
+    testWidgets('the checkbox is prefilled when the setting is on', (
+      tester,
+    ) async {
+      const expected = true;
+
+      await pumpDialog(
+        tester,
+        initial: const Settings(linkPreviewEnabled: expected),
+      );
+
+      final checkbox = tester.widget<CheckboxListTile>(linkPreviewCheckbox);
+      expect(checkbox.value, expected);
+    });
+
+    testWidgets('both list fields are inert while the checkbox is off', (
+      tester,
+    ) async {
+      const expected = [false, false];
+
+      await pumpDialog(tester);
+
+      final result = [
+        tester.widget<TextField>(neverField).enabled,
+        tester.widget<TextField>(onlyField).enabled,
+      ];
+      expect(result, expected);
+    });
+
+    testWidgets('ticking the checkbox enables both list fields', (
+      tester,
+    ) async {
+      const expected = [true, true];
+      await pumpDialog(tester);
+
+      await tickLinkPreview(tester);
+
+      final result = [
+        tester.widget<TextField>(neverField).enabled,
+        tester.widget<TextField>(onlyField).enabled,
+      ];
+      expect(result, expected);
+    });
+
+    testWidgets('each field is prefilled with its list, one pattern per line', (
+      tester,
+    ) async {
+      const expected = ['^a/\n^b/', r'^only\.com/'];
+
+      await pumpDialog(
+        tester,
+        initial: const Settings(
+          linkPreviewNever: ['^a/', '^b/'],
+          linkPreviewOnly: [r'^only\.com/'],
+        ),
+      );
+
+      final result = [
+        tester.widget<TextField>(neverField).controller!.text,
+        tester.widget<TextField>(onlyField).controller!.text,
+      ];
+      expect(result, expected);
+    });
+
+    testWidgets('both list fields use the terminal monospace font', (
+      tester,
+    ) async {
+      const expected = [defaultTerminalFontFamily, defaultTerminalFontFamily];
+
+      await pumpDialog(tester);
+
+      final result = [
+        tester.widget<TextField>(neverField).style?.fontFamily,
+        tester.widget<TextField>(onlyField).style?.fontFamily,
+      ];
+      expect(result, expected);
+    });
+
+    testWidgets('the other fields keep the default font', (tester) async {
+      const expected = null;
+
+      await pumpDialog(tester);
+
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('historyLinesField')),
+      );
+      expect(field.style?.fontFamily, expected);
+    });
+
+    testWidgets('Save persists the toggle and both edited lists', (
+      tester,
+    ) async {
+      const expected = [
+        true,
+        ['^x/', '^y/'],
+        ['^only/'],
+      ];
+      final settings = await pumpDialog(tester);
+      await tickLinkPreview(tester);
+      await enter(tester, neverField, '^x/\n^y/');
+      await enter(tester, onlyField, '^only/');
+
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      final result = [
+        settings.value.linkPreviewEnabled,
+        settings.value.linkPreviewNever,
+        settings.value.linkPreviewOnly,
+      ];
+      expect(result, expected);
+    });
+
+    testWidgets('Save drops blank lines and trims the rest', (tester) async {
+      const expected = ['^x/', '^y/'];
+      final settings = await pumpDialog(tester);
+      await tickLinkPreview(tester);
+      await enter(tester, neverField, '  ^x/  \n\n   \n^y/\n');
+
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(settings.value.linkPreviewNever, expected);
+    });
+
+    testWidgets('an invalid Never pattern names its line and disables Save', (
+      tester,
+    ) async {
+      const expected = (true, false);
+      await pumpDialog(tester);
+      await tickLinkPreview(tester);
+
+      await enter(tester, neverField, '^ok/\n^https://(broken');
+
+      final result = (
+        find.textContaining('Line 2').evaluate().isNotEmpty,
+        saveEnabled(tester),
+      );
+      expect(result, expected);
+    });
+
+    testWidgets('an invalid Only pattern names its line and disables Save', (
+      tester,
+    ) async {
+      const expected = (true, false);
+      await pumpDialog(tester);
+      await tickLinkPreview(tester);
+
+      await enter(tester, onlyField, '(broken');
+
+      final result = (
+        find.textContaining('Line 1').evaluate().isNotEmpty,
+        saveEnabled(tester),
+      );
+      expect(result, expected);
+    });
+
+    testWidgets('fixing the pattern re-enables Save', (tester) async {
+      const expected = true;
+      await pumpDialog(tester);
+      await tickLinkPreview(tester);
+      await enter(tester, neverField, '(broken');
+
+      await enter(tester, neverField, '(fixed)');
+
+      expect(saveEnabled(tester), expected);
+    });
+
+    testWidgets('an invalid pattern does not block Save while the box is off', (
+      tester,
+    ) async {
+      const expected = true;
+
+      await pumpDialog(
+        tester,
+        initial: const Settings(linkPreviewNever: ['(broken']),
+      );
+
+      expect(saveEnabled(tester), expected);
+    });
   });
 
   testWidgets('history lines field is prefilled with the current value', (
@@ -514,9 +734,7 @@ void main() {
         initial: const Settings(startQuakeAtLogin: expected),
       );
 
-      final checkbox = tester.widget<CheckboxListTile>(
-        find.byType(CheckboxListTile),
-      );
+      final checkbox = tester.widget<CheckboxListTile>(quakeCheckbox);
       expect(checkbox.value, expected);
     },
   );
@@ -527,8 +745,8 @@ void main() {
     const expected = true;
     final settings = await pumpDialog(tester);
 
-    await tester.ensureVisible(find.byType(CheckboxListTile));
-    await tester.tap(find.byType(CheckboxListTile));
+    await tester.ensureVisible(quakeCheckbox);
+    await tester.tap(quakeCheckbox);
     await tester.pump();
     await tester.tap(find.widgetWithText(TextButton, 'Save'));
     await tester.pumpAndSettle();
@@ -542,8 +760,8 @@ void main() {
       const expected = false;
       final settings = await pumpDialog(tester);
 
-      await tester.ensureVisible(find.byType(CheckboxListTile));
-      await tester.tap(find.byType(CheckboxListTile));
+      await tester.ensureVisible(quakeCheckbox);
+      await tester.tap(quakeCheckbox);
       await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
       await tester.pumpAndSettle();
 
@@ -562,8 +780,8 @@ void main() {
         setLaunchAtLogin: (enabled) async => calls.add(enabled),
       );
 
-      await tester.ensureVisible(find.byType(CheckboxListTile));
-      await tester.tap(find.byType(CheckboxListTile));
+      await tester.ensureVisible(quakeCheckbox);
+      await tester.tap(quakeCheckbox);
       await tester.pump();
       await tester.tap(find.widgetWithText(TextButton, 'Save'));
       await tester.pumpAndSettle();
