@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,16 +20,20 @@ import 'package:xterm/xterm.dart';
 /// A source that answers instantly and records what it was asked for, so a
 /// pane's hover wiring can be tested without a network.
 class _FakeSource extends LinkPreviewSource {
-  _FakeSource(this.result)
+  _FakeSource(this.result, {this.gate})
     : super(fetcher: LinkPreviewFetcher(), allows: (_) => true);
 
   final LinkPreview? result;
+
+  /// When set, the answer is held until the test completes it.
+  final Completer<void>? gate;
   final requested = <Uri>[];
 
   @override
-  Future<LinkPreview?> preview(Uri url) {
+  Future<LinkPreview?> preview(Uri url) async {
     requested.add(url);
-    return Future.value(result);
+    await gate?.future;
+    return result;
   }
 }
 
@@ -43,6 +50,7 @@ void main() {
     Session session, {
     LinkPreviewSource? source,
     FocusOnKeyEventCallback? onKeyEvent,
+    bool collapsed = false,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -53,7 +61,7 @@ void main() {
             onFocus: () {},
             onKeyEvent: onKeyEvent ?? (node, event) => KeyEventResult.ignored,
             canCollapse: false,
-            collapsed: false,
+            collapsed: collapsed,
             theme: theme,
             fontFamily: terminalFontFamilyName(
               TerminalFontFamily.defaultFamily,
@@ -172,6 +180,224 @@ void main() {
     await restOnLink(tester);
 
     expect(source.requested, expected);
+  });
+
+  testWidgets('a description shows on the card, clamped to three lines', (
+    tester,
+  ) async {
+    const expected = 3;
+    final described = LinkPreview(
+      siteName: 'Example Site',
+      title: 'Hello Title',
+      description: 'A long summary. ' * 40,
+    );
+    await pumpWithText(
+      tester,
+      osc8(link, 'click here'),
+      source: _FakeSource(described),
+    );
+
+    await mouseAt(tester, onFirstRow(tester));
+    await restOnLink(tester);
+
+    final text = tester.widget<Text>(find.textContaining('A long summary.'));
+    expect(text.maxLines, expected);
+  });
+
+  testWidgets('a card with no description has no description line', (
+    tester,
+  ) async {
+    const expected = 3;
+    await pumpWithText(
+      tester,
+      osc8(link, 'click here'),
+      source: _FakeSource(preview),
+    );
+
+    await mouseAt(tester, onFirstRow(tester));
+    await restOnLink(tester);
+
+    final lines = tester.widgetList<Text>(
+      find.descendant(
+        of: find.byKey(LinkPreviewCard.cardKey),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(lines.length, expected);
+  });
+
+  testWidgets('while the page loads a one-line loading card shows', (
+    tester,
+  ) async {
+    const expected = [false, true];
+    final gate = Completer<void>();
+    await pumpWithText(
+      tester,
+      osc8(link, 'click here'),
+      source: _FakeSource(preview, gate: gate),
+    );
+
+    await mouseAt(tester, onFirstRow(tester));
+    await restOnLink(tester);
+
+    final result = [
+      find.byKey(LinkPreviewCard.cardKey).evaluate().isNotEmpty,
+      find.byKey(LinkPreviewCard.loadingKey).evaluate().isNotEmpty,
+    ];
+    expect(result, expected);
+    gate.complete();
+    await tester.pump();
+  });
+
+  testWidgets('the loading card gives way to the real card', (tester) async {
+    const expected = [true, false];
+    final gate = Completer<void>();
+    await pumpWithText(
+      tester,
+      osc8(link, 'click here'),
+      source: _FakeSource(preview, gate: gate),
+    );
+    await mouseAt(tester, onFirstRow(tester));
+    await restOnLink(tester);
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump();
+
+    final result = [
+      find.byKey(LinkPreviewCard.cardKey).evaluate().isNotEmpty,
+      find.byKey(LinkPreviewCard.loadingKey).evaluate().isNotEmpty,
+    ];
+    expect(result, expected);
+  });
+
+  testWidgets('a link with no preview leaves no loading card behind', (
+    tester,
+  ) async {
+    const expected = false;
+    await pumpWithText(
+      tester,
+      osc8(link, 'click here'),
+      source: _FakeSource(null),
+    );
+
+    await mouseAt(tester, onFirstRow(tester));
+    await restOnLink(tester);
+
+    expect(
+      find.byKey(LinkPreviewCard.loadingKey).evaluate().isNotEmpty,
+      expected,
+    );
+  });
+
+  testWidgets('a link on the bottom row puts the card above it', (
+    tester,
+  ) async {
+    const expected = true;
+    final session = await pumpWithText(
+      tester,
+      '${'\n' * 100}${osc8(link, 'click here')}',
+      source: _FakeSource(preview),
+    );
+    final state = tester.state<TerminalViewState>(find.byType(TerminalView));
+    final cell = state.renderTerminal.cellSize;
+    final origin = tester.getTopLeft(find.byType(TerminalView));
+    final row = session.terminal.viewHeight - 1;
+    final onBottom =
+        origin + Offset(cell.width * 2.5, cell.height * (row + 0.5));
+
+    await mouseAt(tester, onBottom);
+    await restOnLink(tester);
+
+    final card = tester.getTopLeft(find.byKey(LinkPreviewCard.cardKey));
+    expect(card.dy < onBottom.dy, expected);
+  });
+
+  testWidgets('a card with image bytes shows an image above its text', (
+    tester,
+  ) async {
+    const expected = true;
+    final pictured = preview.withImageBytes(
+      base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA'
+      '60e6kgAAAABJRU5ErkJggg==',
+    ),
+    );
+    await pumpWithText(
+      tester,
+      osc8(link, 'click here'),
+      source: _FakeSource(pictured),
+    );
+
+    await mouseAt(tester, onFirstRow(tester));
+    await restOnLink(tester);
+
+    final image = find.descendant(
+      of: find.byKey(LinkPreviewCard.cardKey),
+      matching: find.byType(Image),
+    );
+    expect(image.evaluate().isNotEmpty, expected);
+  });
+
+  testWidgets('a card without image bytes has no image', (tester) async {
+    const expected = false;
+    await pumpWithText(
+      tester,
+      osc8(link, 'click here'),
+      source: _FakeSource(preview),
+    );
+
+    await mouseAt(tester, onFirstRow(tester));
+    await restOnLink(tester);
+
+    final image = find.descendant(
+      of: find.byKey(LinkPreviewCard.cardKey),
+      matching: find.byType(Image),
+    );
+    expect(image.evaluate().isNotEmpty, expected);
+  });
+
+  testWidgets('collapsing the pane hides the card', (tester) async {
+    const expected = false;
+    final session = await pumpWithText(
+      tester,
+      osc8(link, 'click here'),
+      source: _FakeSource(preview),
+    );
+    await mouseAt(tester, onFirstRow(tester));
+    await restOnLink(tester);
+
+    await pumpPane(tester, session, source: _FakeSource(preview), collapsed: true);
+    await tester.pump();
+
+    expect(find.byKey(LinkPreviewCard.cardKey).evaluate().isNotEmpty, expected);
+  });
+
+  testWidgets('scrolling the terminal hides the card', (tester) async {
+    const expected = false;
+    final session = await pumpWithText(
+      tester,
+      '${'\n' * 100}${osc8(link, 'click here')}',
+      source: _FakeSource(preview),
+    );
+    final state = tester.state<TerminalViewState>(find.byType(TerminalView));
+    final cell = state.renderTerminal.cellSize;
+    final origin = tester.getTopLeft(find.byType(TerminalView));
+    final row = session.terminal.viewHeight - 1;
+    final onLink = origin + Offset(cell.width * 2.5, cell.height * (row + 0.5));
+    await mouseAt(tester, onLink);
+    await restOnLink(tester);
+
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        kind: PointerDeviceKind.mouse,
+        position: onLink,
+        scrollDelta: const Offset(0, -200),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(LinkPreviewCard.cardKey).evaluate().isNotEmpty, expected);
   });
 
   testWidgets('with no source nothing is shown', (tester) async {

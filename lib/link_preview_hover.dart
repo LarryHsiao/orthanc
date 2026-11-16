@@ -1,7 +1,8 @@
 import 'dart:async';
 
+import 'dart:ui' show Rect;
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 
 import 'link_preview.dart';
 
@@ -10,28 +11,44 @@ import 'link_preview.dart';
 /// to a third-party site.
 const defaultHoverDelay = Duration(milliseconds: 400);
 
-/// A preview ready to be drawn: [preview] for [url], anchored at [anchor], the
-/// pane-local point where the pointer first met the link.
+/// A link whose preview is being fetched: [url], and the [cell] — the
+/// pane-local rectangle of the terminal cell where the pointer first met it,
+/// which the card is placed beside.
+class PendingLink {
+  const PendingLink({required this.url, required this.cell});
+
+  final Uri url;
+  final Rect cell;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PendingLink && other.url == url && other.cell == cell;
+
+  @override
+  int get hashCode => Object.hash(url, cell);
+}
+
+/// A preview ready to be drawn: [preview] for [url], placed beside [cell].
 class HoveredPreview {
   const HoveredPreview({
     required this.url,
     required this.preview,
-    required this.anchor,
+    required this.cell,
   });
 
   final Uri url;
   final LinkPreview preview;
-  final Offset anchor;
+  final Rect cell;
 
   @override
   bool operator ==(Object other) =>
       other is HoveredPreview &&
       other.url == url &&
       other.preview == preview &&
-      other.anchor == anchor;
+      other.cell == cell;
 
   @override
-  int get hashCode => Object.hash(url, preview, anchor);
+  int get hashCode => Object.hash(url, preview, cell);
 }
 
 /// Decides when a hovered link earns a preview card, and which.
@@ -50,21 +67,26 @@ class LinkPreviewHover {
   /// The card to draw, or null when none should show.
   final ValueNotifier<HoveredPreview?> shown = ValueNotifier(null);
 
+  /// The link whose page is being fetched right now, or null. It ends when
+  /// the answer arrives, whatever the answer is — a link with no preview
+  /// leaves no card behind.
+  final ValueNotifier<PendingLink?> loading = ValueNotifier(null);
+
   Uri? _candidate;
-  Offset _anchor = Offset.zero;
+  Rect _cell = Rect.zero;
   Timer? _timer;
 
   /// Bumped whenever a pending or in-flight request stops mattering.
   int _generation = 0;
 
-  /// Reports what lies under the pointer: a [link] with the [anchor] to draw
-  /// its card at, or null when the pointer is on no previewable link.
-  void pointerOver(Uri? link, Offset anchor) {
+  /// Reports what lies under the pointer: a [link] with the [cell] it was met
+  /// in, or null when the pointer is on no previewable link.
+  void pointerOver(Uri? link, Rect cell) {
     if (link == null) return clear();
     if (link == _candidate) return;
     clear();
     _candidate = link;
-    _anchor = anchor;
+    _cell = cell;
     _timer = Timer(delay, _fire);
   }
 
@@ -75,20 +97,25 @@ class LinkPreviewHover {
     _candidate = null;
     _generation++;
     shown.value = null;
+    loading.value = null;
   }
 
   void dispose() {
     clear();
     shown.dispose();
+    loading.dispose();
   }
 
   Future<void> _fire() async {
     final link = _candidate;
     if (link == null) return;
     final generation = _generation;
+    loading.value = PendingLink(url: link, cell: _cell);
     final preview = await _loadOrNull(link);
-    if (generation != _generation || preview == null) return;
-    shown.value = HoveredPreview(url: link, preview: preview, anchor: _anchor);
+    if (generation != _generation) return;
+    loading.value = null;
+    if (preview == null) return;
+    shown.value = HoveredPreview(url: link, preview: preview, cell: _cell);
   }
 
   Future<LinkPreview?> _loadOrNull(Uri link) async {

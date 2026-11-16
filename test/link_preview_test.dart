@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orthanc/link_preview.dart';
 
@@ -225,6 +227,49 @@ void main() {
     );
 
     expect(result?.description, expected);
+  });
+
+  test('previews with equal image bytes are equal', () {
+    const expected = true;
+    final a = LinkPreview(
+      siteName: 's',
+      title: 't',
+      imageBytes: Uint8List.fromList([1, 2, 3]),
+    );
+    final b = LinkPreview(
+      siteName: 's',
+      title: 't',
+      imageBytes: Uint8List.fromList([1, 2, 3]),
+    );
+
+    expect(a == b, expected);
+  });
+
+  test('previews with different image bytes are not equal', () {
+    const expected = false;
+    final a = LinkPreview(
+      siteName: 's',
+      title: 't',
+      imageBytes: Uint8List.fromList([1]),
+    );
+    final b = LinkPreview(
+      siteName: 's',
+      title: 't',
+      imageBytes: Uint8List.fromList([2]),
+    );
+
+    expect(a == b, expected);
+  });
+
+  test('withImageBytes returns a copy carrying the bytes', () {
+    final bytes = Uint8List.fromList([9]);
+    const base = LinkPreview(siteName: 's', title: 't', description: 'd');
+
+    final result = base.withImageBytes(bytes);
+
+    expect(result.imageBytes, bytes);
+    expect(result.title, 't');
+    expect(result.description, 'd');
   });
 
   test('a missing description and image come back null', () {

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 /// What a hover card shows for a link: the Open Graph facts of its page.
 class LinkPreview {
   const LinkPreview({
@@ -5,6 +7,7 @@ class LinkPreview {
     required this.title,
     this.description,
     this.imageUrl,
+    this.imageBytes,
   });
 
   final String siteName;
@@ -14,16 +17,46 @@ class LinkPreview {
   /// Absolute http(s) URL of the card image, or null when the page names none.
   final String? imageUrl;
 
+  /// The image itself, once fetched through the vetted fetcher. Null when the
+  /// page names none, or the image was forbidden, too large, or failed — the
+  /// card then simply has no picture.
+  final Uint8List? imageBytes;
+
+  /// This preview carrying [bytes] as its picture.
+  LinkPreview withImageBytes(Uint8List? bytes) => LinkPreview(
+    siteName: siteName,
+    title: title,
+    description: description,
+    imageUrl: imageUrl,
+    imageBytes: bytes,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is LinkPreview &&
       other.siteName == siteName &&
       other.title == title &&
       other.description == description &&
-      other.imageUrl == imageUrl;
+      other.imageUrl == imageUrl &&
+      _sameBytes(other.imageBytes, imageBytes);
 
   @override
-  int get hashCode => Object.hash(siteName, title, description, imageUrl);
+  int get hashCode => Object.hash(
+    siteName,
+    title,
+    description,
+    imageUrl,
+    imageBytes?.length,
+  );
+}
+
+bool _sameBytes(Uint8List? a, Uint8List? b) {
+  if (a == null || b == null) return a == b;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 /// Reads the Open Graph facts out of [html], the page served at [pageUrl].

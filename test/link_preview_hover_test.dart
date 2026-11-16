@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orthanc/link_preview.dart';
@@ -9,7 +10,7 @@ void main() {
   final linkB = Uri.parse('https://b.example/page');
   const previewA = LinkPreview(siteName: 'A', title: 'Title A');
   const previewB = LinkPreview(siteName: 'B', title: 'Title B');
-  const anchor = Offset(40, 80);
+  const cell = Rect.fromLTWH(40, 80, 10, 20);
   const delay = defaultHoverDelay;
 
   late List<Uri> loaded;
@@ -32,7 +33,7 @@ void main() {
 
   testWidgets('nothing is loaded before the delay elapses', (tester) async {
     const expected = <Uri>[];
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
 
     await advance(tester, delay - const Duration(milliseconds: 1));
 
@@ -44,22 +45,22 @@ void main() {
 
   testWidgets('the link is loaded once the delay has elapsed', (tester) async {
     final expected = [linkA];
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
 
     await advance(tester, delay);
 
     expect(loaded, expected);
   });
 
-  testWidgets('a loaded preview is shown with its link and anchor', (
+  testWidgets('a loaded preview is shown with its link and cell', (
     tester,
   ) async {
     final expected = HoveredPreview(
       url: linkA,
       preview: previewA,
-      anchor: anchor,
+      cell: cell,
     );
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, delay);
 
     pending[linkA]!.complete(previewA);
@@ -72,9 +73,9 @@ void main() {
     tester,
   ) async {
     final expected = [linkA];
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, const Duration(milliseconds: 300));
-    hover.pointerOver(linkA, const Offset(60, 80));
+    hover.pointerOver(linkA, const Rect.fromLTWH(60, 80, 10, 20));
 
     await advance(tester, delay - const Duration(milliseconds: 300));
 
@@ -85,9 +86,9 @@ void main() {
     tester,
   ) async {
     final expected = [linkB];
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, const Duration(milliseconds: 300));
-    hover.pointerOver(linkB, anchor);
+    hover.pointerOver(linkB, cell);
 
     await advance(tester, delay);
 
@@ -98,10 +99,10 @@ void main() {
     tester,
   ) async {
     const expected = <Uri>[];
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, const Duration(milliseconds: 200));
 
-    hover.pointerOver(null, anchor);
+    hover.pointerOver(null, cell);
     await advance(tester, delay);
 
     expect(loaded, expected);
@@ -109,12 +110,12 @@ void main() {
 
   testWidgets('leaving the link after the card shows hides it', (tester) async {
     const expected = null;
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, delay);
     pending[linkA]!.complete(previewA);
     await advance(tester, Duration.zero);
 
-    hover.pointerOver(null, anchor);
+    hover.pointerOver(null, cell);
 
     expect(hover.shown.value, expected);
   });
@@ -123,9 +124,9 @@ void main() {
     tester,
   ) async {
     const expected = null;
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, delay);
-    hover.pointerOver(null, anchor);
+    hover.pointerOver(null, cell);
 
     pending[linkA]!.complete(previewA);
     await advance(tester, Duration.zero);
@@ -139,11 +140,11 @@ void main() {
     final expected = HoveredPreview(
       url: linkB,
       preview: previewB,
-      anchor: anchor,
+      cell: cell,
     );
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, delay);
-    hover.pointerOver(linkB, anchor);
+    hover.pointerOver(linkB, cell);
     await advance(tester, delay);
 
     pending[linkB]!.complete(previewB);
@@ -156,7 +157,7 @@ void main() {
 
   testWidgets('a link with no preview shows nothing', (tester) async {
     const expected = null;
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, delay);
 
     pending[linkA]!.complete(null);
@@ -167,7 +168,7 @@ void main() {
 
   testWidgets('a failed load shows nothing and does not throw', (tester) async {
     const expected = null;
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, delay);
 
     pending[linkA]!.completeError(StateError('boom'));
@@ -180,17 +181,93 @@ void main() {
     tester,
   ) async {
     final expected = [linkA, linkA];
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, delay);
     pending[linkA]!.complete(previewA);
     await advance(tester, Duration.zero);
 
     hover.clear();
-    hover.pointerOver(linkA, anchor);
+    hover.pointerOver(linkA, cell);
     await advance(tester, delay);
 
     expect(loaded, expected);
-    expect(hover.shown.value, null);
+    expect(hover.shown.value, isNull);
+  });
+
+  testWidgets('while a request is in flight the link is reported as loading', (
+    tester,
+  ) async {
+    final expected = [linkA, cell];
+    hover.pointerOver(linkA, cell);
+
+    await advance(tester, delay);
+
+    expect([hover.loading.value?.url, hover.loading.value?.cell], expected);
+  });
+
+  testWidgets('nothing is loading before the delay has elapsed', (tester) async {
+    const expected = null;
+    hover.pointerOver(linkA, cell);
+
+    await advance(tester, delay - const Duration(milliseconds: 1));
+
+    expect(hover.loading.value, expected);
+    hover.clear();
+  });
+
+  testWidgets('loading ends when the preview arrives', (tester) async {
+    const expected = null;
+    hover.pointerOver(linkA, cell);
+    await advance(tester, delay);
+
+    pending[linkA]!.complete(previewA);
+    await advance(tester, Duration.zero);
+
+    expect(hover.loading.value, expected);
+  });
+
+  testWidgets('loading ends when the link turns out to have no preview', (
+    tester,
+  ) async {
+    const expected = null;
+    hover.pointerOver(linkA, cell);
+    await advance(tester, delay);
+
+    pending[linkA]!.complete(null);
+    await advance(tester, Duration.zero);
+
+    expect(hover.loading.value, expected);
+  });
+
+  testWidgets('loading ends when the request fails', (tester) async {
+    const expected = null;
+    hover.pointerOver(linkA, cell);
+    await advance(tester, delay);
+
+    pending[linkA]!.completeError(StateError('boom'));
+    await advance(tester, Duration.zero);
+
+    expect(hover.loading.value, expected);
+  });
+
+  testWidgets('loading ends when the pointer leaves the link', (tester) async {
+    const expected = null;
+    hover.pointerOver(linkA, cell);
+    await advance(tester, delay);
+
+    hover.pointerOver(null, cell);
+
+    expect(hover.loading.value, expected);
+  });
+
+  testWidgets('moving to another link replaces what is loading', (tester) async {
+    hover.pointerOver(linkA, cell);
+    await advance(tester, delay);
+
+    hover.pointerOver(linkB, cell);
+    await advance(tester, delay);
+
+    expect(hover.loading.value?.url, linkB);
   });
 
   testWidgets('disposing cancels a pending load', (tester) async {
@@ -202,7 +279,7 @@ void main() {
         return Future.value(null);
       },
     );
-    other.pointerOver(linkA, anchor);
+    other.pointerOver(linkA, cell);
 
     other.dispose();
     await advance(tester, delay);

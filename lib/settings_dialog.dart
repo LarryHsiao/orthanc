@@ -289,18 +289,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       context,
     ).textTheme.bodySmall?.copyWith(color: Colors.grey);
     return [
-      CheckboxListTile(
-        value: _linkPreviewEnabled,
-        onChanged: (checked) =>
-            setState(() => _linkPreviewEnabled = checked ?? false),
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        title: const Text('Preview links on hover'),
-      ),
-      Text(
-        'Hovering a link fetches the page, so the site sees your IP.',
-        style: caption,
-      ),
+      ..._linkPreviewToggle(caption),
       const SizedBox(height: 16),
       ..._patternField(
         label: 'Never preview (regex, one per line)',
@@ -315,12 +304,29 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         fieldKey: _onlyFieldKey,
         controller: _onlyController,
         error: _onlyError,
-        hint: 'empty = any link not excluded',
+        hint: 'default: any link',
       ),
       const SizedBox(height: 4),
       Text(
         'An empty "Only" list means any link not excluded above. '
         '"Never" wins over "Only".',
+        style: caption,
+      ),
+    ];
+  }
+
+  List<Widget> _linkPreviewToggle(TextStyle? caption) {
+    return [
+      CheckboxListTile(
+        value: _linkPreviewEnabled,
+        onChanged: (checked) =>
+            setState(() => _linkPreviewEnabled = checked ?? false),
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.leading,
+        title: const Text('Preview links on hover'),
+      ),
+      Text(
+        'Hovering a link fetches the page, so the site sees your IP.',
         style: caption,
       ),
     ];
@@ -340,25 +346,28 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         key: fieldKey,
         controller: controller,
         enabled: _linkPreviewEnabled,
-        // Regex is read character by character, so it gets the terminal's
-        // monospace face rather than the dialog's proportional one.
-        style: const TextStyle(
-          fontFamily: defaultTerminalFontFamily,
-          fontFamilyFallback: terminalFontFamilyFallback,
-        ),
+        style: _patternStyle,
         keyboardType: TextInputType.multiline,
         minLines: 2,
         maxLines: 5,
         decoration: InputDecoration(
           hintText: hint,
           errorMaxLines: 3,
-          errorText: error == null
-              ? null
-              : 'Line ${error.line}: invalid pattern — ${error.reason}.',
+          errorText: error == null ? null : _patternMessage(error),
         ),
       ),
     ];
   }
+
+  // Regex is read character by character, so it gets the terminal's monospace
+  // face rather than the dialog's proportional one.
+  static const _patternStyle = TextStyle(
+    fontFamily: defaultTerminalFontFamily,
+    fontFamilyFallback: terminalFontFamilyFallback,
+  );
+
+  String _patternMessage(PatternError error) =>
+      'Line ${error.line}: invalid pattern — ${error.reason}.';
 
   void _save() {
     final updated = Settings(

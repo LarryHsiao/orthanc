@@ -336,7 +336,7 @@ class _PaneViewState extends State<PaneView> {
   /// The hovered link's card, in the terminal's own face and palette.
   Widget _linkPreviewCard() {
     return LinkPreviewOverlay(
-      hover: _linkHover.shown,
+      hover: _linkHover,
       textStyle: TextStyle(
         fontFamily: widget.fontFamily,
         fontSize: widget.fontSize,
@@ -528,7 +528,7 @@ class _PaneViewState extends State<PaneView> {
   }
 
   /// Tells the hover which previewable link, if any, the pointer is on — with
-  /// the card's anchor just below that cell. Any link, whether or not the
+  /// the cell it was met in, which the card is placed beside. Any link, whether or not the
   /// open-link modifier is held: the card is a look, the click is the act.
   void _previewLinkAt(CellOffset offset) {
     final geometry = terminalGeometry(_terminalKey);
@@ -539,12 +539,11 @@ class _PaneViewState extends State<PaneView> {
     // which is not null and would make every cell look like a link.
     final link = raw == null ? null : Uri.tryParse(raw);
     if (link == null || geometry == null) {
-      _linkHover.pointerOver(null, Offset.zero);
+      _linkHover.pointerOver(null, Rect.zero);
       return;
     }
-    final below =
-        geometry.offsetOf(offset) + Offset(0, geometry.cellSize.height);
-    _linkHover.pointerOver(link, below);
+    final cell = geometry.offsetOf(offset) & geometry.cellSize;
+    _linkHover.pointerOver(link, cell);
   }
 
   void _onTapUp(TapUpDetails details, CellOffset offset) {

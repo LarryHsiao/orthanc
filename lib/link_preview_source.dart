@@ -30,9 +30,26 @@ class LinkPreviewSource {
   /// Whether [url] may be fetched; see [shouldPreview].
   final bool Function(String url) allows;
 
-  /// The preview for [url], or null when it is forbidden or has none.
-  Future<LinkPreview?> preview(Uri url) {
-    if (!allows(url.toString())) return Future.value();
-    return fetcher.fetch(url, isAllowed: (hop) => allows(hop.toString()));
+  /// The preview for [url], or null when it is forbidden or has none. Its
+  /// picture comes with it when the page names one the settings allow.
+  Future<LinkPreview?> preview(Uri url) async {
+    if (!allows(url.toString())) return null;
+    final page = await fetcher.fetch(url, isAllowed: _vets);
+    return page == null ? null : _withPicture(page);
   }
+
+  /// A picture is a second request, often to another host, so it faces the
+  /// same settings as the page does — the address the page names and every
+  /// redirect hop after it. A page cannot use its `og:image` to reach an
+  /// address the user has ruled out. A picture that fails leaves the text
+  /// card whole.
+  Future<LinkPreview> _withPicture(LinkPreview page) async {
+    final address = page.imageUrl;
+    final url = address == null ? null : Uri.tryParse(address);
+    if (url == null || !allows(address!)) return page;
+    final bytes = await fetcher.fetchImage(url, isAllowed: _vets);
+    return page.withImageBytes(bytes);
+  }
+
+  bool _vets(Uri hop) => allows(hop.toString());
 }

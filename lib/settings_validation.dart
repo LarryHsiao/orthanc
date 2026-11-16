@@ -18,11 +18,6 @@ double clampFontSize(double size) {
 const minHistoryLines = 1000;
 const maxHistoryLines = 100000;
 
-/// Parses a scrollback line-count entry, returning null when it isn't a
-/// whole number within [minHistoryLines, maxHistoryLines] — rejected rather
-/// than clamped, the same treatment [executableExists] gives free-text
-/// entry, so a mistake shows up in the dialog instead of being silently
-/// substituted.
 /// A regex line that does not compile: its 1-based position in the field and
 /// the engine's own reason.
 typedef PatternError = ({int line, String reason});
@@ -52,6 +47,11 @@ PatternError? firstPatternError(String text) {
   return null;
 }
 
+/// Parses a scrollback line-count entry, returning null when it isn't a
+/// whole number within [minHistoryLines, maxHistoryLines] — rejected rather
+/// than clamped, the same treatment [executableExists] gives free-text
+/// entry, so a mistake shows up in the dialog instead of being silently
+/// substituted.
 int? parseHistoryLines(String value) {
   final parsed = int.tryParse(value.trim());
   if (parsed == null) return null;

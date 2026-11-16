@@ -7,7 +7,12 @@ import 'link_preview.dart';
 
 const defaultFetchTimeout = Duration(seconds: 3);
 const defaultFetchMaxBytes = 256 * 1024;
+const defaultFetchMaxImageBytes = 1024 * 1024;
 const defaultFetchMaxEntries = 200;
+
+/// Pictures are up to a megabyte each, so their cache is far smaller than
+/// the page cache's.
+const defaultFetchMaxImageEntries = 20;
 
 /// Redirect hops followed before giving up.
 const _maxRedirects = 5;
@@ -16,52 +21,103 @@ const _maxRedirects = 5;
 /// names none.
 const _charsetSniffBytes = 1024;
 
-/// Fetches a page and reads its [LinkPreview], remembering every answer.
+/// The picture formats a card will show. SVG is left out on purpose: it is a
+/// document that can reference further resources, not a bitmap.
+const _imageTypes = {'image/png', 'image/jpeg', 'image/gif', 'image/webp'};
+
+/// Fetches a page and reads its [LinkPreview], or fetches a card's picture,
+/// remembering every answer.
 ///
-/// A request is a single GET with a [timeout] over the whole exchange and at
-/// most [maxBytes] of body read. A failure of any kind — non-2xx, non-HTML,
-/// timeout, network error — is an answer of `null` and is cached like a
-/// success, so a dead link is not retried on every hover. The cache keeps the
-/// newest [maxEntries] URLs and evicts the oldest.
+/// A request is a single GET with a [timeout] over the whole exchange. A
+/// failure of any kind — non-2xx, the wrong type, timeout, network error — is
+/// an answer of `null` and is cached like a success, so a dead link is not
+/// retried on every hover. Each cache keeps the newest [maxEntries] URLs and
+/// evicts the oldest.
+///
+/// Redirects are followed by hand so the caller's `isAllowed` can vet every
+/// hop: a permitted URL that redirects to a blocked address (a local service,
+/// say) must not be reached through the back door. The same holds for a
+/// page's image as for the page.
 class LinkPreviewFetcher {
   LinkPreviewFetcher({
     this.timeout = defaultFetchTimeout,
     this.maxBytes = defaultFetchMaxBytes,
+    this.maxImageBytes = defaultFetchMaxImageBytes,
     this.maxEntries = defaultFetchMaxEntries,
+    this.maxImageEntries = defaultFetchMaxImageEntries,
   });
 
   final Duration timeout;
-  final int maxBytes;
-  final int maxEntries;
 
-  // A map literal keeps insertion order, which is what eviction relies on.
-  final _cache = <String, Future<LinkPreview?>>{};
+  /// How much of a page is read; the rest is never downloaded.
+  final int maxBytes;
+
+  /// The largest picture accepted. A bigger one is dropped whole, because a
+  /// truncated picture is a broken one.
+  final int maxImageBytes;
+  final int maxEntries;
+  final int maxImageEntries;
+
+  // Map literals keep insertion order, which is what eviction relies on.
+  final _pages = <String, Future<LinkPreview?>>{};
+  final _images = <String, Future<Uint8List?>>{};
 
   /// The preview for [url], or null when it has none. Concurrent calls for
   /// one URL share a single request.
-  ///
-  /// Redirects are followed by hand so [isAllowed] can vet every hop: a
-  /// permitted link that redirects to a blocked address (a local service, say)
-  /// must not be reached through the back door.
   Future<LinkPreview?> fetch(Uri url, {required bool Function(Uri) isAllowed}) {
-    final cached = _cache[url.toString()];
+    return _cached(
+      _pages,
+      maxEntries,
+      url,
+      () => _run(url, isAllowed, 'text/html', _readPage),
+    );
+  }
+
+  /// The picture at [url], or null when it is forbidden, not a bitmap of a
+  /// known type, over [maxImageBytes], or unreachable.
+  Future<Uint8List?> fetchImage(
+    Uri url, {
+    required bool Function(Uri) isAllowed,
+  }) {
+    return _cached(
+      _images,
+      maxImageEntries,
+      url,
+      () => _run(url, isAllowed, 'image/*', _readImage),
+    );
+  }
+
+  Future<T?> _cached<T>(
+    Map<String, Future<T?>> cache,
+    int cap,
+    Uri url,
+    Future<T?> Function() load,
+  ) {
+    final cached = cache[url.toString()];
     if (cached != null) return cached;
-    final pending = _load(url, isAllowed);
-    _cache[url.toString()] = pending;
-    _evictOldest();
+    final pending = load();
+    cache[url.toString()] = pending;
+    while (cache.length > cap) {
+      cache.remove(cache.keys.first);
+    }
     return pending;
   }
 
-  void _evictOldest() {
-    while (_cache.length > maxEntries) {
-      _cache.remove(_cache.keys.first);
-    }
-  }
-
-  Future<LinkPreview?> _load(Uri url, bool Function(Uri) isAllowed) async {
+  Future<T?> _run<T>(
+    Uri url,
+    bool Function(Uri) isAllowed,
+    String accept,
+    Future<T?> Function(HttpClientResponse, Uri) read,
+  ) async {
     final client = HttpClient()..connectionTimeout = timeout;
     try {
-      return await _follow(client, url, isAllowed).timeout(timeout);
+      return await _follow(
+        client,
+        url,
+        isAllowed,
+        accept,
+        read,
+      ).timeout(timeout);
     } on Exception {
       return null;
     } finally {
@@ -69,27 +125,33 @@ class LinkPreviewFetcher {
     }
   }
 
-  Future<LinkPreview?> _follow(
+  Future<T?> _follow<T>(
     HttpClient client,
     Uri start,
     bool Function(Uri) isAllowed,
+    String accept,
+    Future<T?> Function(HttpClientResponse, Uri) read,
   ) async {
     var url = start;
     for (var hop = 0; hop <= _maxRedirects; hop++) {
-      if (!_isWeb(url) || !isAllowed(url)) return null;
-      final response = await _get(client, url);
+      if (!_isFetchable(url) || !isAllowed(url)) return null;
+      final response = await _get(client, url, accept);
       final next = _redirectTarget(response, url);
-      if (next == null) return _preview(response, url);
+      if (next == null) return read(response, url);
       url = next;
     }
     return null;
   }
 
-  Future<HttpClientResponse> _get(HttpClient client, Uri url) async {
+  Future<HttpClientResponse> _get(
+    HttpClient client,
+    Uri url,
+    String accept,
+  ) async {
     final request = await client.getUrl(url);
     request.followRedirects = false;
     request.headers.set(HttpHeaders.userAgentHeader, 'Orthanc link preview');
-    request.headers.set(HttpHeaders.acceptHeader, 'text/html');
+    request.headers.set(HttpHeaders.acceptHeader, accept);
     return request.close();
   }
 
@@ -99,34 +161,45 @@ class LinkPreviewFetcher {
     return from.resolve(location);
   }
 
-  Future<LinkPreview?> _preview(HttpClientResponse response, Uri url) async {
+  Future<LinkPreview?> _readPage(HttpClientResponse response, Uri url) async {
     final type = response.headers.contentType;
-    final ok = response.statusCode >= 200 && response.statusCode < 300;
     final isHtml =
         type?.mimeType == 'text/html' ||
         type?.mimeType == 'application/xhtml+xml';
-    if (!ok || !isHtml) return null;
-    final bytes = await _readCapped(response);
+    if (!_isSuccess(response) || !isHtml) return null;
+    final bytes = await _readUpTo(response, maxBytes);
     final html = _decode(bytes, type?.charset);
     return parseLinkPreview(html, pageUrl: url);
   }
 
-  /// Reads at most [maxBytes], then stops listening so the rest of a large
+  Future<Uint8List?> _readImage(HttpClientResponse response, Uri url) async {
+    final type = response.headers.contentType?.mimeType;
+    if (!_isSuccess(response) || !_imageTypes.contains(type)) return null;
+    // One byte past the cap is enough to tell "too big" from "exactly fits".
+    final bytes = await _readUpTo(response, maxImageBytes + 1);
+    return bytes.length > maxImageBytes ? null : bytes;
+  }
+
+  bool _isSuccess(HttpClientResponse response) =>
+      response.statusCode >= 200 && response.statusCode < 300;
+
+  /// Reads at most [limit] bytes, then stops listening so the rest of a large
   /// body is never downloaded.
-  Future<Uint8List> _readCapped(Stream<List<int>> body) async {
+  Future<Uint8List> _readUpTo(Stream<List<int>> body, int limit) async {
     final bytes = BytesBuilder(copy: false);
     await for (final chunk in body) {
       bytes.add(chunk);
-      if (bytes.length >= maxBytes) break;
+      if (bytes.length >= limit) break;
     }
     final all = bytes.takeBytes();
-    return all.length > maxBytes
-        ? Uint8List.sublistView(all, 0, maxBytes)
-        : all;
+    return all.length > limit ? Uint8List.sublistView(all, 0, limit) : all;
   }
 }
 
-bool _isWeb(Uri url) => url.scheme == 'http' || url.scheme == 'https';
+/// http(s) with a host. A URL such as `http:///x` parses but has none, and
+/// HttpClient rejects it with an Error that no `on Exception` would catch.
+bool _isFetchable(Uri url) =>
+    (url.scheme == 'http' || url.scheme == 'https') && url.host.isNotEmpty;
 
 final _metaCharset = RegExp(
   r'''charset\s*=\s*["']?([\w-]+)''',

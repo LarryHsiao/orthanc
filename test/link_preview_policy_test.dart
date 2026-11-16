@@ -117,6 +117,34 @@ void main() {
     expect(result, expected);
   });
 
+  test('the seeded Never list also blocks the other local address ranges', () {
+    const expected = [false, false, false, false, false, false];
+    const settings = Settings(linkPreviewEnabled: true);
+
+    final result = [
+      shouldPreview('http://172.16.0.5/', settings),
+      shouldPreview('http://172.31.255.1/', settings),
+      shouldPreview('http://169.254.169.254/latest/meta-data', settings),
+      shouldPreview('http://[::1]:8080/', settings),
+      shouldPreview('http://0.0.0.0/', settings),
+      shouldPreview('http://user:pw@127.0.0.1/', settings),
+    ];
+
+    expect(result, expected);
+  });
+
+  test('the seeded Never list lets a public 172.x address through', () {
+    const expected = [true, true];
+    const settings = Settings(linkPreviewEnabled: true);
+
+    final result = [
+      shouldPreview('http://172.32.0.1/', settings),
+      shouldPreview('http://172.15.0.1/', settings),
+    ];
+
+    expect(result, expected);
+  });
+
   test('the seeded Never list lets an ordinary site through', () {
     const expected = true;
     const settings = Settings(linkPreviewEnabled: true);

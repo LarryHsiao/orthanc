@@ -265,6 +265,218 @@ void main() {
     expect(result?.title, expected);
   });
 
+  group('fetchImage', () {
+    final pngBytes = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA'
+      '60e6kgAAAABJRU5ErkJggg==',
+    );
+
+    Future<void> image(
+      HttpRequest request, {
+      ContentType? type,
+      List<int>? body,
+    }) async {
+      request.response.headers.contentType = type ?? ContentType('image', 'png');
+      request.response.add(body ?? pngBytes);
+      await request.response.close();
+    }
+
+    test('returns the bytes of a PNG', () async {
+      onRequest = (request) => image(request);
+
+      final result = await LinkPreviewFetcher().fetchImage(
+        base.resolve('/i.png'),
+        isAllowed: allowAll,
+      );
+
+      expect(result, pngBytes);
+    });
+
+    test('a second fetch of the same image is served from the cache', () async {
+      const expected = 1;
+      onRequest = (request) => image(request);
+      final fetcher = LinkPreviewFetcher();
+
+      await fetcher.fetchImage(base.resolve('/i.png'), isAllowed: allowAll);
+      await fetcher.fetchImage(base.resolve('/i.png'), isAllowed: allowAll);
+
+      expect(hits['/i.png'], expected);
+    });
+
+    test('a page and an image under one URL do not share a cache entry', () async {
+      const expected = [true, true];
+      onRequest = (request) async {
+        if (request.headers.value('accept') == 'image/*') {
+          return image(request);
+        }
+        await _html(request, '<title>Page</title>');
+      };
+      final fetcher = LinkPreviewFetcher();
+
+      final page = await fetcher.fetch(base.resolve('/x'), isAllowed: allowAll);
+      final img = await fetcher.fetchImage(
+        base.resolve('/x'),
+        isAllowed: allowAll,
+      );
+
+      expect([page != null, img != null], expected);
+    });
+
+    test('an HTML response is not accepted as an image', () async {
+      const expected = null;
+      onRequest = (request) => _html(request, '<title>not an image</title>');
+
+      final result = await LinkPreviewFetcher().fetchImage(
+        base.resolve('/i.png'),
+        isAllowed: allowAll,
+      );
+
+      expect(result, expected);
+    });
+
+    test('an SVG is refused', () async {
+      const expected = null;
+      onRequest = (request) => image(
+        request,
+        type: ContentType('image', 'svg+xml'),
+        body: utf8.encode('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+      );
+
+      final result = await LinkPreviewFetcher().fetchImage(
+        base.resolve('/i.svg'),
+        isAllowed: allowAll,
+      );
+
+      expect(result, expected);
+    });
+
+    test('an image over the byte cap is dropped whole, not truncated', () async {
+      const expected = null;
+      onRequest = (request) => image(request, body: List.filled(500, 1));
+
+      final result = await LinkPreviewFetcher(maxImageBytes: 100).fetchImage(
+        base.resolve('/i.png'),
+        isAllowed: allowAll,
+      );
+
+      expect(result, expected);
+    });
+
+    test('an image exactly at the byte cap is kept', () async {
+      const expected = 100;
+      onRequest = (request) => image(request, body: List.filled(100, 1));
+
+      final result = await LinkPreviewFetcher(maxImageBytes: 100).fetchImage(
+        base.resolve('/i.png'),
+        isAllowed: allowAll,
+      );
+
+      expect(result?.length, expected);
+    });
+
+    test('a 404 yields no image', () async {
+      const expected = null;
+      onRequest = (request) async {
+        request.response.statusCode = 404;
+        await request.response.close();
+      };
+
+      final result = await LinkPreviewFetcher().fetchImage(
+        base.resolve('/i.png'),
+        isAllowed: allowAll,
+      );
+
+      expect(result, expected);
+    });
+
+    test('a redirect to a disallowed address is not followed', () async {
+      const expected = [null, null];
+      onRequest = (request) async {
+        if (request.uri.path == '/a.png') {
+          return _redirect(request, '/private.png');
+        }
+        await image(request);
+      };
+
+      final result = await LinkPreviewFetcher().fetchImage(
+        base.resolve('/a.png'),
+        isAllowed: (uri) => uri.path != '/private.png',
+      );
+
+      expect([result, hits['/private.png']], expected);
+    });
+
+    test('a slow image yields none', () async {
+      const expected = null;
+      onRequest = (request) async {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        await image(request);
+      };
+
+      final result = await LinkPreviewFetcher(
+        timeout: const Duration(milliseconds: 200),
+      ).fetchImage(base.resolve('/i.png'), isAllowed: allowAll);
+
+      expect(result, expected);
+    });
+  });
+
+  group('a URL with no host', () {
+    test('a page URL with no host yields none without throwing', () async {
+      const expected = null;
+
+      final result = await LinkPreviewFetcher().fetch(
+        Uri.parse('http:///x'),
+        isAllowed: allowAll,
+      );
+
+      expect(result, expected);
+    });
+
+    test('an image URL with no host yields none without throwing', () async {
+      const expected = null;
+
+      final result = await LinkPreviewFetcher().fetchImage(
+        Uri.parse('http:///x'),
+        isAllowed: allowAll,
+      );
+
+      expect(result, expected);
+    });
+
+    test('a redirect to a URL with no host yields none', () async {
+      const expected = null;
+      onRequest = (request) async {
+        request.response.statusCode = HttpStatus.found;
+        request.response.headers.set('location', 'http:///x');
+        await request.response.close();
+      };
+
+      final result = await LinkPreviewFetcher().fetch(
+        base.resolve('/a'),
+        isAllowed: allowAll,
+      );
+
+      expect(result, expected);
+    });
+  });
+
+  test('the image cache evicts on its own, smaller cap', () async {
+    const expected = 2;
+    onRequest = (request) async {
+      request.response.headers.contentType = ContentType('image', 'png');
+      request.response.add([1, 2, 3]);
+      await request.response.close();
+    };
+    final fetcher = LinkPreviewFetcher(maxImageEntries: 1);
+
+    await fetcher.fetchImage(base.resolve('/a.png'), isAllowed: allowAll);
+    await fetcher.fetchImage(base.resolve('/b.png'), isAllowed: allowAll);
+    await fetcher.fetchImage(base.resolve('/a.png'), isAllowed: allowAll);
+
+    expect(hits['/a.png'], expected);
+  });
+
   test('the oldest cache entry is evicted once the cap is exceeded', () async {
     const expected = 2;
     final fetcher = LinkPreviewFetcher(maxEntries: 1);

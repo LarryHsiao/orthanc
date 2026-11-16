@@ -34,10 +34,13 @@ enum TerminalFontFamily {
 const defaultHistoryLines = 10000;
 
 /// The seed for [Settings.linkPreviewNever]: loopback and private-range
-/// addresses, so hovering a link to a local service never sends it a
-/// request. Plain data — the user may edit or clear it in Settings.
+/// addresses (RFC 1918, link-local such as a cloud metadata service,
+/// IPv6 loopback, and `user@` before the host), so hovering a link to a local
+/// service never sends it a request. A bare decimal or hex IPv4 form is not
+/// covered. Plain data — the user may edit or clear it in Settings.
 const defaultLinkPreviewNever = [
-  r'^https?://(localhost|127\.|10\.|192\.168\.)',
+  r'^https?://([^/?#]*@)?(localhost|127\.|10\.|192\.168\.|'
+      r'172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|\[::1\])',
 ];
 
 /// The user's persisted preferences.

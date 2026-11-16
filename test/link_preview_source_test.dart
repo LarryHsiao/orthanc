@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -88,6 +89,80 @@ void main() {
     );
 
     expect(result, expected);
+  });
+
+  group('image', () {
+    final pngBytes = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA'
+      '60e6kgAAAABJRU5ErkJggg==',
+    );
+
+    void servePageWithImage(String imagePath, {int imageStatus = 200}) {
+      onRequest = (request) async {
+        if (request.uri.path.endsWith('.png')) {
+          request.response.statusCode = imageStatus;
+          request.response.headers.contentType = ContentType('image', 'png');
+          request.response.add(pngBytes);
+          await request.response.close();
+          return;
+        }
+        await _html(
+          request,
+          '<head><title>With image</title>'
+          '<meta property="og:image" content="$imagePath"></head>',
+        );
+      };
+    }
+
+    test('an allowed image is fetched and attached to the preview', () async {
+      servePageWithImage('/cover.png');
+      final source = LinkPreviewSource.forSettings(
+        allowing,
+        LinkPreviewFetcher(),
+      )!;
+
+      final result = await source.preview(base.resolve('/p'));
+
+      expect(result?.imageBytes, pngBytes);
+    });
+
+    test('a forbidden image address is never requested', () async {
+      const expected = [null, null];
+      servePageWithImage('/private/cover.png');
+      final source = LinkPreviewSource.forSettings(
+        allowing,
+        LinkPreviewFetcher(),
+      )!;
+
+      final result = await source.preview(base.resolve('/p'));
+
+      expect([result?.imageBytes, hits['/private/cover.png']], expected);
+    });
+
+    test('a failed image leaves the text preview intact', () async {
+      const expected = ['With image', null];
+      servePageWithImage('/cover.png', imageStatus: 404);
+      final source = LinkPreviewSource.forSettings(
+        allowing,
+        LinkPreviewFetcher(),
+      )!;
+
+      final result = await source.preview(base.resolve('/p'));
+
+      expect([result?.title, result?.imageBytes], expected);
+    });
+
+    test('a page naming no image makes no image request', () async {
+      const expected = 1;
+      final source = LinkPreviewSource.forSettings(
+        allowing,
+        LinkPreviewFetcher(),
+      )!;
+
+      await source.preview(base.resolve('/p'));
+
+      expect(hits.values.fold<int>(0, (a, b) => a + b), expected);
+    });
   });
 
   test('the Only list is honoured by the source', () async {
