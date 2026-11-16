@@ -8,6 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Releases before 1.1.18 are not recorded here; their notes are generated from
 commit messages on each [GitHub Release](https://github.com/LarryHsiao/orthanc/releases).
 
+## [1.8.0] - 2026-11-17
+
+### Added
+
+- Link previews. Rest the pointer on a link in a pane for about 0.4 seconds
+  and a small card shows the page's site name, title, summary and picture,
+  read from its Open Graph tags. It is off by default, because fetching the
+  page tells the linked site your IP address; turn it on in Settings with
+  "Preview links on hover". Only links a program marks as hyperlinks (OSC 8)
+  are previewed, and clicking one still needs Cmd or Ctrl as before.
+- Settings has two lists, "Never preview" and "Only preview", one regular
+  expression per line. A link matching "Never" is never fetched, even if it
+  also matches "Only"; when "Only" has entries, only links matching one are
+  fetched. A line that is not a valid regular expression is rejected with
+  its line number. "Never" starts out covering loopback, private-network,
+  link-local and IPv6-loopback addresses, so a link to a local service is
+  never fetched; you can edit or clear it.
+- Every redirect the fetch follows, and the card's picture, is checked
+  against the same lists, so a page cannot steer the request to an address
+  you ruled out. A page is read up to 256 KB within 3 seconds; a picture must
+  be PNG, JPEG, GIF or WebP up to 1 MB (SVG is not shown).
+- Known limits: a page in a character set other than UTF-8 or Latin-1 may
+  show garbled text on its card, and an address written as a bare decimal or
+  hex number (`http://2130706433/`) is not covered by the starting "Never"
+  list.
+
 ## [1.7.0] - 2026-11-10
 
 ### Added
