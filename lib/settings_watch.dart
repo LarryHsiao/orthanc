@@ -20,7 +20,10 @@ Settings reconcileSettings({
       current.colorScheme != next.colorScheme ||
       current.fontFamily != next.fontFamily ||
       current.fontSize != next.fontSize ||
-      current.historyLines != next.historyLines;
+      current.historyLines != next.historyLines ||
+      current.linkPreviewEnabled != next.linkPreviewEnabled ||
+      !listEquals(current.linkPreviewNever, next.linkPreviewNever) ||
+      !listEquals(current.linkPreviewOnly, next.linkPreviewOnly);
   return changed ? next : current;
 }
 

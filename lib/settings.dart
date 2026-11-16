@@ -33,6 +33,13 @@ enum TerminalFontFamily {
 /// shows.
 const defaultHistoryLines = 10000;
 
+/// The seed for [Settings.linkPreviewNever]: loopback and private-range
+/// addresses, so hovering a link to a local service never sends it a
+/// request. Plain data — the user may edit or clear it in Settings.
+const defaultLinkPreviewNever = [
+  r'^https?://(localhost|127\.|10\.|192\.168\.)',
+];
+
 /// The user's persisted preferences.
 class Settings {
   const Settings({
@@ -42,6 +49,9 @@ class Settings {
     this.fontSize,
     this.startQuakeAtLogin = false,
     this.historyLines = defaultHistoryLines,
+    this.linkPreviewEnabled = false,
+    this.linkPreviewNever = defaultLinkPreviewNever,
+    this.linkPreviewOnly = const [],
   });
 
   final String? executablePath;
@@ -53,6 +63,18 @@ class Settings {
   /// How many lines of scrollback each new pane's terminal keeps. Only
   /// newly-spawned sessions pick up a change — see [Session.historyLines].
   final int historyLines;
+
+  /// Whether hovering a link may fetch its page for a preview card. Off by
+  /// default: the fetch reveals the user's IP to the linked site.
+  final bool linkPreviewEnabled;
+
+  /// Regex patterns, matched against the full URL; a match means "never
+  /// preview". Wins over [linkPreviewOnly].
+  final List<String> linkPreviewNever;
+
+  /// Regex patterns, matched against the full URL. When non-empty, only a
+  /// URL matching at least one is previewed; empty means "any".
+  final List<String> linkPreviewOnly;
 }
 
 /// A blank path means "use the default" — normalized to null wherever a
@@ -70,6 +92,9 @@ Map<String, dynamic> settingsToJson(Settings settings) {
     'fontSize': settings.fontSize,
     'startQuakeAtLogin': settings.startQuakeAtLogin,
     'historyLines': settings.historyLines,
+    'linkPreviewEnabled': settings.linkPreviewEnabled,
+    'linkPreviewNever': settings.linkPreviewNever,
+    'linkPreviewOnly': settings.linkPreviewOnly,
   };
 }
 
@@ -81,7 +106,22 @@ Settings settingsFromJson(Map<String, dynamic> json) {
     fontSize: (json['fontSize'] as num?)?.toDouble(),
     startQuakeAtLogin: json['startQuakeAtLogin'] as bool? ?? false,
     historyLines: json['historyLines'] as int? ?? defaultHistoryLines,
+    linkPreviewEnabled: json['linkPreviewEnabled'] as bool? ?? false,
+    linkPreviewNever: _patternList(
+      json['linkPreviewNever'],
+      fallback: defaultLinkPreviewNever,
+    ),
+    linkPreviewOnly: _patternList(json['linkPreviewOnly'], fallback: const []),
   );
+}
+
+/// Decodes a persisted pattern list. A missing or non-list value takes
+/// [fallback]; a real list keeps only its string entries, so an explicit
+/// empty list stays empty — the user clearing the seeded list is a choice,
+/// not a missing field.
+List<String> _patternList(Object? raw, {required List<String> fallback}) {
+  if (raw is! List) return fallback;
+  return raw.whereType<String>().toList(growable: false);
 }
 
 TerminalColorScheme _colorSchemeFromName(String? name) {

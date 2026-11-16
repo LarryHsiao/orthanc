@@ -241,6 +241,24 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
+  testWidgets('saving carries the link preview settings through unchanged', (
+    tester,
+  ) async {
+    const expected = Settings(
+      linkPreviewEnabled: true,
+      linkPreviewNever: ['^never/'],
+      linkPreviewOnly: ['^only/'],
+    );
+    final settings = await pumpDialog(tester, initial: expected);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(settings.value.linkPreviewEnabled, expected.linkPreviewEnabled);
+    expect(settings.value.linkPreviewNever, expected.linkPreviewNever);
+    expect(settings.value.linkPreviewOnly, expected.linkPreviewOnly);
+  });
+
   testWidgets('history lines field is prefilled with the current value', (
     tester,
   ) async {

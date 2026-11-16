@@ -134,4 +134,81 @@ void main() {
 
     expect(result.historyLines, expected);
   });
+
+  test('link preview is off by default', () {
+    const expected = false;
+
+    final result = settingsFromJson(const {});
+
+    expect(result.linkPreviewEnabled, expected);
+  });
+
+  test('round-trips linkPreviewEnabled through json', () {
+    const expected = true;
+    final settings = Settings(linkPreviewEnabled: expected);
+
+    final result = settingsFromJson(settingsToJson(settings));
+
+    expect(result.linkPreviewEnabled, expected);
+  });
+
+  test('a missing linkPreviewNever field decodes to the seeded list', () {
+    const expected = defaultLinkPreviewNever;
+
+    final result = settingsFromJson(const {});
+
+    expect(result.linkPreviewNever, expected);
+  });
+
+  test('an explicitly empty linkPreviewNever stays empty, not re-seeded', () {
+    const expected = <String>[];
+
+    final result = settingsFromJson(const {'linkPreviewNever': <String>[]});
+
+    expect(result.linkPreviewNever, expected);
+  });
+
+  test('round-trips linkPreviewNever through json', () {
+    const expected = [r'^https://a\.example/', r'\.corp/'];
+    final settings = Settings(linkPreviewNever: expected);
+
+    final result = settingsFromJson(settingsToJson(settings));
+
+    expect(result.linkPreviewNever, expected);
+  });
+
+  test('a missing linkPreviewOnly field decodes to an empty list', () {
+    const expected = <String>[];
+
+    final result = settingsFromJson(const {});
+
+    expect(result.linkPreviewOnly, expected);
+  });
+
+  test('round-trips linkPreviewOnly through json', () {
+    const expected = [r'^https://github\.com/'];
+    final settings = Settings(linkPreviewOnly: expected);
+
+    final result = settingsFromJson(settingsToJson(settings));
+
+    expect(result.linkPreviewOnly, expected);
+  });
+
+  test('a non-list linkPreviewNever decodes to the seeded list', () {
+    const expected = defaultLinkPreviewNever;
+
+    final result = settingsFromJson(const {'linkPreviewNever': 'oops'});
+
+    expect(result.linkPreviewNever, expected);
+  });
+
+  test('non-string entries in a link preview list are dropped', () {
+    const expected = [r'^https://ok/'];
+
+    final result = settingsFromJson(const {
+      'linkPreviewOnly': [r'^https://ok/', 7, null],
+    });
+
+    expect(result.linkPreviewOnly, expected);
+  });
 }

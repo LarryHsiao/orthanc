@@ -263,6 +263,9 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       fontSize: _fontSize,
       startQuakeAtLogin: _startQuakeAtLogin,
       historyLines: _historyLines!,
+      linkPreviewEnabled: widget.settings.value.linkPreviewEnabled,
+      linkPreviewNever: widget.settings.value.linkPreviewNever,
+      linkPreviewOnly: widget.settings.value.linkPreviewOnly,
     );
     if (_startQuakeAtLogin != widget.settings.value.startQuakeAtLogin) {
       widget.setLaunchAtLogin(_startQuakeAtLogin);

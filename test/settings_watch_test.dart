@@ -53,6 +53,42 @@ void main() {
     expect(result, same(next));
   });
 
+  test('returns next when linkPreviewEnabled differs', () {
+    const current = Settings(linkPreviewEnabled: false);
+    const next = Settings(linkPreviewEnabled: true);
+
+    final result = reconcileSettings(current: current, next: next);
+
+    expect(result, same(next));
+  });
+
+  test('returns next when linkPreviewNever differs', () {
+    const current = Settings(linkPreviewNever: ['a']);
+    const next = Settings(linkPreviewNever: ['a', 'b']);
+
+    final result = reconcileSettings(current: current, next: next);
+
+    expect(result, same(next));
+  });
+
+  test('returns next when linkPreviewOnly differs', () {
+    const current = Settings(linkPreviewOnly: ['a']);
+    const next = Settings(linkPreviewOnly: ['b']);
+
+    final result = reconcileSettings(current: current, next: next);
+
+    expect(result, same(next));
+  });
+
+  test('returns current when link preview lists hold equal contents', () {
+    const current = Settings(linkPreviewOnly: ['a']);
+    final next = Settings(linkPreviewOnly: ['a']);
+
+    final result = reconcileSettings(current: current, next: next);
+
+    expect(result, same(current));
+  });
+
   test('returns current unchanged when every field is identical', () {
     const current = Settings(
       executablePath: 'a',
