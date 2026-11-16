@@ -13,9 +13,10 @@ Linux is not supported.
 
 ## Status: shipping
 
-Twenty tagged releases stand, `v1.0.0` through `v1.1.18`, built and published
+Thirty-two tagged releases stand, `v1.0.0` through `v1.8.0`, built and published
 for both platforms. Milestones 0 and 1 are complete and walked by hand on macOS
-and Windows alike. `flutter test` runs 548 green.
+and Windows alike. `flutter test` runs 783 green on Windows, where 10
+macOS-only tests are skipped.
 
 Everything since Milestone 1 has been ordinary feature work.
 
@@ -41,6 +42,20 @@ Everything since Milestone 1 has been ordinary feature work.
   and open on `Cmd`/`Ctrl`+click — `http` and `https` only, since OSC 8 lets a
   program claim any scheme and launching those from untrusted terminal output is
   a real risk. Other schemes still underline; they simply do nothing.
+- **Link previews, off by default.** Rest the pointer on an OSC 8 link for
+  about 0.4 seconds and a small card shows the page's site name, title,
+  summary and picture, read from its Open Graph tags; a page with no title
+  gets no card. Fetching tells the linked site your IP address, so it is a
+  Settings checkbox, **Preview links on hover**, and starts unchecked. Two
+  lists beside it, **Never preview** and **Only preview**, one regular
+  expression per line matched against the whole URL, decide which links may
+  be fetched: Never wins, and a non-empty Only admits nothing else. Never is
+  seeded with loopback, private-network, link-local and IPv6-loopback
+  addresses. The same lists vet every redirect the fetch follows and the
+  card's picture, so a page cannot steer the request to an address you ruled
+  out. A page is read up to 256 KB within 3 seconds; a picture must be PNG,
+  JPEG, GIF or WebP up to 1 MB. A page in a character set other than UTF-8 or
+  Latin-1 may show garbled text.
 - **A focus you can see.** The focused pane carries a dimmed accent bar and
   border; a pane that finishes a burst of activity while unfocused fills its
   bar and frames its body in a dimmed palette-yellow until it is looked at,
@@ -157,8 +172,17 @@ Around those two:
   `Cmd+V` alike. A file on the clipboard is checked before plain text, in
   whichever form `lib/dropped_paths_text.dart` decides — the same path
   `lib/session_drop.dart` writes a drop's paths through.
+- `lib/link_preview_fetch.dart` — fetches a page, or a card's picture, with a
+  timeout and a byte cap, remembers every answer, and follows redirects by
+  hand so each hop can be vetted.
+- `lib/link_preview_source.dart` — ties the user's Never and Only lists to
+  that fetcher, so the page, each redirect and the picture all face them.
+- `lib/link_preview_hover.dart` — decides when a resting pointer earns a
+  card, and drops any answer the pointer has since left behind.
+- `lib/link_preview_card.dart` — the card and its loading line, and where
+  they sit beside the link: below it, above it near the pane's bottom edge.
 
-Twelve files hold pure decisions with no I/O, which is why they carry the
+Fourteen files hold pure decisions with no I/O, which is why they carry the
 bulk of the tests:
 
 - `lib/shell_command.dart` — resolves the shell's absolute path per platform,
@@ -190,6 +214,11 @@ bulk of the tests:
 - `lib/quake_geometry.dart` — the quake window's frame for a given screen and
   a possibly-saved size: full width and half height by default, clamped to
   the screen, snapped to its top edge.
+- `lib/link_preview.dart` — reads a page's Open Graph facts out of its HTML
+  by regex, falling back from `og:*` to `twitter:*` to the plain tags.
+- `lib/link_preview_policy.dart` — whether a link may be previewed at all,
+  from the switch and the Never and Only lists; a line that is not a valid
+  regex fails closed.
 
 ## Prerequisites
 
@@ -247,9 +276,11 @@ pane that wants no color can still set `NO_COLOR` for itself.
 flutter test
 ```
 
-548 tests across 45 files. The pure decisions above are unit-tested directly,
-along with the layout tree, title composition, and settings validation and
-(de)serialization; the pane bar and the settings dialog carry widget tests. The
+793 tests across 57 files, 10 of them macOS-only and skipped elsewhere. The
+pure decisions above are unit-tested directly, along with the layout tree,
+title composition, and settings validation and (de)serialization; the pane
+bar, the settings dialog and the link preview card carry widget tests, and
+the fetcher is tested against a real server on the loopback interface. The
 pty/terminal wiring itself can only be judged by actually running the app — see
 the Milestone 0 plan's *Global Constraints* for why `flutter test`'s harness
 cannot exercise it.
